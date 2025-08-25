@@ -32,7 +32,12 @@ pr_check_commits_task:
 x_check_task:
   skip: $CIRRUS_PR == ""
   name: (PR) Run ./x check
-  depends_on: (PR) Check commits structure
+  # TODO(xdoardo): Figure out when it makes sense to have this dependency, or
+  #   how that dependency should actually work. Having this dependency would
+  #   pretty much mean making every PR that merges changes on `beta` to `master`
+  #   to have failing CI, which would be the reason why we want to make PRs and
+  #   not direct pushes in the first place.
+  # depends_on: (PR) Check commits structure
   timeout_in: 240m
   gce_instance: &arm_vm
     image_project: ubuntu-os-cloud
@@ -54,6 +59,8 @@ x_check_task:
     - export CCACHE_REMOTE_STORAGE="http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/"
     - export CCACHE_REMOTE_ONLY=1
     - env
-  test_script: CC="clang" CXX="clang++" ./x check
+  pull_master_script: git fetch origin master
+  tidy_script: CC="clang" CXX="clang++" ./x test tidy
+  check_script: CC="clang" CXX="clang++" ./x check
 
 # -- End PR tasks

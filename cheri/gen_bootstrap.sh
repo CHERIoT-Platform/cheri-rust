@@ -17,7 +17,7 @@ change-id = 140732
 ccache = true
 
 [rust]
-#channel = "nightly"
+channel = "beta"
 #codegen-backends = ["llvm"]
 #debug = true
 #debuginfo-level = 2
