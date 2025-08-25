@@ -35,7 +35,7 @@ use crate::attributes;
 use crate::common::Funclet;
 use crate::context::{CodegenCx, FullCx, GenericCx, SCx};
 use crate::llvm::{
-    self, AtomicOrdering, AtomicRmwBinOp, BasicBlock, FromGeneric, GEPNoWrapFlags, Metadata, TRUE,
+    self, AtomicOrdering, AtomicRmwBinOp, BasicBlock, FromGeneric, GEPNoWrapFlags, Metadata, PreserveCheriTags, TRUE,
     ToLlvmBool, Type, Value,
 };
 use crate::type_of::LayoutLlvmExt;
@@ -1090,9 +1090,11 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         size: &'ll Value,
         flags: MemFlags,
         tt: Option<FncTree>,
+        preserve_tags: rustc_codegen_ssa::common::PreserveCheriTags,
     ) {
         assert!(!flags.contains(MemFlags::NONTEMPORAL), "non-temporal memcpy not supported");
         let size = self.intcast(size, self.type_isize(), false);
+        let preserve_tags = PreserveCheriTags::from_generic(preserve_tags);
         let is_volatile = flags.contains(MemFlags::VOLATILE);
         let memcpy = unsafe {
             llvm::LLVMRustBuildMemCpy(
@@ -1102,6 +1104,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
                 src,
                 src_align.bytes() as c_uint,
                 size,
+                preserve_tags,
                 is_volatile,
             )
         };
@@ -1124,9 +1127,11 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
         src_align: Align,
         size: &'ll Value,
         flags: MemFlags,
+        preserve_tags: rustc_codegen_ssa::common::PreserveCheriTags,
     ) {
         assert!(!flags.contains(MemFlags::NONTEMPORAL), "non-temporal memmove not supported");
         let size = self.intcast(size, self.type_isize(), false);
+        let preserve_tags = PreserveCheriTags::from_generic(preserve_tags);
         let is_volatile = flags.contains(MemFlags::VOLATILE);
         unsafe {
             llvm::LLVMRustBuildMemMove(
@@ -1136,6 +1141,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
                 src,
                 src_align.bytes() as c_uint,
                 size,
+                preserve_tags,
                 is_volatile,
             );
         }
