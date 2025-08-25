@@ -735,6 +735,7 @@ fn copy_to_temporary_if_more_aligned<'ll, 'tcx>(
             src_align,
             bx.const_u32(layout.layout.size().bytes() as u32),
             MemFlags::empty(),
+            rustc_codegen_ssa::common::PreserveCheriTags::Unknown,
         );
         tmp
     } else {

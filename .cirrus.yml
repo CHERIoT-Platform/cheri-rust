@@ -54,6 +54,7 @@ x_check_task:
     - export CCACHE_REMOTE_STORAGE="http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/"
     - export CCACHE_REMOTE_ONLY=1
     - env
-  test_script: CC="clang" CXX="clang++" ./x check
+  tidy_script: CC="clang" CXX="clang++" ./x tidy
+  check_script: CC="clang" CXX="clang++" ./x check
 
 # -- End PR tasks
