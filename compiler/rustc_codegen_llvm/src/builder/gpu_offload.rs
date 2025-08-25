@@ -4,7 +4,7 @@ use bitflags::Flags;
 use llvm::Linkage::*;
 use rustc_abi::Align;
 use rustc_codegen_ssa::MemFlags;
-use rustc_codegen_ssa::common::TypeKind;
+use rustc_codegen_ssa::common::{PreserveCheriTags, TypeKind};
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
 use rustc_codegen_ssa::traits::{BaseTypeCodegenMethods, BuilderMethods};
 use rustc_middle::bug;
@@ -625,6 +625,7 @@ pub(crate) fn gen_call_handling<'ll, 'tcx>(
             cx.get_const_i64(8 * args.len() as u64),
             MemFlags::empty(),
             None,
+            PreserveCheriTags::Unknown,
         );
 
         alloc
