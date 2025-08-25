@@ -61,6 +61,13 @@ pub enum AtomicRmwBinOp {
 }
 
 #[derive(Copy, Clone, Debug)]
+pub enum PreserveCheriTags {
+    Unknown,
+    Required,
+    Unnecessary,
+}
+
+#[derive(Copy, Clone, Debug)]
 pub enum SynchronizationScope {
     SingleThread,
     CrossThread,
