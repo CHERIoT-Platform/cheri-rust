@@ -7,7 +7,7 @@ use std::iter;
 use gccjit::{ComparisonOp, Function, FunctionType, RValue, ToRValue, Type, UnaryOp};
 use rustc_abi::{BackendRepr, HasDataLayout, WrappingRange};
 use rustc_codegen_ssa::base::wants_msvc_seh;
-use rustc_codegen_ssa::common::IntPredicate;
+use rustc_codegen_ssa::common::{IntPredicate, PreserveCheriTags};
 use rustc_codegen_ssa::errors::InvalidMonomorphization;
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
 use rustc_codegen_ssa::mir::place::{PlaceRef, PlaceValue};
@@ -806,6 +806,7 @@ impl<'gcc, 'tcx> ArgAbiExt<'gcc, 'tcx> for ArgAbi<'tcx, Ty<'tcx>> {
                     bx.const_usize(self.layout.size.bytes()),
                     MemFlags::empty(),
                     None,
+                    PreserveCheriTags::Unknown,
                 );
 
                 bx.lifetime_end(scratch, scratch_size);

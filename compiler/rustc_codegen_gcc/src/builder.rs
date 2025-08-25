@@ -12,7 +12,7 @@ use rustc_abi::{Align, HasDataLayout, Size, TargetDataLayout, WrappingRange};
 use rustc_apfloat::{Float, Round, Status, ieee};
 use rustc_codegen_ssa::MemFlags;
 use rustc_codegen_ssa::common::{
-    AtomicRmwBinOp, IntPredicate, RealPredicate, SynchronizationScope, TypeKind,
+    AtomicRmwBinOp, IntPredicate, PreserveCheriTags, RealPredicate, SynchronizationScope, TypeKind,
 };
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
 use rustc_codegen_ssa::mir::place::PlaceRef;
@@ -1401,6 +1401,7 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         size: RValue<'gcc>,
         flags: MemFlags,
         _tt: Option<rustc_ast::expand::typetree::FncTree>, // Autodiff TypeTrees are LLVM-only, ignored in GCC backend
+        _preserve_cheri_tags: PreserveCheriTags,
     ) {
         assert!(!flags.contains(MemFlags::NONTEMPORAL), "non-temporal memcpy not supported");
         let size = self.intcast(size, self.type_size_t(), false);
@@ -1423,6 +1424,7 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         _src_align: Align,
         size: RValue<'gcc>,
         flags: MemFlags,
+        _preserve_cheri_flags: PreserveCheriTags,
     ) {
         assert!(!flags.contains(MemFlags::NONTEMPORAL), "non-temporal memmove not supported");
         let size = self.intcast(size, self.type_size_t(), false);

@@ -1,6 +1,6 @@
 use rustc_abi::{Align, BackendRepr, CVariadicStatus, Endian, HasDataLayout, Primitive, Size};
 use rustc_codegen_ssa::MemFlags;
-use rustc_codegen_ssa::common::IntPredicate;
+use rustc_codegen_ssa::common::{IntPredicate, PreserveCheriTags};
 use rustc_codegen_ssa::mir::operand::OperandRef;
 use rustc_codegen_ssa::traits::{
     BaseTypeCodegenMethods, BuilderMethods, ConstCodegenMethods, LayoutTypeCodegenMethods,
@@ -760,6 +760,7 @@ fn copy_to_temporary_if_more_aligned<'ll, 'tcx>(
             bx.const_u32(layout.layout.size().bytes() as u32),
             MemFlags::empty(),
             None,
+            PreserveCheriTags::Unknown,
         );
         tmp
     } else {

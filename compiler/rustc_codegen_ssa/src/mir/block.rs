@@ -21,7 +21,7 @@ use super::operand::OperandValue::{Immediate, Pair, Ref, ZeroSized};
 use super::place::{PlaceRef, PlaceValue};
 use super::{CachedLlbb, FunctionCx, LocalRef};
 use crate::base::{self, is_call_from_compiler_builtins_to_upstream_monomorphization};
-use crate::common::{self, IntPredicate};
+use crate::common::{self, IntPredicate, PreserveCheriTags};
 use crate::errors::CompilerBuiltinsCannotCall;
 use crate::traits::*;
 use crate::{MemFlags, meth};
@@ -1768,6 +1768,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                     bx.const_usize(copy_bytes),
                     MemFlags::empty(),
                     None,
+                    PreserveCheriTags::Unknown,
                 );
                 // ...and then load it with the ABI type.
                 llval = load_cast(bx, cast, llscratch, scratch_align);
