@@ -7,6 +7,7 @@ use rustc_abi::{
     X86Call,
 };
 use rustc_codegen_ssa::MemFlags;
+use rustc_codegen_ssa::common::PreserveCheriTags;
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
 use rustc_codegen_ssa::mir::place::{PlaceRef, PlaceValue};
 use rustc_codegen_ssa::traits::*;
@@ -238,6 +239,8 @@ impl<'ll, 'tcx> ArgAbiExt<'ll, 'tcx> for ArgAbi<'tcx, Ty<'tcx>> {
                     scratch_align,
                     bx.const_usize(copy_bytes),
                     MemFlags::empty(),
+                    // Handling of CHERI capabilities could probably be more efficient.
+                    PreserveCheriTags::Unknown,
                 );
                 bx.lifetime_end(llscratch, scratch_size);
             }

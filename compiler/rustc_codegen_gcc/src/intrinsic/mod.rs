@@ -771,6 +771,7 @@ impl<'gcc, 'tcx> ArgAbiExt<'gcc, 'tcx> for ArgAbi<'tcx, Ty<'tcx>> {
                     scratch_align,
                     bx.const_usize(self.layout.size.bytes()),
                     MemFlags::empty(),
+                    rustc_codegen_ssa::common::PreserveCheriTags::Unknown,
                 );
 
                 bx.lifetime_end(scratch, scratch_size);

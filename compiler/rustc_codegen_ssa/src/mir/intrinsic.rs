@@ -8,7 +8,7 @@ use rustc_span::sym;
 use super::FunctionCx;
 use super::operand::OperandRef;
 use super::place::PlaceRef;
-use crate::common::{AtomicRmwBinOp, SynchronizationScope};
+use crate::common::{AtomicRmwBinOp, SynchronizationScope, PreserveCheriTags};
 use crate::errors::InvalidMonomorphization;
 use crate::traits::*;
 use crate::{MemFlags, meth, size_of_val};
@@ -27,10 +27,12 @@ fn copy_intrinsic<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
     let align = layout.align.abi;
     let size = bx.mul(bx.const_usize(size.bytes()), count);
     let flags = if volatile { MemFlags::VOLATILE } else { MemFlags::empty() };
+    // Handling of CHERI capabilities could probably be more efficient.
+    let preserve_tags = PreserveCheriTags::Unknown;
     if allow_overlap {
-        bx.memmove(dst, align, src, align, size, flags);
+        bx.memmove(dst, align, src, align, size, flags, preserve_tags);
     } else {
-        bx.memcpy(dst, align, src, align, size, flags);
+        bx.memcpy(dst, align, src, align, size, flags, preserve_tags);
     }
 }
 

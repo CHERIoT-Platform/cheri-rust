@@ -1,0 +1,60 @@
+gcp_credentials: ENCRYPTED[5ee9e22237c8368fdae53b368a38509d62a168e1b5a8162a9bd8dfef5e874a4f41cd8235d498b99d2c2860c77e06ecd1]
+
+# -- PR tasks
+
+pr_check_commits_task:
+  skip: $CIRRUS_PR == ""
+  name: (PR) Check commits structure
+  timeout_in: 240m
+  gce_instance: &arm_vm
+    image_project: ubuntu-os-cloud
+    image_family: ubuntu-2404-lts-arm64
+    architecture: arm64
+    zone: us-east1-b
+    type: c4a-standard-16
+    disk: 60
+    spot: true
+  env:
+    GH_TOKEN: ""
+  dependencies_script:
+    - set -eo pipefail
+  # No need to clone.
+  clone_script: []
+  test_script: |
+    commits=$(curl -s -H "Accept: application/vnd.github+json" https://api.github.com/repos/CHERIoT-Platform/cheri-rust/pulls/$CIRRUS_PR | jq '.commits')
+    if [[ $commits -ne 1 ]]; then
+      echo "Expected a single commit, found $commits"
+      echo "In order to facilitate cherry-picking commits into other branches,"
+      echo "please squash your commits into a single one."
+      exit 1;
+    fi
+
+x_check_task:
+  skip: $CIRRUS_PR == ""
+  name: (PR) Run ./x check
+  depends_on: (PR) Check commits structure
+  timeout_in: 240m
+  gce_instance: &arm_vm
+    image_project: ubuntu-os-cloud
+    image_family: ubuntu-2404-lts-arm64
+    architecture: arm64
+    zone: us-east1-b
+    type: c4a-standard-16
+    disk: 60
+    spot: true
+  env:
+      CIRRUS_CLONE_DEPTH: 0
+
+  dependencies_script:
+    - set -eo pipefail
+    - apt-get update
+    - apt-get install -y clang ninja-build lld cmake ccache perl
+  gen_bootstrap_script: ./cheri/gen_bootstrap.sh
+  setup_env_script:
+    - export CCACHE_REMOTE_STORAGE="http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/"
+    - export CCACHE_REMOTE_ONLY=1
+    - env
+  tidy_script: CC="clang" CXX="clang++" ./x tidy
+  check_script: CC="clang" CXX="clang++" ./x check
+
+# -- End PR tasks
