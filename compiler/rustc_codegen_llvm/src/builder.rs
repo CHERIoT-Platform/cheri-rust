@@ -8,7 +8,7 @@ pub(crate) mod gpu_offload;
 
 use libc::{c_char, c_uint};
 use rustc_abi as abi;
-use rustc_abi::{Align, Size, WrappingRange};
+use rustc_abi::{AddressSpace, Align, Size, WrappingRange};
 use rustc_codegen_ssa::MemFlags;
 use rustc_codegen_ssa::common::{IntPredicate, RealPredicate, SynchronizationScope, TypeKind};
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
@@ -129,7 +129,12 @@ impl<'a, 'll, CX: Borrow<SCx<'ll>>> GenericBuilder<'a, 'll, CX> {
             let alloca = llvm::LLVMBuildAlloca(self.llbuilder, ty, UNNAMED);
             llvm::LLVMSetAlignment(alloca, align.bytes() as c_uint);
             // Cast to default addrspace if necessary
-            llvm::LLVMBuildPointerCast(self.llbuilder, alloca, self.cx.type_ptr(), UNNAMED)
+            llvm::LLVMBuildPointerCast(
+                self.llbuilder,
+                alloca,
+                self.cx.type_ptr_ext(AddressSpace::ZERO),
+                UNNAMED,
+            )
         };
         if name != "" {
             let name = std::ffi::CString::new(name).unwrap();
