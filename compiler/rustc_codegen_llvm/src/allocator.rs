@@ -29,7 +29,7 @@ pub(crate) unsafe fn codegen(
         tws => bug!("Unsupported target word size for int: {}", tws),
     };
     let i8 = cx.type_i8();
-    let i8p = cx.type_ptr();
+    let i8p = cx.type_ptr_ext(tcx.data_layout.default_address_space);
 
     for method in methods {
         let mut args = Vec::with_capacity(method.inputs.len());
