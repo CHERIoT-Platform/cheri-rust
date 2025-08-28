@@ -1,7 +1,7 @@
 use std::ffi::CString;
 
 use llvm::Linkage::*;
-use rustc_abi::Align;
+use rustc_abi::{AddressSpace, Align};
 use rustc_codegen_ssa::back::write::CodegenContext;
 use rustc_codegen_ssa::traits::BaseTypeCodegenMethods;
 
@@ -61,7 +61,7 @@ fn generate_at_one<'ll>(cx: &'ll SimpleCx<'_>) -> &'ll llvm::Value {
 
 pub(crate) fn add_tgt_offload_entry<'ll>(cx: &'ll SimpleCx<'_>) -> &'ll llvm::Type {
     let offload_entry_ty = cx.type_named_struct("struct.__tgt_offload_entry");
-    let tptr = cx.type_ptr();
+    let tptr = cx.type_ptr_ext(AddressSpace::ZERO);
     let ti64 = cx.type_i64();
     let ti32 = cx.type_i32();
     let ti16 = cx.type_i16();
@@ -85,7 +85,7 @@ pub(crate) fn add_tgt_offload_entry<'ll>(cx: &'ll SimpleCx<'_>) -> &'ll llvm::Ty
 
 fn gen_tgt_kernel_global<'ll>(cx: &'ll SimpleCx<'_>) {
     let kernel_arguments_ty = cx.type_named_struct("struct.__tgt_kernel_arguments");
-    let tptr = cx.type_ptr();
+    let tptr = cx.type_ptr_ext(AddressSpace::ZERO);
     let ti64 = cx.type_i64();
     let ti32 = cx.type_i32();
     let tarr = cx.type_array(ti32, 3);
@@ -126,7 +126,7 @@ fn gen_tgt_kernel_global<'ll>(cx: &'ll SimpleCx<'_>) {
 fn gen_tgt_data_mappers<'ll>(
     cx: &'ll SimpleCx<'_>,
 ) -> (&'ll llvm::Value, &'ll llvm::Value, &'ll llvm::Value, &'ll llvm::Type) {
-    let tptr = cx.type_ptr();
+    let tptr = cx.type_ptr_ext(AddressSpace::ZERO);
     let ti64 = cx.type_i64();
     let ti32 = cx.type_i32();
 
@@ -233,7 +233,7 @@ fn gen_define_handling<'ll>(
     let flags = cx.get_const_i32(0);
     let size = cx.get_const_i64(0);
     let data = cx.get_const_i64(0);
-    let aux_addr = cx.const_null(cx.type_ptr());
+    let aux_addr = cx.const_null(cx.type_ptr_ext(AddressSpace::ZERO));
     let elems = vec![reserved, version, kind, flags, region_id, llglobal, size, data, aux_addr];
 
     let initializer = crate::common::named_struct(offload_entry_ty, &elems);
@@ -289,7 +289,7 @@ fn gen_call_handling<'ll>(
     o_types: &[&'ll llvm::Value],
 ) {
     // %struct.__tgt_bin_desc = type { i32, ptr, ptr, ptr }
-    let tptr = cx.type_ptr();
+    let tptr = cx.type_ptr_ext(AddressSpace::ZERO);
     let ti32 = cx.type_i32();
     let tgt_bin_desc_ty = vec![ti32, tptr, tptr, tptr];
     let tgt_bin_desc = cx.type_named_struct("struct.__tgt_bin_desc");
@@ -321,7 +321,7 @@ fn gen_call_handling<'ll>(
 
     let tgt_bin_desc_alloca = builder.direct_alloca(tgt_bin_desc, Align::EIGHT, "EmptyDesc");
 
-    let ty = cx.type_array(cx.type_ptr(), num_args);
+    let ty = cx.type_array(cx.type_ptr_ext(AddressSpace::ZERO), num_args);
     // Baseptr are just the input pointer to the kernel, stored in a local alloca
     let a1 = builder.direct_alloca(ty, Align::EIGHT, ".offload_baseptrs");
     // Ptrs are the result of a gep into the baseptr, at least for our trivial types.
@@ -352,7 +352,7 @@ fn gen_call_handling<'ll>(
     unsafe { llvm::LLVMRustPositionBefore(builder.llbuilder, kernel_call) };
     builder.memset(tgt_bin_desc_alloca, cx.get_const_i8(0), cx.get_const_i64(32), Align::EIGHT);
 
-    let mapper_fn_ty = cx.type_func(&[cx.type_ptr()], cx.type_void());
+    let mapper_fn_ty = cx.type_func(&[cx.type_ptr_ext(AddressSpace::ZERO)], cx.type_void());
     let register_lib_decl = declare_offload_fn(&cx, "__tgt_register_lib", mapper_fn_ty);
     let unregister_lib_decl = declare_offload_fn(&cx, "__tgt_unregister_lib", mapper_fn_ty);
     let init_ty = cx.type_func(&[], cx.type_void());
@@ -405,7 +405,7 @@ fn gen_call_handling<'ll>(
         num_args: u64,
         s_ident_t: &'ll Value,
     ) {
-        let nullptr = cx.const_null(cx.type_ptr());
+        let nullptr = cx.const_null(cx.type_ptr_ext(AddressSpace::ZERO));
         let i64_max = cx.get_const_i64(u64::MAX);
         let num_args = cx.get_const_i32(num_args);
         let args =
