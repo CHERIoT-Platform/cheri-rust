@@ -1,7 +1,7 @@
 use std::{fmt, iter};
 
 use rustc_abi::{
-    AddressSpace, Align, BackendRepr, CanonAbi, ExternAbi, HasDataLayout, Primitive, Reg, RegKind,
+    Align, BackendRepr, CanonAbi, ExternAbi, HasDataLayout, Primitive, Reg, RegKind,
     Scalar, Size, TyAbiInterface, TyAndLayout,
 };
 use rustc_macros::HashStable_Generic;
@@ -710,6 +710,7 @@ impl<'a, Ty> FnAbi<'a, Ty> {
         C: HasDataLayout + HasTargetSpec,
     {
         let spec = cx.target_spec();
+        let dl = cx.data_layout();
         match &*spec.arch {
             "x86" => x86::compute_rust_abi_info(cx, self),
             "riscv32" | "riscv64" => riscv::compute_rust_abi_info(cx, self),
@@ -733,7 +734,7 @@ impl<'a, Ty> FnAbi<'a, Ty> {
             }
 
             if arg_idx.is_none()
-                && arg.layout.size > Primitive::Pointer(AddressSpace::ZERO).size(cx) * 2
+                && arg.layout.size > Primitive::Pointer(dl.default_address_space).size(cx) * 2
                 && !matches!(arg.layout.backend_repr, BackendRepr::SimdVector { .. })
             {
                 // Return values larger than 2 registers using a return area
@@ -792,7 +793,7 @@ impl<'a, Ty> FnAbi<'a, Ty> {
 
                     let size = arg.layout.size;
                     if arg.layout.is_sized()
-                        && size <= Primitive::Pointer(AddressSpace::ZERO).size(cx)
+                        && size <= Primitive::Pointer(dl.default_address_space).size(cx)
                     {
                         // We want to pass small aggregates as immediates, but using
                         // an LLVM aggregate type for this leads to bad optimizations,
