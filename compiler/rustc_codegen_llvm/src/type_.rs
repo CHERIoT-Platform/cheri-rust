@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::{fmt, ptr};
 
 use libc::c_uint;
-use rustc_abi::{AddressSpace, Align, Integer, Reg, Size};
+use rustc_abi::{AddressSpace, Align, HasDataLayout, Integer, Reg, Size};
 use rustc_codegen_ssa::common::TypeKind;
 use rustc_codegen_ssa::traits::*;
 use rustc_data_structures::small_c_str::SmallCStr;
@@ -216,10 +216,6 @@ impl<'ll, CX: Borrow<SCx<'ll>>> BaseTypeCodegenMethods for GenericCx<'ll, CX> {
         llvm::LLVMGetTypeKind(ty).to_rust().to_generic()
     }
 
-    fn type_ptr(&self) -> &'ll Type {
-        llvm_type_ptr(self.llcx())
-    }
-
     fn type_ptr_ext(&self, address_space: AddressSpace) -> &'ll Type {
         llvm_type_ptr_in_address_space(self.llcx(), address_space)
     }
@@ -303,6 +299,9 @@ impl<'ll, 'tcx> LayoutTypeCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
     }
     fn reg_backend_type(&self, ty: &Reg) -> &'ll Type {
         ty.llvm_type(self)
+    }
+    fn type_ptr(&self) -> Self::Type {
+        self.type_ptr_ext(self.data_layout().default_address_space)
     }
 }
 
