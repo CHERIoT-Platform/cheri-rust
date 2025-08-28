@@ -3,7 +3,7 @@ use std::ffi::CString;
 use llvm::Linkage::*;
 use rustc_abi::Align;
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
-use rustc_codegen_ssa::traits::{BaseTypeCodegenMethods, BuilderMethods};
+use rustc_codegen_ssa::traits::{BaseTypeCodegenMethods, BuilderMethods, LayoutTypeCodegenMethods};
 use rustc_middle::bug;
 use rustc_middle::ty::offload_meta::OffloadMetadata;
 
