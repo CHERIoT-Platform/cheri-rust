@@ -244,10 +244,6 @@ impl<'gcc, 'tcx> BaseTypeCodegenMethods for CodegenCx<'gcc, 'tcx> {
         }
     }
 
-    fn type_ptr(&self) -> Type<'gcc> {
-        self.type_ptr_to(self.type_void())
-    }
-
     fn type_ptr_ext(&self, address_space: AddressSpace) -> Type<'gcc> {
         self.type_ptr_to_ext(self.type_void(), address_space)
     }

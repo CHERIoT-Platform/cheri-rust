@@ -1,4 +1,6 @@
-use rustc_codegen_ssa::traits::{BaseTypeCodegenMethods, ConstCodegenMethods};
+use rustc_codegen_ssa::traits::{
+    BaseTypeCodegenMethods, ConstCodegenMethods, LayoutTypeCodegenMethods,
+};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_middle::mir;

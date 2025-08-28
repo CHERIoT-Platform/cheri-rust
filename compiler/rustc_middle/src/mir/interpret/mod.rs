@@ -308,7 +308,7 @@ impl<'tcx> GlobalAlloc<'tcx> {
             GlobalAlloc::TypeId { .. }
             | GlobalAlloc::Static(..)
             | GlobalAlloc::Memory(..)
-            | GlobalAlloc::VTable(..) => AddressSpace::ZERO,
+            | GlobalAlloc::VTable(..) => cx.data_layout().default_address_space,
         }
     }
 

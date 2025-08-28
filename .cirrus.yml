@@ -62,5 +62,6 @@ x_check_task:
   pull_master_script: git fetch origin master
   tidy_script: CC="clang" CXX="clang++" ./x test tidy
   check_script: CC="clang" CXX="clang++" ./x check
+  ui_test_script: CC="clang" CXX="clang++" ./x test ui
 
 # -- End PR tasks

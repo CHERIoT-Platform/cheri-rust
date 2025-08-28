@@ -2,9 +2,9 @@ use std::{cmp, fmt};
 
 use rustc_abi as abi;
 use rustc_abi::{
-    AddressSpace, Align, ExternAbi, FieldIdx, FieldsShape, HasDataLayout, LayoutData, PointeeInfo,
-    PointerKind, Primitive, ReprFlags, ReprOptions, Scalar, Size, TagEncoding, TargetDataLayout,
-    TyAbiInterface, VariantIdx, Variants,
+    Align, ExternAbi, FieldIdx, FieldsShape, HasDataLayout, LayoutData, PointeeInfo, PointerKind,
+    Primitive, ReprFlags, ReprOptions, Scalar, Size, TagEncoding, TargetDataLayout, TyAbiInterface,
+    VariantIdx, Variants,
 };
 use rustc_errors::{
     Diag, DiagArgValue, DiagCtxtHandle, Diagnostic, EmissionGuarantee, IntoDiagArg, Level,
@@ -1121,11 +1121,12 @@ where
                 }
 
                 let mut result = None;
+                let dl = cx.data_layout();
 
                 if let Some(variant) = data_variant {
                     // FIXME(erikdesjardins): handle non-default addrspace ptr sizes
                     // (requires passing in the expected address space from the caller)
-                    let ptr_end = offset + Primitive::Pointer(AddressSpace::ZERO).size(cx);
+                    let ptr_end = offset + Primitive::Pointer(dl.default_address_space).size(cx);
                     for i in 0..variant.fields.count() {
                         let field_start = variant.fields.offset(i);
                         if field_start <= offset {

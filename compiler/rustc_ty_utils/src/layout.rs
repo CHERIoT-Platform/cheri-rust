@@ -3,7 +3,7 @@ use rustc_abi as abi;
 use rustc_abi::Integer::{I8, I32};
 use rustc_abi::Primitive::{self, Float, Int, Pointer};
 use rustc_abi::{
-    AddressSpace, BackendRepr, FIRST_VARIANT, FieldIdx, FieldsShape, HasDataLayout, Layout,
+    BackendRepr, FIRST_VARIANT, FieldIdx, FieldsShape, HasDataLayout, Layout,
     LayoutCalculatorError, LayoutData, Niche, ReprOptions, Scalar, Size, StructKind, TagEncoding,
     VariantIdx, Variants, WrappingRange,
 };
@@ -409,7 +409,7 @@ fn layout_of_uncached<'tcx>(
 
         // Potentially-wide pointers.
         ty::Ref(_, pointee, _) | ty::RawPtr(pointee, _) => {
-            let mut data_ptr = scalar_unit(Pointer(AddressSpace::ZERO));
+            let mut data_ptr = scalar_unit(Pointer(dl.default_address_space));
             if !ty.is_raw_ptr() {
                 data_ptr.valid_range_mut().start = 1;
             }
@@ -472,7 +472,7 @@ fn layout_of_uncached<'tcx>(
                     }
                     ty::Slice(_) | ty::Str => scalar_unit(Int(dl.ptr_sized_integer(), false)),
                     ty::Dynamic(..) => {
-                        let mut vtable = scalar_unit(Pointer(AddressSpace::ZERO));
+                        let mut vtable = scalar_unit(Pointer(dl.default_address_space));
                         vtable.valid_range_mut().start = 1;
                         vtable
                     }

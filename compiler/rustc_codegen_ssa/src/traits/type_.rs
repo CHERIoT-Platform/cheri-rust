@@ -25,7 +25,6 @@ pub trait BaseTypeCodegenMethods: BackendTypes {
     fn type_array(&self, ty: Self::Type, len: u64) -> Self::Type;
     fn type_func(&self, args: &[Self::Type], ret: Self::Type) -> Self::FunctionSignature;
     fn type_kind(&self, ty: Self::Type) -> TypeKind;
-    fn type_ptr(&self) -> Self::Type;
     fn type_ptr_ext(&self, address_space: AddressSpace) -> Self::Type;
     fn element_type(&self, ty: Self::Type) -> Self::Type;
 
@@ -149,6 +148,8 @@ pub trait LayoutTypeCodegenMethods<'tcx>: BackendTypes {
             || self.is_backend_immediate(layout)
             || self.is_backend_scalar_pair(layout))
     }
+
+    fn type_ptr(&self) -> Self::Type;
 }
 
 // For backends that support CFI using type membership (i.e., testing whether a given pointer is
