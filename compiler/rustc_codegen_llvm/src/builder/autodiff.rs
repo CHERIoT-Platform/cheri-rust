@@ -11,7 +11,7 @@ use rustc_middle::{bug, ty};
 use rustc_target::callconv::PassMode;
 use tracing::debug;
 
-use crate::builder::{Builder, PlaceRef, UNNAMED};
+use crate::builder::{AddressSpace, Builder, PlaceRef, UNNAMED};
 use crate::context::SimpleCx;
 use crate::declare::declare_simple_fn;
 use crate::llvm::{self, TRUE, Type, Value};
@@ -161,12 +161,14 @@ fn match_args_from_caller_to_enzyme<'ll, 'tcx>(
     // In debug mode we would use incremental compilation which caused the metadata to be
     // dropped. This is prevented by now using named globals, which are also understood
     // by Enzyme.
-    let global_const = cx.declare_global("enzyme_const", cx.type_ptr());
-    let global_out = cx.declare_global("enzyme_out", cx.type_ptr());
-    let global_dup = cx.declare_global("enzyme_dup", cx.type_ptr());
-    let global_dupv = cx.declare_global("enzyme_dupv", cx.type_ptr());
-    let global_dupnoneed = cx.declare_global("enzyme_dupnoneed", cx.type_ptr());
-    let global_dupnoneedv = cx.declare_global("enzyme_dupnoneedv", cx.type_ptr());
+    let global_const = cx.declare_global("enzyme_const", cx.type_ptr_ext(AddressSpace::ZERO));
+    let global_out = cx.declare_global("enzyme_out", cx.type_ptr_ext(AddressSpace::ZERO));
+    let global_dup = cx.declare_global("enzyme_dup", cx.type_ptr_ext(AddressSpace::ZERO));
+    let global_dupv = cx.declare_global("enzyme_dupv", cx.type_ptr_ext(AddressSpace::ZERO));
+    let global_dupnoneed =
+        cx.declare_global("enzyme_dupnoneed", cx.type_ptr_ext(AddressSpace::ZERO));
+    let global_dupnoneedv =
+        cx.declare_global("enzyme_dupnoneedv", cx.type_ptr_ext(AddressSpace::ZERO));
 
     while activity_pos < inputs.len() {
         let diff_activity = inputs[activity_pos as usize];
@@ -355,12 +357,13 @@ pub(crate) fn generate_enzyme_call<'ll, 'tcx>(
     let mut args = Vec::with_capacity(num_args as usize + 1);
     args.push(fn_to_diff);
 
-    let global_primal_ret = cx.declare_global("enzyme_primal_return", cx.type_ptr());
+    let global_primal_ret =
+        cx.declare_global("enzyme_primal_return", cx.type_ptr_ext(AddressSpace::ZERO));
     if matches!(attrs.ret_activity, DiffActivity::Dual | DiffActivity::Active) {
         args.push(global_primal_ret);
     }
     if attrs.width > 1 {
-        let global_width = cx.declare_global("enzyme_width", cx.type_ptr());
+        let global_width = cx.declare_global("enzyme_width", cx.type_ptr_ext(AddressSpace::ZERO));
         args.push(global_width);
         args.push(cx.get_const_int(cx.type_i64(), attrs.width as u64));
     }

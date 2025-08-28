@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::{fs, slice, str};
 
 use libc::{c_char, c_int, c_void, size_t};
+use rustc_abi::AddressSpace;
 use rustc_codegen_ssa::back::link::ensure_removed;
 use rustc_codegen_ssa::back::versioned_llvm_target;
 use rustc_codegen_ssa::back::write::{
@@ -673,7 +674,7 @@ pub(crate) unsafe fn llvm_optimize(
 
         // Create the new parameter list, with ptr as the first argument
         let mut new_param_types = Vec::with_capacity(old_param_count as usize + 1);
-        new_param_types.push(cx.type_ptr());
+        new_param_types.push(cx.type_ptr_ext(AddressSpace::ZERO));
 
         // This relies on undocumented LLVM knowledge that scalars must be passed as i64
         for &old_ty in &old_param_types {

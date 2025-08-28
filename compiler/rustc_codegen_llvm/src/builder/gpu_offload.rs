@@ -6,7 +6,7 @@ use rustc_abi::Align;
 use rustc_codegen_ssa::MemFlags;
 use rustc_codegen_ssa::common::{PreserveCheriTags, TypeKind};
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
-use rustc_codegen_ssa::traits::{BaseTypeCodegenMethods, BuilderMethods};
+use rustc_codegen_ssa::traits::{BaseTypeCodegenMethods, BuilderMethods, LayoutTypeCodegenMethods};
 use rustc_middle::bug;
 use rustc_middle::ty::offload_meta::{MappingFlags, OffloadMetadata, OffloadSize};
 
