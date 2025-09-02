@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
-use rustc_abi::{Align, AlignFromBytesError};
+use rustc_abi::{AddressSpace, Align, AlignFromBytesError};
 
 use super::crt_objects::CrtObjects;
 use super::{
@@ -223,6 +223,9 @@ impl Target {
         forward!(supports_stack_protector);
         forward!(small_data_threshold_support);
         forward!(entry_name);
+        if let Some(default_address_space) = json.default_address_space {
+            base.default_address_space = AddressSpace(default_address_space);
+        }
         forward!(supports_xray);
 
         // we're going to run `update_from_cli`, but that won't change the target's AbiMap
@@ -408,6 +411,7 @@ impl ToJson for Target {
         target_option_val!(entry_name);
         target_option_val!(entry_abi);
         target_option_val!(supports_xray);
+        target_option_val!(default_address_space);
 
         // Serializing `-Clink-self-contained` needs a dynamic key to support the
         // backwards-compatible variants.
@@ -629,6 +633,7 @@ struct TargetSpecJson {
     small_data_threshold_support: Option<SmallDataThresholdSupport>,
     entry_name: Option<StaticCow<str>>,
     supports_xray: Option<bool>,
+    default_address_space: Option<u32>,
     entry_abi: Option<ExternAbiWrapper>,
 }
 
