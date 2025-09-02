@@ -38,6 +38,7 @@ pub struct Finder {
 const STAGE0_MISSING_TARGETS: &[&str] = &[
     // just a dummy comment so the list doesn't get onelined
     "riscv64im-unknown-none-elf",
+    "riscv32cheriot-unknown-cheriotrtos",
 ];
 
 /// Minimum version threshold for libstdc++ required when using prebuilt LLVM
