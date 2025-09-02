@@ -35,6 +35,7 @@ pub struct Finder {
 const STAGE0_MISSING_TARGETS: &[&str] = &[
     "armv7a-vex-v5",
     "riscv64a23-unknown-linux-gnu",
+    "riscv32cheriot-unknown-cheriotrtos",
     // just a dummy comment so the list doesn't get onelined
     "aarch64_be-unknown-hermit",
     "aarch64_be-unknown-none-softfloat",
