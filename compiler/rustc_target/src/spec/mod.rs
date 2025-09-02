@@ -1673,6 +1673,7 @@ supported_targets! {
     ("riscv32imac-esp-espidf", riscv32imac_esp_espidf),
     ("riscv32imafc-esp-espidf", riscv32imafc_esp_espidf),
 
+    ("riscv32cheriot-unknown-cheriotrtos", riscv32cheriot_unknown_cheriotrtos),
     ("riscv32e-unknown-none-elf", riscv32e_unknown_none_elf),
     ("riscv32em-unknown-none-elf", riscv32em_unknown_none_elf),
     ("riscv32emc-unknown-none-elf", riscv32emc_unknown_none_elf),
@@ -2916,7 +2917,7 @@ impl Target {
             "riscv32" => {
                 check_matches!(
                     &*self.llvm_abiname,
-                    "ilp32" | "ilp32f" | "ilp32d" | "ilp32e",
+                    "ilp32" | "ilp32f" | "ilp32d" | "ilp32e" | "cheriot",
                     "invalid RISC-V ABI name: {}",
                     self.llvm_abiname,
                 );
