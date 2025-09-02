@@ -115,6 +115,12 @@ impl ToJson for rustc_abi::CanonAbi {
     }
 }
 
+impl ToJson for rustc_abi::AddressSpace {
+    fn to_json(&self) -> Json {
+        self.0.to_json()
+    }
+}
+
 macro_rules! serde_deserialize_from_str {
     ($ty:ty) => {
         impl<'de> serde::Deserialize<'de> for $ty {
