@@ -448,6 +448,9 @@
 //@ revisions: riscv32e_unknown_none_elf
 //@ [riscv32e_unknown_none_elf] compile-flags: --target riscv32e-unknown-none-elf
 //@ [riscv32e_unknown_none_elf] needs-llvm-components: riscv
+//@ revisions: riscv32cheriot_unknown_cheriotrtos
+//@ [riscv32cheriot_unknown_cheriotrtos] compile-flags: --target riscv32cheriot-unknown-cheriotrtos
+//@ [riscv32cheriot_unknown_cheriotrtos] needs-llvm-components: riscv
 //@ revisions: riscv32em_unknown_none_elf
 //@ [riscv32em_unknown_none_elf] compile-flags: --target riscv32em-unknown-none-elf
 //@ [riscv32em_unknown_none_elf] needs-llvm-components: riscv
