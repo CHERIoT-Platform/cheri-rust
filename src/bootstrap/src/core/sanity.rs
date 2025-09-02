@@ -32,10 +32,8 @@ pub struct Finder {
 // it might not yet be included in stage0. In such cases, we handle the targets missing from stage0 in this list.
 //
 // Targets can be removed from this list once they are present in the stage0 compiler (usually by updating the beta compiler of the bootstrap).
-const STAGE0_MISSING_TARGETS: &[&str] = &[
-    // just a dummy comment so the list doesn't get onelined
-    "x86_64-unknown-motor",
-];
+const STAGE0_MISSING_TARGETS: &[&str] =
+    &["riscv32cheriot-unknown-cheriotrtos", "x86_64-unknown-motor"];
 
 /// Minimum version threshold for libstdc++ required when using prebuilt LLVM
 /// from CI (with`llvm.download-ci-llvm` option).

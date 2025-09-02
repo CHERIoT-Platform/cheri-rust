@@ -698,7 +698,7 @@ impl<'a, Ty> FnAbi<'a, Ty> {
             }
             "hexagon" => hexagon::compute_abi_info(self),
             "xtensa" => xtensa::compute_abi_info(cx, self),
-            "riscv32" | "riscv64" => riscv::compute_abi_info(cx, self),
+            "riscv32" | "riscv64" | "riscv32cheriot" => riscv::compute_abi_info(cx, self),
             "wasm32" | "wasm64" => wasm::compute_abi_info(cx, self),
             "bpf" => bpf::compute_abi_info(self),
             arch => panic!("no lowering implemented for {arch}"),
