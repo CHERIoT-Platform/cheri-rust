@@ -488,6 +488,7 @@ fn human_readable_target_os(os: Symbol) -> Option<&'static str> {
         Aix => "AIX",
         AmdHsa => "AMD HSA",
         Android => "Android",
+        CHERIoTRTOS => "CHERIoT RTOS",
         Cuda => "CUDA",
         Cygwin => "Cygwin",
         Dragonfly => "DragonFly BSD",
