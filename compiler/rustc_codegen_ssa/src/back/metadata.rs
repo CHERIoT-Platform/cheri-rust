@@ -348,7 +348,7 @@ pub(super) fn elf_e_flags(architecture: Architecture, sess: &Session) -> u32 {
                 "ilp32f" | "lp64f" => e_flags |= elf::EF_RISCV_FLOAT_ABI_SINGLE,
                 "ilp32d" | "lp64d" => e_flags |= elf::EF_RISCV_FLOAT_ABI_DOUBLE,
                 // Note that the `lp64e` is still unstable as it's not (yet) part of the ELF psABI.
-                "ilp32e" | "lp64e" => e_flags |= elf::EF_RISCV_RVE,
+                "ilp32e" | "lp64e" | "cheriot" => e_flags |= elf::EF_RISCV_RVE,
                 _ => bug!("unknown RISC-V ABI name"),
             }
 
