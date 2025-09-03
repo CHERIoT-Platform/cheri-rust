@@ -450,6 +450,50 @@ impl TargetDataLayout {
                 ["f32", a @ ..] => dl.f32_align = parse_align_seq(a, "f32")?,
                 ["f64", a @ ..] => dl.f64_align = parse_align_seq(a, "f64")?,
                 ["f128", a @ ..] => dl.f128_align = parse_align_seq(a, "f128")?,
+                [p, s, a, _pr, i] if p.starts_with("p") => {
+                    let mut p = p.strip_prefix('p').unwrap();
+                    let mut _is_fat = false;
+
+                    // Some targets, such as CHERI, use the 'f' suffix in the p- spec to signal that
+                    // they use 'fat' pointers. The resulting prefix may look like `pf<addr_space>`.
+
+                    if p.starts_with('f') {
+                        p = p.strip_prefix('f').unwrap();
+                        _is_fat = true;
+                    }
+
+                    // However, we currently don't take into account further specifications:
+                    // an error is emitted instead.
+                    if p.starts_with(char::is_alphabetic) {
+                        return Err(TargetDataLayoutError::UnknownPointerSpecification {
+                            err: p.to_string(),
+                        });
+                    }
+
+                    let addr_space = if !p.is_empty() {
+                        parse_address_space(p, "p")?
+                    } else {
+                        AddressSpace::ZERO
+                    };
+
+                    let info = PointerSpec {
+                        pointer_size: parse_size(s, "p-")?,
+                        pointer_align: parse_align_str(a, "p-")?,
+                        pointer_offset: parse_size(i, "p-")?,
+                        _is_fat,
+                    };
+
+                    if addr_space == default_address_space {
+                        dl.default_address_space_pointer_spec = info;
+                    } else {
+                        match dl.address_space_info.iter_mut().find(|(a, _)| *a == addr_space) {
+                            Some(e) => e.1 = info,
+                            None => {
+                                dl.address_space_info.push((addr_space, info));
+                            }
+                        }
+                    }
+                }
                 [p, s, a @ ..] if p.starts_with("p") => {
                     let mut p = p.strip_prefix('p').unwrap();
                     let mut _is_fat = false;
@@ -495,51 +539,6 @@ impl TargetDataLayout {
                         }
                     }
                 }
-                [p, s, a, _pr, i] if p.starts_with("p") => {
-                    let mut p = p.strip_prefix('p').unwrap();
-                    let mut _is_fat = false;
-
-                    // Some targets, such as CHERI, use the 'f' suffix in the p- spec to signal that
-                    // they use 'fat' pointers. The resulting prefix may look like `pf<addr_space>`.
-
-                    if p.starts_with('f') {
-                        p = p.strip_prefix('f').unwrap();
-                        _is_fat = true;
-                    }
-
-                    // However, we currently don't take into account further specifications:
-                    // an error is emitted instead.
-                    if p.starts_with(char::is_alphabetic) {
-                        return Err(TargetDataLayoutError::UnknownPointerSpecification {
-                            err: p.to_string(),
-                        });
-                    }
-
-                    let addr_space = if !p.is_empty() {
-                        parse_address_space(p, "p")?
-                    } else {
-                        AddressSpace::ZERO
-                    };
-
-                    let info = PointerSpec {
-                        pointer_size: parse_size(s, "p-")?,
-                        pointer_align: parse_align_str(a, "p-")?,
-                        pointer_offset: parse_size(i, "p-")?,
-                        _is_fat,
-                    };
-
-                    if addr_space == default_address_space {
-                        dl.default_address_space_pointer_spec = info;
-                    } else {
-                        match dl.address_space_info.iter_mut().find(|(a, _)| *a == addr_space) {
-                            Some(e) => e.1 = info,
-                            None => {
-                                dl.address_space_info.push((addr_space, info));
-                            }
-                        }
-                    }
-                }
-
                 [s, a @ ..] if s.starts_with('i') => {
                     let Ok(bits) = s[1..].parse::<u64>() else {
                         parse_size(&s[1..], "i")?; // For the user error.
