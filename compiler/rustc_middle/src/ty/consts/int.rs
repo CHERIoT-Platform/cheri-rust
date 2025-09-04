@@ -257,7 +257,7 @@ impl ScalarInt {
 
     #[inline]
     pub fn try_from_target_usize(i: impl Into<u128>, tcx: TyCtxt<'_>) -> Option<Self> {
-        Self::try_from_uint(i, tcx.data_layout.pointer_size())
+        Self::try_from_uint(i, tcx.data_layout.pointer_offset())
     }
 
     /// Try to convert this ScalarInt to the raw underlying bits.
@@ -333,7 +333,7 @@ impl ScalarInt {
 
     #[inline]
     pub fn to_target_usize(&self, tcx: TyCtxt<'_>) -> u64 {
-        self.to_uint(tcx.data_layout.pointer_size()).try_into().unwrap()
+        self.to_uint(tcx.data_layout.pointer_offset()).try_into().unwrap()
     }
 
     #[inline]
@@ -422,7 +422,7 @@ impl ScalarInt {
 
     #[inline]
     pub fn to_target_isize(&self, tcx: TyCtxt<'_>) -> i64 {
-        self.to_int(tcx.data_layout.pointer_size()).try_into().unwrap()
+        self.to_int(tcx.data_layout.pointer_offset()).try_into().unwrap()
     }
 
     #[inline]
