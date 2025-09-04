@@ -255,6 +255,14 @@ pub struct PointerSpec {
     /// The alignment of pointers for this address space
     pointer_align: Align,
     /// The size of the value a pointer can be offset by in this address space.
+    ///
+    /// This field is synthesized from the `<idx>` parameter in pointer specifications from the
+    /// [Data layout](https://llvm.org/docs/LangRef.html#data-layout) string.
+    ///
+    /// The parameter `<idx>` is the size of the index that is used for address calculations. It
+    /// must be less than or equal to the pointer size. If not specified, the default index size is
+    /// equal to the pointer size. The index size also specifies the width of addresses in this
+    /// address space.
     pointer_offset: Size,
     /// Pointers into this address space contain extra metadata
     /// FIXME(workingjubilee): Consider adequately reflecting this in the compiler?
