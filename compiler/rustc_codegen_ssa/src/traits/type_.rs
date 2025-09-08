@@ -149,7 +149,6 @@ pub trait LayoutTypeCodegenMethods<'tcx>: BackendTypes {
             || self.is_backend_scalar_pair(layout))
     }
 
-
     fn type_ptr(&self) -> Self::Type;
 }
 
