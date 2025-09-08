@@ -1,8 +1,8 @@
 use std::{fmt, iter};
 
 use rustc_abi::{
-    Align, BackendRepr, CanonAbi, ExternAbi, HasDataLayout, Primitive, Reg, RegKind,
-    Scalar, Size, TyAbiInterface, TyAndLayout,
+    Align, BackendRepr, CanonAbi, ExternAbi, HasDataLayout, Primitive, Reg, RegKind, Scalar, Size,
+    TyAbiInterface, TyAndLayout,
 };
 use rustc_macros::HashStable_Generic;
 
