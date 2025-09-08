@@ -63,6 +63,9 @@ pub mod gpu;
 pub mod mir;
 pub mod simd;
 
+#[cfg(target_family = "cheri")]
+pub mod cheri;
+
 // These imports are used for simplifying intra-doc links
 #[allow(unused_imports)]
 #[cfg(all(target_has_atomic = "8", target_has_atomic = "32", target_has_atomic = "ptr"))]
