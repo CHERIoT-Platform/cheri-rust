@@ -222,7 +222,8 @@ fn intrinsic_operation_unsafety(tcx: TyCtxt<'_>, intrinsic_id: LocalDefId) -> hi
         | sym::wrapping_sub
         | sym::write_box_via_move
         // tidy-alphabetical-end
-        => hir::Safety::Safe,
+        | sym::cheri_address_get
+        | sym::cheri_without_provenance => hir::Safety::Safe,
         _ => hir::Safety::Unsafe,
     };
 
@@ -812,6 +813,13 @@ pub(crate) fn check_intrinsic_type(
         | sym::atomic_xor => (2, 1, vec![Ty::new_mut_ptr(tcx, param(0)), param(1)], param(0)),
         sym::atomic_fence | sym::atomic_singlethreadfence => (0, 1, Vec::new(), tcx.types.unit),
 
+        // CHERI-specific intrinsics
+        sym::cheri_without_provenance => {
+            (1, 0, vec![tcx.types.usize], Ty::new_mut_ptr(tcx, param(0)))
+        }
+        sym::cheri_address_get => {
+            (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.usize)
+        }
         other => {
             tcx.dcx().emit_err(UnrecognizedIntrinsicFunction { span, name: other });
             return;

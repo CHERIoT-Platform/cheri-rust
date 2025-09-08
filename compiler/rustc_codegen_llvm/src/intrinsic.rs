@@ -735,6 +735,15 @@ impl<'ll, 'tcx> IntrinsicCallBuilderMethods<'tcx> for Builder<'_, 'll, 'tcx> {
                     fn_args.const_at(2).to_leaf().to_i32() as u64,
                 )
             }
+            sym::cheri_address_get => {
+                let (size, _) = tcx.types.usize.int_size_and_signed(self.tcx);
+                let width = size.bits();
+
+                let arg = args[0].immediate();
+
+                let llty = self.type_ix(width);
+                self.call_intrinsic(format!("llvm.cheri.cap.address.get.i{width}"), &[llty], &[arg])
+            }
 
             _ if name.as_str().starts_with("simd_") => {
                 // Unpack non-power-of-2 #[repr(packed, simd)] arguments.

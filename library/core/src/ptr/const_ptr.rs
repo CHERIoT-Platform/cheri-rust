@@ -1,7 +1,7 @@
 use super::*;
 use crate::cmp::Ordering::{Equal, Greater, Less};
 use crate::intrinsics::const_eval_select;
-use crate::mem::{self, SizedTypeProperties};
+use crate::mem::SizedTypeProperties;
 use crate::slice::{self, SliceIndex};
 
 impl<T: PointeeSized> *const T {
@@ -151,12 +151,20 @@ impl<T: PointeeSized> *const T {
     #[inline(always)]
     #[stable(feature = "strict_provenance", since = "1.84.0")]
     pub fn addr(self) -> usize {
-        // A pointer-to-integer transmute currently has exactly the right semantics: it returns the
-        // address without exposing the provenance. Note that this is *not* a stable guarantee about
-        // transmute semantics, it relies on sysroot crates having special status.
-        // SAFETY: Pointer-to-integer transmutes are valid (if you are okay with losing the
-        // provenance).
-        unsafe { mem::transmute(self.cast::<()>()) }
+        #[cfg(target_family = "cheri")]
+        {
+            crate::intrinsics::cheri::cheri_address_get(self.cast::<()>())
+        }
+
+        #[cfg(not(target_family = "cheri"))]
+        {
+            // A pointer-to-integer transmute currently has exactly the right semantics: it returns the
+            // address without exposing the provenance. Note that this is *not* a stable guarantee about
+            // transmute semantics, it relies on sysroot crates having special status.
+            // SAFETY: Pointer-to-integer transmutes are valid (if you are okay with losing the
+            // provenance).
+            unsafe { crate::mem::transmute(self.cast::<()>()) }
+        }
     }
 
     /// Exposes the ["provenance"][crate::ptr#provenance] part of the pointer for future use in
