@@ -44,6 +44,10 @@ const EXCEPTION_PATHS: &[&str] = &[
     "library/unwind",
     "library/rtstartup", // Not sure what to do about this. magic stuff for mingw
     "library/test",      // Probably should defer to unstable `std::sys` APIs.
+    // With the addition of CHERI-like platforms, some CHERI-specific intrinsics must be added.
+    "library/core/src/intrinsics/mod.rs",
+    // With the addition of CHERI-specific intrinsics for CHERI-like platforms, `ptr` too must have platform specific code (to use those intrinsics).
+    "library/core/src/ptr",
     // The `VaList` implementation must have platform specific code.
     // The Windows implementation of a `va_list` is always a character
     // pointer regardless of the target architecture. As a result,
