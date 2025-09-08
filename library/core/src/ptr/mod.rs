@@ -939,12 +939,20 @@ pub const fn dangling<T>() -> *const T {
 #[rustc_diagnostic_item = "ptr_without_provenance_mut"]
 #[allow(integer_to_ptr_transmutes)] // Expected semantics here.
 pub const fn without_provenance_mut<T>(addr: usize) -> *mut T {
-    // An int-to-pointer transmute currently has exactly the intended semantics: it creates a
-    // pointer without provenance. Note that this is *not* a stable guarantee about transmute
-    // semantics, it relies on sysroot crates having special status.
-    // SAFETY: every valid integer is also a valid pointer (as long as you don't dereference that
-    // pointer).
-    unsafe { mem::transmute(addr) }
+    #[cfg(target_family = "cheri")]
+    {
+        crate::intrinsics::cheri::cheri_without_provenance(addr)
+    }
+
+    #[cfg(not(target_family = "cheri"))]
+    {
+        // An int-to-pointer transmute currently has exactly the intended semantics: it creates a
+        // pointer without provenance. Note that this is *not* a stable guarantee about transmute
+        // semantics, it relies on sysroot crates having special status.
+        // SAFETY: every valid integer is also a valid pointer (as long as you don't dereference that
+        // pointer).
+        unsafe { mem::transmute(addr) }
+    }
 }
 
 /// Creates a new pointer that is dangling, but non-null and well-aligned.

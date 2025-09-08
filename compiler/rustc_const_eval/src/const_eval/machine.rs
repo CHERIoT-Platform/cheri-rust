@@ -547,6 +547,11 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
             // not the optimization stage.)
             sym::is_val_statically_known => ecx.write_scalar(Scalar::from_bool(false), dest)?,
 
+            sym::cheri_without_provenance => {
+                let addr = ecx.read_scalar(&args[0])?.to_target_usize(ecx)?;
+                ecx.write_pointer(Pointer::without_provenance(addr), dest)?
+            }
+
             // We handle these here since Miri does not want to have them.
             sym::assert_inhabited
             | sym::assert_zero_valid
