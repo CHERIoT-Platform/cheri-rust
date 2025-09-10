@@ -393,7 +393,7 @@ impl<'tcx, Prov: Provenance> Scalar<Prov> {
     /// Converts the scalar to produce a machine-pointer-sized unsigned integer.
     /// Fails if the scalar is a pointer.
     pub fn to_target_usize(self, cx: &impl HasDataLayout) -> InterpResult<'tcx, u64> {
-        let b = self.to_uint(cx.data_layout().pointer_size())?;
+        let b = self.to_uint(cx.data_layout().pointer_offset())?;
         interp_ok(u64::try_from(b).unwrap())
     }
 
