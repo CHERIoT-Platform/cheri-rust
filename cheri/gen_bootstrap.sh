@@ -29,5 +29,8 @@ experimental-targets = ""
 download-ci-llvm = false
 build-config = {CMAKE_C_COMPILER="clang", CMAKE_CXX_COMPILER="clang++"}
 
+[target.riscv32cheriot-unknown-cheriotrtos]
+no-std = true
+
 EOF
 fi
