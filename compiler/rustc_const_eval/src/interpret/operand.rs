@@ -205,7 +205,7 @@ impl<Prov: Provenance> std::fmt::Display for ImmTy<'_, Prov> {
         ) -> Result<(), std::fmt::Error> {
             match s {
                 Scalar::Int(int) => p.pretty_print_const_scalar_int(int, ty, true),
-                Scalar::Ptr(ptr, _sz) => {
+                Scalar::Ptr { ptr, .. } => {
                     // Just print the ptr value. `pretty_print_const_scalar_ptr` would also try to
                     // print what is points to, which would fail since it has no access to the local
                     // memory.
@@ -872,7 +872,9 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
         // Other cases need layout.
         let adjust_scalar = |scalar| -> InterpResult<'tcx, _> {
             interp_ok(match scalar {
-                Scalar::Ptr(ptr, size) => Scalar::Ptr(self.global_root_pointer(ptr)?, size),
+                Scalar::Ptr { ptr, in_memory_size, capacity } => {
+                    Scalar::Ptr { ptr: self.global_root_pointer(ptr)?, in_memory_size, capacity }
+                }
                 Scalar::Int(int) => Scalar::Int(int),
             })
         };

@@ -1731,7 +1731,7 @@ pub trait PrettyPrinter<'tcx>: Printer<'tcx> + fmt::Write {
         ty: Ty<'tcx>,
     ) -> Result<(), PrintError> {
         match scalar {
-            Scalar::Ptr(ptr, _size) => self.pretty_print_const_scalar_ptr(ptr, ty),
+            Scalar::Ptr { ptr, .. } => self.pretty_print_const_scalar_ptr(ptr, ty),
             Scalar::Int(int) => {
                 self.pretty_print_const_scalar_int(int, ty, /* print_ty */ true)
             }

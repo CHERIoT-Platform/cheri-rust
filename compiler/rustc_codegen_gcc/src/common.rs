@@ -247,7 +247,7 @@ impl<'gcc, 'tcx> ConstCodegenMethods for CodegenCx<'gcc, 'tcx> {
                     self.const_bitcast(value, ty)
                 }
             }
-            Scalar::Ptr(ptr, _size) => {
+            Scalar::Ptr { ptr, .. } => {
                 let (prov, offset) = ptr.prov_and_relative_offset();
                 let alloc_id = prov.alloc_id();
                 let base_addr = match self.tcx.global_alloc(alloc_id) {

@@ -555,7 +555,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
         if matches!(ptr.layout.backend_repr, BackendRepr::Scalar(..)) {
             // A thin pointer. If it has provenance, we don't have to do anything.
             // If it does not, ensure we clear the provenance in memory.
-            if !matches!(ptr.to_scalar(), Scalar::Ptr(..)) {
+            if !matches!(ptr.to_scalar(), Scalar::Ptr { .. }) {
                 // The loaded pointer has no provenance. Some bytes of its representation still
                 // might have provenance, which we have to clear.
                 self.ecx.clear_provenance(place)?;
@@ -724,7 +724,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
         // pointers if `size` is zero.
         let scalar = Scalar::from_maybe_pointer(place.ptr(), self.ecx);
         if self.ecx.scalar_may_be_null(scalar)? {
-            let maybe = !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr(..));
+            let maybe = !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr { .. });
             throw_validation_failure!(
                 self.path,
                 format!(
@@ -961,7 +961,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
                     // we have to still check it to be non-null.
                     if self.ecx.scalar_may_be_null(scalar)? {
                         let maybe =
-                            !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr(..));
+                            !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr { .. });
                         throw_validation_failure!(
                             self.path,
                             format!(
