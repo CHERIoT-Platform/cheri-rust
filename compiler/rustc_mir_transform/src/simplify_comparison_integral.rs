@@ -53,7 +53,7 @@ impl<'tcx> crate::MirPass<'tcx> for SimplifyComparisonIntegral {
                         .expect("if we have an evaluated constant we must know the layout");
                     int.to_bits(layout.size)
                 }
-                Scalar::Ptr(..) => continue,
+                Scalar::Ptr { .. } => continue,
             };
             const FALSE: u128 = 0;
 
