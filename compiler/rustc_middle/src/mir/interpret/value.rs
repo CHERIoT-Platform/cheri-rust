@@ -27,10 +27,16 @@ pub enum Scalar<Prov = CtfeProvenance> {
 
     /// A pointer.
     ///
-    /// We also store the size of the pointer, such that a `Scalar` always knows how big it is.
-    /// The size is always the pointer size of the current target, but this is not information
-    /// that we always have readily available.
-    Ptr(Pointer<Prov>, u8),
+    /// We also store the in-memory size and capacity of the pointer, such that a `Scalar` always knows how
+    /// big it is. The in-memory size is always the pointer size of the current target, but this is not
+    /// information that we always have readily available.
+    ///
+    /// On targets with integral pointers - that is, where pointers are represented simply as the memory
+    /// address they refer to - in-memory size and capacity are equivalent. On other systems, such as CHERI,
+    /// that is not the case, and pointers have an in-memory size (intended as their the size of their
+    /// in-memory representation) which is different from their capacity (intended as the size of
+    /// the memory address that they can hold in them).
+    Ptr { ptr: Pointer<Prov>, in_memory_size: u8, capacity: u8 },
 }
 
 #[cfg(target_pointer_width = "64")]
@@ -41,7 +47,7 @@ rustc_data_structures::static_assert_size!(Scalar, 24);
 impl<Prov: Provenance> fmt::Debug for Scalar<Prov> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Scalar::Ptr(ptr, _size) => write!(f, "{ptr:?}"),
+            Scalar::Ptr { ptr, .. } => write!(f, "{ptr:?}"),
             Scalar::Int(int) => write!(f, "{int:?}"),
         }
     }
@@ -50,7 +56,7 @@ impl<Prov: Provenance> fmt::Debug for Scalar<Prov> {
 impl<Prov: Provenance> fmt::Display for Scalar<Prov> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Scalar::Ptr(ptr, _size) => write!(f, "pointer to {ptr:?}"),
+            Scalar::Ptr { ptr, .. } => write!(f, "pointer to {ptr:?}"),
             Scalar::Int(int) => write!(f, "{int}"),
         }
     }
@@ -59,7 +65,7 @@ impl<Prov: Provenance> fmt::Display for Scalar<Prov> {
 impl<Prov: Provenance> fmt::LowerHex for Scalar<Prov> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Scalar::Ptr(ptr, _size) => write!(f, "pointer to {ptr:?}"),
+            Scalar::Ptr { ptr, .. } => write!(f, "pointer to {ptr:?}"),
             Scalar::Int(int) => write!(f, "{int:#x}"),
         }
     }
@@ -103,7 +109,12 @@ impl<Prov> From<ScalarInt> for Scalar<Prov> {
 impl<Prov> Scalar<Prov> {
     #[inline(always)]
     pub fn from_pointer(ptr: Pointer<Prov>, cx: &impl HasDataLayout) -> Self {
-        Scalar::Ptr(ptr, u8::try_from(cx.pointer_size().bytes()).unwrap())
+        let dl = cx.data_layout();
+        Scalar::Ptr {
+            ptr,
+            in_memory_size: u8::try_from(dl.pointer_size().bytes()).unwrap(),
+            capacity: u8::try_from(dl.pointer_offset().bytes()).unwrap(),
+        }
     }
 
     /// Create a Scalar from a pointer with an `Option<_>` provenance (where `None` represents a
@@ -246,11 +257,11 @@ impl<Prov> Scalar<Prov> {
             Scalar::Int(int) => Left(int.try_to_bits(target_size).map_err(|size| {
                 ScalarSizeMismatch { target_size: target_size.bytes(), data_size: size.bytes() }
             })?),
-            Scalar::Ptr(ptr, sz) => {
-                if target_size.bytes() != u64::from(sz) {
+            Scalar::Ptr { ptr, capacity, .. } => {
+                if target_size.bytes() != u64::from(capacity) {
                     return Err(ScalarSizeMismatch {
                         target_size: target_size.bytes(),
-                        data_size: sz.into(),
+                        data_size: capacity.into(),
                     });
                 }
                 Right(ptr)
@@ -262,7 +273,7 @@ impl<Prov> Scalar<Prov> {
     pub fn size(self) -> Size {
         match self {
             Scalar::Int(int) => int.size(),
-            Scalar::Ptr(_ptr, sz) => Size::from_bytes(sz),
+            Scalar::Ptr { in_memory_size, .. } => Size::from_bytes(in_memory_size),
         }
     }
 }
@@ -294,21 +305,26 @@ impl<'tcx, Prov: Provenance> Scalar<Prov> {
     pub fn try_to_scalar_int(self) -> Result<ScalarInt, Scalar<AllocId>> {
         match self {
             Scalar::Int(int) => Ok(int),
-            Scalar::Ptr(ptr, sz) => {
+            Scalar::Ptr { ptr, in_memory_size, capacity } => {
                 if Prov::OFFSET_IS_ADDR {
-                    Ok(ScalarInt::try_from_uint(ptr.offset.bytes(), Size::from_bytes(sz)).unwrap())
+                    Ok(ScalarInt::try_from_uint(ptr.offset.bytes(), Size::from_bytes(capacity))
+                        .unwrap())
                 } else {
                     // We know `offset` is relative, since `OFFSET_IS_ADDR == false`.
                     let (prov, offset) = ptr.into_raw_parts();
                     // Because `OFFSET_IS_ADDR == false`, this unwrap can never fail.
-                    Err(Scalar::Ptr(Pointer::new(prov.get_alloc_id().unwrap(), offset), sz))
+                    Err(Scalar::Ptr {
+                        ptr: Pointer::new(prov.get_alloc_id().unwrap(), offset),
+                        in_memory_size,
+                        capacity,
+                    })
                 }
             }
         }
     }
 
     pub fn clear_provenance(&mut self) -> InterpResult<'tcx> {
-        if matches!(self, Scalar::Ptr(..)) {
+        if matches!(self, Scalar::Ptr { .. }) {
             *self = self.to_scalar_int()?.into();
         }
         interp_ok(())
