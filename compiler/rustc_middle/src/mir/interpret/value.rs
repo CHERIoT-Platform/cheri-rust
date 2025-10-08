@@ -270,7 +270,7 @@ impl<Prov> Scalar<Prov> {
     }
 
     #[inline]
-    pub fn size(self) -> Size {
+    pub fn in_memory_size(self) -> Size {
         match self {
             Scalar::Int(int) => int.size(),
             Scalar::Ptr { in_memory_size, .. } => Size::from_bytes(in_memory_size),
