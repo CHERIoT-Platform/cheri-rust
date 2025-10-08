@@ -27,7 +27,7 @@ pub fn try_new_scalar<'tcx, B: Bridge>(
     scalar: Scalar,
     cx: &CompilerCtxt<'tcx, B>,
 ) -> Result<Allocation, B::Error> {
-    let size = scalar.size();
+    let size = scalar.in_memory_size();
     let mut allocation = Allocation::new(size, layout.align.abi, AllocInit::Uninit, ());
     allocation
         .write_scalar(&cx.tcx, alloc_range(Size::ZERO, size), scalar)
@@ -51,7 +51,7 @@ pub fn try_new_slice<'tcx, B: Bridge>(
         .write_scalar(&cx.tcx, alloc_range(Size::ZERO, ptr_size), scalar_ptr)
         .map_err(|e| B::Error::from_internal(e))?;
     allocation
-        .write_scalar(&cx.tcx, alloc_range(ptr_size, scalar_meta.size()), scalar_meta)
+        .write_scalar(&cx.tcx, alloc_range(ptr_size, scalar_meta.in_memory_size()), scalar_meta)
         .map_err(|e| B::Error::from_internal(e))?;
 
     Ok(allocation)
