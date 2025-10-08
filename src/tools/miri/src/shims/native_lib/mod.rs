@@ -300,7 +300,7 @@ trait EvalContextExtPriv<'tcx>: crate::MiriInterpCxExt<'tcx> {
                     }
                     write_target_uint(
                         this.data_layout().endian,
-                        &mut bytes[pos..][..sc.size().bytes_usize()],
+                        &mut bytes[pos..][..sc.in_memory_size().bytes_usize()],
                         sc.to_scalar_int()?.to_bits_unchecked(),
                     )
                     .unwrap();

@@ -1771,7 +1771,7 @@ fn is_deterministic(c: Const<'_>) -> bool {
 fn may_have_provenance(tcx: TyCtxt<'_>, value: ConstValue, size: Size) -> bool {
     match value {
         ConstValue::ZeroSized | ConstValue::Scalar(Scalar::Int(_)) => return false,
-        ConstValue::Scalar(Scalar::Ptr(..)) | ConstValue::Slice { .. } => return true,
+        ConstValue::Scalar(Scalar::Ptr{ .. }) | ConstValue::Slice { .. } => return true,
         ConstValue::Indirect { alloc_id, offset } => !tcx
             .global_alloc(alloc_id)
             .unwrap_memory()

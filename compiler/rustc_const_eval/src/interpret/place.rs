@@ -722,7 +722,7 @@ where
 
         match value {
             Immediate::Scalar(scalar) => {
-                alloc.write_scalar(alloc_range(Size::ZERO, scalar.size()), scalar)?;
+                alloc.write_scalar(alloc_range(Size::ZERO, scalar.in_memory_size()), scalar)?;
             }
             Immediate::ScalarPair(a_val, b_val) => {
                 let BackendRepr::ScalarPair(_a, b) = layout.backend_repr else {
@@ -748,8 +748,8 @@ where
                     alloc.write_uninit_full();
                 }
 
-                alloc.write_scalar(alloc_range(Size::ZERO, a_size), a_val)?;
-                alloc.write_scalar(alloc_range(b_offset, b_val.size()), b_val)?;
+                alloc.write_scalar(alloc_range(Size::ZERO, a_val.in_memory_size()), a_val)?;
+                alloc.write_scalar(alloc_range(b_offset, b_val.in_memory_size()), b_val)?;
             }
             Immediate::Uninit => alloc.write_uninit_full(),
         }
