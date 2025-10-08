@@ -277,7 +277,8 @@ impl<'tcx> CompileTimeInterpCx<'tcx> {
             (Scalar::Int(a), Scalar::Int(b)) => (a == b) as u8,
             // Comparing a pointer `ptr` with an integer `int` is equivalent to comparing
             // `ptr-int` with null, so we can reduce this case to a `scalar_may_be_null` test.
-            (Scalar::Int(int), Scalar::Ptr(ptr, _)) | (Scalar::Ptr(ptr, _), Scalar::Int(int)) => {
+            (Scalar::Int(int), Scalar::Ptr { ptr, .. })
+            | (Scalar::Ptr { ptr, .. }, Scalar::Int(int)) => {
                 let int = int.to_target_usize(*self.tcx);
                 // The `wrapping_neg` here may produce a value that is not
                 // a valid target usize any more... but `wrapping_offset` handles that correctly.
@@ -291,7 +292,7 @@ impl<'tcx> CompileTimeInterpCx<'tcx> {
                     2
                 }
             }
-            (Scalar::Ptr(a, _), Scalar::Ptr(b, _)) => {
+            (Scalar::Ptr { ptr: a, .. }, Scalar::Ptr { ptr: b, .. }) => {
                 let (a_prov, a_offset) = a.prov_and_relative_offset();
                 let (b_prov, b_offset) = b.prov_and_relative_offset();
                 let a_allocid = a_prov.alloc_id();

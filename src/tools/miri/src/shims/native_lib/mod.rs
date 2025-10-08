@@ -295,8 +295,8 @@ trait EvalContextExtPriv<'tcx>: crate::MiriInterpCxExt<'tcx> {
                 // A little helper to write scalars to our byte array.
                 let mut write_scalar = |this: &MiriInterpCx<'tcx>, sc: Scalar, pos: usize| {
                     // If a scalar is a pointer, then expose its provenance.
-                    if let interpret::Scalar::Ptr(p, _) = sc {
-                        expose(p.provenance)?;
+                    if let interpret::Scalar::Ptr { ptr, .. } = sc {
+                        expose(ptr.provenance)?;
                     }
                     write_target_uint(
                         this.data_layout().endian,

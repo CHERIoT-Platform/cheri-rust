@@ -708,16 +708,16 @@ impl<'tcx, Prov: Provenance> LocalState<'tcx, Prov> {
             }
             LocalValue::Live(Operand::Immediate(Immediate::Scalar(val))) => {
                 write!(fmt, " {val:?}")?;
-                if let Scalar::Ptr(ptr, _size) = val {
+                if let Scalar::Ptr { ptr, .. } = val {
                     allocs.push(ptr.provenance.get_alloc_id());
                 }
             }
             LocalValue::Live(Operand::Immediate(Immediate::ScalarPair(val1, val2))) => {
                 write!(fmt, " ({val1:?}, {val2:?})")?;
-                if let Scalar::Ptr(ptr, _size) = val1 {
+                if let Scalar::Ptr { ptr, .. } = val1 {
                     allocs.push(ptr.provenance.get_alloc_id());
                 }
-                if let Scalar::Ptr(ptr, _size) = val2 {
+                if let Scalar::Ptr { ptr, .. } = val2 {
                     allocs.push(ptr.provenance.get_alloc_id());
                 }
             }

@@ -681,7 +681,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
         // pointers if `size` is zero.
         let scalar = Scalar::from_maybe_pointer(place.ptr(), self.ecx);
         if self.ecx.scalar_may_be_null(scalar)? {
-            let maybe = !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr(..));
+            let maybe = !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr{ .. });
             throw_validation_failure!(
                 self.path,
                 format!(
@@ -911,7 +911,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
                     // we have to still check it to be non-null.
                     if self.ecx.scalar_may_be_null(scalar)? {
                         let maybe =
-                            !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr(..));
+                            !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr{ .. });
                         throw_validation_failure!(
                             self.path,
                             format!(

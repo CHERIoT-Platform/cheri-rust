@@ -1523,7 +1523,9 @@ pub fn write_allocations<'tcx>(
 
     fn alloc_id_from_const_val(val: ConstValue) -> Option<AllocId> {
         match val {
-            ConstValue::Scalar(interpret::Scalar::Ptr(ptr, _)) => Some(ptr.provenance.alloc_id()),
+            ConstValue::Scalar(interpret::Scalar::Ptr { ptr, .. }) => {
+                Some(ptr.provenance.alloc_id())
+            }
             ConstValue::Scalar(interpret::Scalar::Int { .. }) => None,
             ConstValue::ZeroSized => None,
             ConstValue::Slice { alloc_id, .. } | ConstValue::Indirect { alloc_id, .. } => {

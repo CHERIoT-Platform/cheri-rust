@@ -135,7 +135,7 @@ pub(crate) fn codegen_const_value<'tcx>(
                     place.to_cvalue(fx)
                 }
             }
-            Scalar::Ptr(ptr, _size) => {
+            Scalar::Ptr { ptr, .. } => {
                 let (prov, offset) = ptr.prov_and_relative_offset();
                 let alloc_id = prov.alloc_id();
                 let base_addr = match fx.tcx.global_alloc(alloc_id) {
