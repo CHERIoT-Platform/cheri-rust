@@ -120,7 +120,11 @@ impl<Prov: Provenance> Immediate<Prov> {
     pub fn assert_matches_abi(self, abi: BackendRepr, msg: &str, cx: &impl HasDataLayout) {
         match (self, abi) {
             (Immediate::Scalar(scalar), BackendRepr::Scalar(s)) => {
-                assert_eq!(scalar.size(), s.size(cx), "{msg}: scalar value has wrong size");
+                assert_eq!(
+                    scalar.in_memory_size(),
+                    s.size(cx),
+                    "{msg}: scalar value has wrong size"
+                );
                 if !matches!(s.primitive(), abi::Primitive::Pointer(..)) {
                     // This is not a pointer, it should not carry provenance.
                     assert!(
@@ -131,7 +135,7 @@ impl<Prov: Provenance> Immediate<Prov> {
             }
             (Immediate::ScalarPair(a_val, b_val), BackendRepr::ScalarPair(a, b)) => {
                 assert_eq!(
-                    a_val.size(),
+                    a_val.in_memory_size(),
                     a.size(cx),
                     "{msg}: first component of scalar pair has wrong size"
                 );
@@ -142,7 +146,7 @@ impl<Prov: Provenance> Immediate<Prov> {
                     );
                 }
                 assert_eq!(
-                    b_val.size(),
+                    b_val.in_memory_size(),
                     b.size(cx),
                     "{msg}: second component of scalar pair has wrong size"
                 );
@@ -259,7 +263,7 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
     #[inline]
     pub fn from_scalar(val: Scalar<Prov>, layout: TyAndLayout<'tcx>) -> Self {
         debug_assert!(layout.backend_repr.is_scalar(), "`ImmTy::from_scalar` on non-scalar layout");
-        debug_assert_eq!(val.size(), layout.size);
+        debug_assert_eq!(val.in_memory_size(), layout.size);
         ImmTy { imm: val.into(), layout }
     }
 
