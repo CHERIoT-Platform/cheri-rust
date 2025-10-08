@@ -540,7 +540,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
         // that does not imply non-null.
         let scalar = Scalar::from_maybe_pointer(place.ptr(), self.ecx);
         if self.ecx.scalar_may_be_null(scalar)? {
-            let maybe = !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr(..));
+            let maybe = !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr { .. });
             throw_validation_failure!(self.path, NullPtr { ptr_kind, maybe })
         }
         // Do not allow references to uninhabited types.
@@ -755,7 +755,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
                     // we have to still check it to be non-null.
                     if self.ecx.scalar_may_be_null(scalar)? {
                         let maybe =
-                            !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr(..));
+                            !M::Provenance::OFFSET_IS_ADDR && matches!(scalar, Scalar::Ptr { .. });
                         throw_validation_failure!(self.path, NullFnPtr { maybe });
                     }
                 }

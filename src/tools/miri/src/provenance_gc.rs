@@ -81,7 +81,7 @@ impl VisitProvenance for Pointer {
 impl VisitProvenance for Scalar {
     fn visit_provenance(&self, visit: &mut VisitWith<'_>) {
         match self {
-            Scalar::Ptr(ptr, _) => ptr.visit_provenance(visit),
+            Scalar::Ptr { ptr, .. } => ptr.visit_provenance(visit),
             Scalar::Int(_) => (),
         }
     }
