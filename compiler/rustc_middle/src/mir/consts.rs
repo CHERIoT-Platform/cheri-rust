@@ -188,7 +188,7 @@ impl ConstValue {
     pub fn may_have_provenance(&self, tcx: TyCtxt<'_>, size: Size) -> bool {
         match *self {
             ConstValue::ZeroSized | ConstValue::Scalar(Scalar::Int(_)) => return false,
-            ConstValue::Scalar(Scalar::Ptr(..)) => return true,
+            ConstValue::Scalar(Scalar::Ptr { .. }) => return true,
             // It's hard to find out the part of the allocation we point to;
             // just conservatively check everything.
             ConstValue::Slice { alloc_id, meta: _ } => {
