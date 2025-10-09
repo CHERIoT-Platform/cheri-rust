@@ -8,7 +8,7 @@ use rustc_span::sym;
 use super::FunctionCx;
 use super::operand::OperandRef;
 use super::place::PlaceRef;
-use crate::common::{AtomicRmwBinOp, SynchronizationScope, PreserveCheriTags};
+use crate::common::{AtomicRmwBinOp, PreserveCheriTags, SynchronizationScope};
 use crate::errors::InvalidMonomorphization;
 use crate::traits::*;
 use crate::{MemFlags, meth, size_of_val};

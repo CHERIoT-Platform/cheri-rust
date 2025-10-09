@@ -584,8 +584,9 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             fn visit_value(&mut self, v: &MPlaceTy<'tcx>) -> InterpResult<'tcx> {
                 trace!("UnsafeCellVisitor: {:?} {:?}", *v, v.layout.ty);
                 let is_unsafe_cell = match v.layout.ty.kind() {
-                    ty::Adt(adt, _) =>
-                        Some(adt.did()) == self.ecx.tcx.lang_items().unsafe_cell_type(),
+                    ty::Adt(adt, _) => {
+                        Some(adt.did()) == self.ecx.tcx.lang_items().unsafe_cell_type()
+                    }
                     _ => false,
                 };
                 if is_unsafe_cell {
@@ -1033,10 +1034,9 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
                             array.push(this.read_immediate(&elem)?);
                         }
                     }
-                    _ =>
-                        throw_unsup_format!(
-                            "only function pointers and arrays of function pointers are supported in well-known linker sections"
-                        ),
+                    _ => throw_unsup_format!(
+                        "only function pointers and arrays of function pointers are supported in well-known linker sections"
+                    ),
                 }
             }
             interp_ok(())

@@ -209,7 +209,7 @@ pub struct Range<'a> {
     pub end: Option<&'a Expr<'a>>,
     /// Whether the interval is open or closed.
     pub limits: ast::RangeLimits,
-    pub span: Span
+    pub span: Span,
 }
 
 impl<'a> Range<'a> {

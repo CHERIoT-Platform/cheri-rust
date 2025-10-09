@@ -149,12 +149,13 @@ trait EvalContextExtPriv<'tcx>: crate::MiriInterpCxExt<'tcx> {
                     let ptr = StrictPointer::new(Provenance::Wildcard, Size::from_bytes(x.addr()));
                     Scalar::from_pointer(ptr, this)
                 }
-                _ =>
+                _ => {
                     return Err(err_unsup_format!(
                         "unsupported return type for native call: {:?}",
                         link_name
                     ))
-                    .into(),
+                    .into();
+                }
             };
             interp_ok(ImmTy::from_scalar(scalar, dest.layout))
         })
@@ -351,7 +352,7 @@ trait EvalContextExtPriv<'tcx>: crate::MiriInterpCxExt<'tcx> {
                                     imm.layout
                                 )
                             };
-                            a.size(this).align_to(b.align(this).abi).bytes_usize()
+                            a.in_memory_size(this).align_to(b.align(this).abi).bytes_usize()
                         };
 
                         write_scalar(this, sc_first, 0)?;
@@ -414,11 +415,10 @@ trait EvalContextExtPriv<'tcx>: crate::MiriInterpCxExt<'tcx> {
                 Primitive::Int(Integer::I32, /* signed */ false) => FfiType::u32(),
                 Primitive::Int(Integer::I64, /* signed */ false) => FfiType::u64(),
                 Primitive::Pointer(AddressSpace::ZERO) => FfiType::pointer(),
-                _ =>
-                    throw_unsup_format!(
-                        "unsupported scalar argument type for native call: {}",
-                        layout.ty
-                    ),
+                _ => throw_unsup_format!(
+                    "unsupported scalar argument type for native call: {}",
+                    layout.ty
+                ),
             });
         }
         interp_ok(match layout.ty.kind() {

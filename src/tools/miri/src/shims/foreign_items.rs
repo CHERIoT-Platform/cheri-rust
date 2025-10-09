@@ -827,18 +827,21 @@ trait EvalContextExtPriv<'tcx>: crate::MiriInterpCxExt<'tcx> {
 
                 // Platform-specific shims
                 return match this.tcx.sess.target.os.as_ref() {
-                    _ if this.target_os_is_unix() =>
+                    _ if this.target_os_is_unix() => {
                         shims::unix::foreign_items::EvalContextExt::emulate_foreign_item_inner(
                             this, link_name, abi, args, dest,
-                        ),
-                    "wasi" =>
+                        )
+                    }
+                    "wasi" => {
                         shims::wasi::foreign_items::EvalContextExt::emulate_foreign_item_inner(
                             this, link_name, abi, args, dest,
-                        ),
-                    "windows" =>
+                        )
+                    }
+                    "windows" => {
                         shims::windows::foreign_items::EvalContextExt::emulate_foreign_item_inner(
                             this, link_name, abi, args, dest,
-                        ),
+                        )
+                    }
                     _ => interp_ok(EmulateItemResult::NotSupported),
                 };
             }

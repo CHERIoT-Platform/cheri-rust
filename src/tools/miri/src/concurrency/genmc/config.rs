@@ -56,10 +56,11 @@ impl GenmcConfig {
                 "=blocked" => ExecutiongraphPrinting::Blocked,
                 // Make GenMC print all executions.
                 "=all" => ExecutiongraphPrinting::ExploredAndBlocked,
-                _ =>
+                _ => {
                     return Err(format!(
                         "Invalid suffix to GenMC argument '-Zmiri-genmc-print-exec-graphs', expected '', '=none', '=explored', '=blocked' or '=all'"
-                    )),
+                    ));
+                }
             }
         } else if trimmed_arg == "estimate" {
             // FIXME(genmc): should this be on by default (like for GenMC)?

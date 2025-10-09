@@ -152,15 +152,15 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
 
                     let val = match (op.layout.ty.kind(), dest.layout.ty.kind()) {
                         // Ptr/Int casts
-                        (ty::RawPtr(..), ty::Int(_) | ty::Uint(_)) =>
-                            this.pointer_expose_provenance_cast(&op, dest.layout)?,
+                        (ty::RawPtr(..), ty::Int(_) | ty::Uint(_)) => {
+                            this.pointer_expose_provenance_cast(&op, dest.layout)?
+                        }
                         // Error otherwise
-                        _ =>
-                            throw_unsup_format!(
-                                "Unsupported `simd_expose_provenance` from element type {from_ty} to {to_ty}",
-                                from_ty = op.layout.ty,
-                                to_ty = dest.layout.ty,
-                            ),
+                        _ => throw_unsup_format!(
+                            "Unsupported `simd_expose_provenance` from element type {from_ty} to {to_ty}",
+                            from_ty = op.layout.ty,
+                            to_ty = dest.layout.ty,
+                        ),
                     };
                     this.write_immediate(*val, &dest)?;
                 }

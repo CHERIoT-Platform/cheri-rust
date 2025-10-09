@@ -450,8 +450,9 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
     ) -> InterpResult<'tcx, ImmTy<'tcx>> {
         let this = self.eval_context_mut();
         let new_perm = match val.layout.ty.kind() {
-            &ty::Ref(_, pointee, mutability) =>
-                NewPermission::new(pointee, Some(mutability), kind, this),
+            &ty::Ref(_, pointee, mutability) => {
+                NewPermission::new(pointee, Some(mutability), kind, this)
+            }
             _ => None,
         };
         if let Some(new_perm) = new_perm {
