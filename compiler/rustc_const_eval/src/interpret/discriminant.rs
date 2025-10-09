@@ -97,7 +97,12 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
 
         // Read tag and sanity-check `tag_layout`.
         let tag_val = self.read_immediate(&self.project_field(op, tag_field)?)?;
-        assert_eq!(tag_layout.size, tag_val.layout.size);
+        let desired_size = if tag_val.layout.ty.is_ref() || tag_val.layout.ty.is_raw_ptr() {
+            self.tcx.data_layout.pointer_offset()
+        } else {
+            tag_val.layout.size
+        };
+        assert_eq!(tag_layout.size, desired_size);
         assert_eq!(tag_layout.backend_repr.is_signed(), tag_val.layout.backend_repr.is_signed());
         trace!("tag value: {}", tag_val);
 
@@ -281,7 +286,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                 let discr = self.discriminant_for_variant(layout.ty, variant_index)?;
                 let discr_size = discr.layout.size;
                 let discr_val = discr.to_scalar().to_bits(discr_size)?;
-                let tag_size = tag_layout.size(self);
+                let tag_size = tag_layout.capacity(self);
                 let tag_val = tag_size.truncate(discr_val);
                 let tag = ScalarInt::try_from_uint(tag_val, tag_size).unwrap();
                 interp_ok(Some((tag, tag_field)))

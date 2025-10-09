@@ -1106,7 +1106,8 @@ where
                 if let Some(variant) = data_variant {
                     // FIXME(erikdesjardins): handle non-default addrspace ptr sizes
                     // (requires passing in the expected address space from the caller)
-                    let ptr_end = offset + Primitive::Pointer(dl.default_address_space).size(cx);
+                    let ptr_end =
+                        offset + Primitive::Pointer(dl.default_address_space).in_memory_size(cx);
                     for i in 0..variant.fields.count() {
                         let field_start = variant.fields.offset(i);
                         if field_start <= offset {

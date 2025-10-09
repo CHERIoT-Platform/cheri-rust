@@ -453,7 +453,11 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                 attributes::apply_to_llfn(
                     llfn,
                     idx,
-                    &[llvm::CreateRangeAttr(cx.llcx, scalar.size(cx), scalar.valid_range(cx))],
+                    &[llvm::CreateRangeAttr(
+                        cx.llcx,
+                        scalar.in_memory_size(cx),
+                        scalar.valid_range(cx),
+                    )],
                 );
             }
         };

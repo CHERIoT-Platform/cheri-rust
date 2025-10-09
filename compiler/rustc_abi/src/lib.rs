@@ -1409,7 +1409,20 @@ pub enum Primitive {
 }
 
 impl Primitive {
-    pub fn size<C: HasDataLayout>(self, cx: &C) -> Size {
+    /// Retrieve how many bits it takes to represent in memory this [`Primitive`].
+    ///
+    /// On platforms with integral pointers, the output of this function will be exactly the same as
+    /// [`Self::capacity`]. On platforms with non-integral pointers such as [CHERI], this distinction appears and
+    /// is instead crucial: this function is the one you want when you want to refer to how many
+    /// bits it takes to store this [`Primitive`] in memory.
+    ///
+    /// This distinction is visible only when [`self`] is a [`Primitive::Pointer`] as, in platforms with
+    /// non-integral pointers, storing a pointer in memory generally takes more space than the bits
+    /// of user-visible data contained in the pointer itself, due to metadata attached with the
+    /// data.
+    ///
+    /// [CHERI]: https://en.wikipedia.org/wiki/Capability_Hardware_Enhanced_RISC_Instructions
+    pub fn in_memory_size<C: HasDataLayout>(self, cx: &C) -> Size {
         use Primitive::*;
         let dl = cx.data_layout();
 
@@ -1417,6 +1430,30 @@ impl Primitive {
             Int(i, _) => i.size(),
             Float(f) => f.size(),
             Pointer(a) => dl.pointer_size_in(a),
+        }
+    }
+
+    /// Retrieve how many bits of data this [`Primitive`] contains.
+    ///
+    /// On platforms with integral pointers, the output of this function will be exactly the same as
+    /// [`Self::in_memory_size`]. On platforms with non-integral pointers such as [CHERI], this distinction appears
+    /// and is instead crucial: this function is the one you want when you want to refer to how many
+    /// bits of user-visible data can be extracted from this [`Primitive`].
+    ///
+    /// This distinction is visible only when [`self`] is a [`Primitive::Pointer`] as, in platforms with
+    /// non-integral pointers, storing a pointer in memory generally takes more space than the bits
+    /// of user-visible data contained in the pointer itself, due to metadata attached with the
+    /// data.
+    ///
+    /// [CHERI]: https://en.wikipedia.org/wiki/Capability_Hardware_Enhanced_RISC_Instructions
+    pub fn capacity<C: HasDataLayout>(self, cx: &C) -> Size {
+        use Primitive::*;
+        let dl = cx.data_layout();
+
+        match self {
+            Int(i, _) => i.size(),
+            Float(f) => f.size(),
+            Pointer(a) => dl.pointer_offset_in(a),
         }
     }
 
@@ -1599,8 +1636,20 @@ impl Scalar {
         self.primitive().align(cx)
     }
 
-    pub fn size(self, cx: &impl HasDataLayout) -> Size {
-        self.primitive().size(cx)
+    /// Retrieve how many bits it takes to represent in memory this [`Scalar`].
+    ///
+    /// For more informations about this function and its relation with [`Self::capacity`], refer to
+    /// the documentation of [`Primitive::in_memory_size`].
+    pub fn in_memory_size(self, cx: &impl HasDataLayout) -> Size {
+        self.primitive().in_memory_size(cx)
+    }
+
+    /// Retrieve how many bits of data this [`Scalar`] contains.
+    ///
+    /// For more informations about this function and its relation with [`Self::in_memory_size`], refer to
+    /// the documentation of [`Primitive::in_memory_size`].
+    pub fn capacity(self, cx: &impl HasDataLayout) -> Size {
+        self.primitive().capacity(cx)
     }
 
     #[inline]
@@ -1612,7 +1661,7 @@ impl Scalar {
     pub fn valid_range(&self, cx: &impl HasDataLayout) -> WrappingRange {
         match *self {
             Scalar::Initialized { valid_range, .. } => valid_range,
-            Scalar::Union { value } => WrappingRange::full(value.size(cx)),
+            Scalar::Union { value } => WrappingRange::full(value.capacity(cx)),
         }
     }
 
@@ -1631,7 +1680,7 @@ impl Scalar {
     #[inline]
     pub fn is_always_valid<C: HasDataLayout>(&self, cx: &C) -> bool {
         match *self {
-            Scalar::Initialized { valid_range, .. } => valid_range.is_full_for(self.size(cx)),
+            Scalar::Initialized { valid_range, .. } => valid_range.is_full_for(self.capacity(cx)),
             Scalar::Union { .. } => true,
         }
     }
@@ -1869,11 +1918,11 @@ impl BackendRepr {
     pub fn scalar_size<C: HasDataLayout>(&self, cx: &C) -> Option<Size> {
         match *self {
             // No padding in scalars.
-            BackendRepr::Scalar(s) => Some(s.size(cx)),
+            BackendRepr::Scalar(s) => Some(s.in_memory_size(cx)),
             // May have some padding between the pair.
             BackendRepr::ScalarPair(s1, s2) => {
-                let field2_offset = s1.size(cx).align_to(s2.align(cx).abi);
-                let size = (field2_offset + s2.size(cx)).align_to(
+                let field2_offset = s1.in_memory_size(cx).align_to(s2.align(cx).abi);
+                let size = (field2_offset + s2.in_memory_size(cx)).align_to(
                     self.scalar_align(cx)
                         // We absolutely must have an answer here or everything is FUBAR.
                         .unwrap(),
@@ -2012,7 +2061,7 @@ impl Niche {
 
     pub fn available<C: HasDataLayout>(&self, cx: &C) -> u128 {
         let Self { value, valid_range: v, .. } = *self;
-        let size = value.size(cx);
+        let size = value.capacity(cx);
         assert!(size.bits() <= 128);
         let max_value = size.unsigned_int_max();
 
@@ -2025,7 +2074,7 @@ impl Niche {
         assert!(count > 0);
 
         let Self { value, valid_range: v, .. } = *self;
-        let size = value.size(cx);
+        let size = value.capacity(cx);
         assert!(size.bits() <= 128);
         let max_value = size.unsigned_int_max();
 

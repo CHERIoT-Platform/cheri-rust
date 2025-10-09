@@ -287,7 +287,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
             if !matches!(kind, StructKind::MaybeUnsized) {
                 if let Some(niche) = layout.largest_niche {
                     let head_space = niche.offset.bytes();
-                    let niche_len = niche.value.size(dl).bytes();
+                    let niche_len = niche.value.in_memory_size(dl).bytes();
                     let tail_space = layout.size.bytes() - head_space - niche_len;
 
                     // This may end up doing redundant work if the niche is already in the last
@@ -301,7 +301,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
                             .largest_niche
                             .expect("alt layout should have a niche like the regular one");
                         let alt_head_space = alt_niche.offset.bytes();
-                        let alt_niche_len = alt_niche.value.size(dl).bytes();
+                        let alt_niche_len = alt_niche.value.in_memory_size(dl).bytes();
                         let alt_tail_space =
                             alt_layout.size.bytes() - alt_head_space - alt_niche_len;
 
@@ -551,7 +551,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
         if is_special_no_niche {
             let hide_niches = |scalar: &mut _| match scalar {
                 Scalar::Initialized { value, valid_range } => {
-                    *valid_range = WrappingRange::full(value.size(dl))
+                    *valid_range = WrappingRange::full(value.capacity(dl))
                 }
                 // Already doesn't have any niches
                 Scalar::Union { .. } => {}
@@ -581,7 +581,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
                 // Because of that we only check that the start and end
                 // of the range is representable with this scalar type.
 
-                let max_value = scalar.size(dl).unsigned_int_max();
+                let max_value = scalar.capacity(dl).unsigned_int_max();
                 if let Bound::Included(start) = start {
                     // FIXME(eddyb) this might be incorrect - it doesn't
                     // account for wrap-around (end < start) ranges.
@@ -682,7 +682,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
             let niche = variant_layouts[largest_variant_index].largest_niche?;
             let (niche_start, niche_scalar) = niche.reserve(dl, count)?;
             let niche_offset = niche.offset;
-            let niche_size = niche.value.size(dl);
+            let niche_size = niche.value.in_memory_size(dl);
             let size = variant_layouts[largest_variant_index].size.align_to(align);
 
             let all_variants_fit = variant_layouts.iter_enumerated_mut().all(|(i, layout)| {
@@ -986,7 +986,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
         let mut abi = BackendRepr::Memory { sized: true };
 
         let uninhabited = layout_variants.iter().all(|v| v.is_uninhabited());
-        if tag.size(dl) == size {
+        if tag.in_memory_size(dl) == size {
             // Make sure we only use scalar layout when the enum is entirely its
             // own tag (i.e. it has no padding nor any non-ZST variant fields).
             abi = BackendRepr::Scalar(tag);
@@ -1044,7 +1044,8 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
                         // roundtripping pointers through ptrtoint/inttoptr.
                         (p @ Primitive::Pointer(_), i @ Primitive::Int(..))
                         | (i @ Primitive::Int(..), p @ Primitive::Pointer(_))
-                            if p.size(dl) == i.size(dl) && p.align(dl) == i.align(dl) =>
+                            if p.in_memory_size(dl) == i.in_memory_size(dl)
+                                && p.align(dl) == i.align(dl) =>
                         {
                             p
                         }
@@ -1061,7 +1062,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
             }
             if let Some((prim, offset)) = common_prim {
                 let prim_scalar = if common_prim_initialized_in_all_variants {
-                    let size = prim.size(dl);
+                    let size = prim.in_memory_size(dl);
                     assert!(size.bits() <= 128);
                     Scalar::Initialized { value: prim, valid_range: WrappingRange::full(size) }
                 } else {
@@ -1277,7 +1278,9 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
                             let inner_niche_offset_key = match niche_bias {
                                 NicheBias::Start => f.largest_niche.map_or(0, |n| n.offset.bytes()),
                                 NicheBias::End => f.largest_niche.map_or(0, |n| {
-                                    !(field_size - n.value.size(dl).bytes() - n.offset.bytes())
+                                    !(field_size
+                                        - n.value.in_memory_size(dl).bytes()
+                                        - n.offset.bytes())
                                 }),
                             };
 
@@ -1520,7 +1523,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
                     " n{}b{}s{}",
                     n.offset.bytes(),
                     n.available(dl).ilog2(),
-                    n.value.size(dl).bytes()
+                    n.value.in_memory_size(dl).bytes()
                 )
                 .unwrap();
             }

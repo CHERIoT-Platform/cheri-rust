@@ -903,12 +903,18 @@ where
                 if matches!(src.layout().ty.kind(), ty::Ref(..) | ty::RawPtr(..)) =>
             {
                 // Wide pointers never have padding, so we can avoid calling `size()`.
-                debug_assert_eq!(left.size(self) + right.size(self), src.layout().size);
+                debug_assert_eq!(
+                    
+                   
+                
+                    left.in_memory_size(self) + right.in_memory_size(self),
+                    src.layout().size
+                );
                 false
             }
             BackendRepr::ScalarPair(left, right) => {
-                let left_size = left.size(self);
-                let right_size = right.size(self);
+                let left_size = left.in_memory_size(self);
+                let right_size = right.in_memory_size(self);
                 // We have padding if the sizes don't add up to the total.
                 left_size + right_size != src.layout().size
             }

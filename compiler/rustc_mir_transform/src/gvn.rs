@@ -709,16 +709,16 @@ impl<'body, 'a, 'tcx> VnState<'body, 'a, 'tcx> {
                     if value.as_mplace_or_imm().is_right() {
                         let can_transmute = match (value.layout.backend_repr, ty.backend_repr) {
                             (BackendRepr::Scalar(s1), BackendRepr::Scalar(s2)) => {
-                                s1.size(&self.ecx) == s2.size(&self.ecx)
+                                s1.in_memory_size(&self.ecx) == s2.in_memory_size(&self.ecx)
                                     && !matches!(s1.primitive(), Primitive::Pointer(..))
                             }
                             (BackendRepr::ScalarPair(a1, b1), BackendRepr::ScalarPair(a2, b2)) => {
-                                a1.size(&self.ecx) == a2.size(&self.ecx)
-                                    && b1.size(&self.ecx) == b2.size(&self.ecx)
-                                    // The alignment of the second component determines its offset, so that also needs to match.
-                                    && b1.align(&self.ecx) == b2.align(&self.ecx)
-                                    // None of the inputs may be a pointer.
-                                    && !matches!(a1.primitive(), Primitive::Pointer(..))
+                                a1.in_memory_size(&self.ecx) == a2.in_memory_size(&self.ecx) &&
+                                b1.in_memory_size(&self.ecx) == b2.in_memory_size(&self.ecx) &&
+                                // The alignment of the second component determines its offset, so that also needs to match.
+                                b1.align(&self.ecx) == b2.align(&self.ecx) &&
+                                // None of the inputs may be a pointer.
+                                                !matches!(a1.primitive(), Primitive::Pointer(..))
                                     && !matches!(b1.primitive(), Primitive::Pointer(..))
                             }
                             _ => false,
@@ -1771,7 +1771,7 @@ fn is_deterministic(c: Const<'_>) -> bool {
 fn may_have_provenance(tcx: TyCtxt<'_>, value: ConstValue, size: Size) -> bool {
     match value {
         ConstValue::ZeroSized | ConstValue::Scalar(Scalar::Int(_)) => return false,
-        ConstValue::Scalar(Scalar::Ptr{ .. }) | ConstValue::Slice { .. } => return true,
+        ConstValue::Scalar(Scalar::Ptr { .. }) | ConstValue::Slice { .. } => return true,
         ConstValue::Indirect { alloc_id, offset } => !tcx
             .global_alloc(alloc_id)
             .unwrap_memory()

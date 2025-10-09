@@ -197,7 +197,7 @@ fn layout_of_uncached<'tcx>(
         Err(err) => Err(map_error(cx, ty, err)),
     };
     let scalar_unit = |value: Primitive| {
-        let size = value.size(dl);
+        let size = value.capacity(dl);
         assert!(size.bits() <= 128);
         Scalar::Initialized { value, valid_range: WrappingRange::full(size) }
     };
@@ -899,7 +899,7 @@ fn variant_info_for_adt<'tcx>(
             (
                 variant_infos,
                 match tag_encoding {
-                    TagEncoding::Direct => Some(tag.size(cx)),
+                    TagEncoding::Direct => Some(tag.capacity(cx)),
                     _ => None,
                 },
             )
@@ -998,7 +998,7 @@ fn variant_info_for_coroutine<'tcx>(
             // better, but this "works" for now.
             if layout.fields.offset(tag_field.as_usize()) >= variant_size {
                 variant_size += match tag_encoding {
-                    TagEncoding::Direct => tag.size(cx),
+                    TagEncoding::Direct => tag.capacity(cx),
                     _ => Size::ZERO,
                 };
             }
@@ -1024,7 +1024,7 @@ fn variant_info_for_coroutine<'tcx>(
     (
         variant_infos,
         match tag_encoding {
-            TagEncoding::Direct => Some(tag.size(cx)),
+            TagEncoding::Direct => Some(tag.capacity(cx)),
             _ => None,
         },
     )
