@@ -48,7 +48,7 @@ impl<FieldIdx: Idx, VariantIdx: Idx> LayoutData<FieldIdx, VariantIdx> {
 
     pub fn scalar<C: HasDataLayout>(cx: &C, scalar: Scalar) -> Self {
         let largest_niche = Niche::from_scalar(cx, Size::ZERO, scalar);
-        let size = scalar.size(cx);
+        let size = scalar.in_memory_size(cx);
         let align = scalar.align(cx);
 
         let range = scalar.valid_range(cx);
@@ -92,8 +92,8 @@ impl<FieldIdx: Idx, VariantIdx: Idx> LayoutData<FieldIdx, VariantIdx> {
         let dl = cx.data_layout();
         let b_align = b.align(dl).abi;
         let align = a.align(dl).abi.max(b_align).max(dl.aggregate_align);
-        let b_offset = a.size(dl).align_to(b_align);
-        let size = (b_offset + b.size(dl)).align_to(align);
+        let b_offset = a.in_memory_size(dl).align_to(b_align);
+        let size = (b_offset + b.in_memory_size(dl)).align_to(align);
 
         // HACK(nox): We iter on `b` and then `a` because `max_by_key`
         // returns the last maximum.
@@ -102,7 +102,7 @@ impl<FieldIdx: Idx, VariantIdx: Idx> LayoutData<FieldIdx, VariantIdx> {
             .chain(Niche::from_scalar(dl, Size::ZERO, a))
             .max_by_key(|niche| niche.available(dl));
 
-        let combined_seed = a.size(dl).bytes().wrapping_add(b.size(dl).bytes());
+        let combined_seed = a.in_memory_size(dl).bytes().wrapping_add(b.in_memory_size(dl).bytes());
 
         LayoutData {
             variants: Variants::Single { index: VariantIdx::new(0) },
