@@ -408,7 +408,7 @@ fn field_ty(
 }
 
 fn scalar_unit(dl: &TargetDataLayout, value: Primitive) -> Scalar {
-    Scalar::Initialized { value, valid_range: WrappingRange::full(value.size(dl)) }
+    Scalar::Initialized { value, valid_range: WrappingRange::full(value.capacity(dl)) }
 }
 
 #[cfg(test)]

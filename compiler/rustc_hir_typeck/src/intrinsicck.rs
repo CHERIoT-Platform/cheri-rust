@@ -115,7 +115,7 @@ fn check_transmute<'tcx>(
         let from = unpack_option_like(tcx, from);
         if let ty::FnDef(..) = from.kind()
             && let SizeSkeleton::Known(size_to, _) = sk_to
-            && size_to == Pointer(tcx.data_layout.instruction_address_space).size(&tcx)
+            && size_to == Pointer(tcx.data_layout.instruction_address_space).in_memory_size(&tcx)
         {
             struct_span_code_err!(tcx.sess.dcx(), span(), E0591, "can't transmute zero-sized type")
                 .with_note(format!("source type: {from}"))

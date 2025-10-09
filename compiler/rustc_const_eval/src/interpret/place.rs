@@ -721,7 +721,7 @@ where
                         layout
                     )
                 };
-                let b_offset = a.size(&tcx).align_to(b.align(&tcx).abi);
+                let b_offset = a.in_memory_size(&tcx).align_to(b.align(&tcx).abi);
                 assert!(b_offset.bytes() > 0); // in `operand_field` we use the offset to tell apart the fields
 
                 // It is tempting to verify `b_offset` against `layout.fields.offset(1)`,

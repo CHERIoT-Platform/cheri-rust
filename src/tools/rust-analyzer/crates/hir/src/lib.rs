@@ -6023,7 +6023,7 @@ impl Layout {
         let tag_size =
             if let layout::Variants::Multiple { tag, tag_encoding, .. } = &self.0.variants {
                 match tag_encoding {
-                    TagEncoding::Direct => tag.size(&*self.1).bytes_usize(),
+                    TagEncoding::Direct => tag.in_memory_size(&*self.1).bytes_usize(),
                     TagEncoding::Niche { .. } => 0,
                 }
             } else {
