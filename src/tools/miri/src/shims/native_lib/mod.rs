@@ -351,7 +351,7 @@ trait EvalContextExtPriv<'tcx>: crate::MiriInterpCxExt<'tcx> {
                                     imm.layout
                                 )
                             };
-                            a.size(this).align_to(b.align(this).abi).bytes_usize()
+                            a.in_memory_size(this).align_to(b.align(this).abi).bytes_usize()
                         };
 
                         write_scalar(this, sc_first, 0)?;
