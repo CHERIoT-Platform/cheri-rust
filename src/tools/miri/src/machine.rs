@@ -854,11 +854,10 @@ impl<'tcx> MiriMachine<'tcx> {
             ));
             let to = match method.special {
                 Some(special) => Either::Right(special),
-                None =>
-                    Either::Left(Symbol::intern(&mangle_internal_symbol(
-                        tcx,
-                        &allocator::default_fn_name(method.name),
-                    ))),
+                None => Either::Left(Symbol::intern(&mangle_internal_symbol(
+                    tcx,
+                    &allocator::default_fn_name(method.name),
+                ))),
             };
             symbols.try_insert(from_name, to).unwrap();
         }
@@ -962,17 +961,16 @@ impl<'tcx> MiriMachine<'tcx> {
 
         let data_race = match &ecx.machine.data_race {
             GlobalDataRaceHandler::None => AllocDataRaceHandler::None,
-            GlobalDataRaceHandler::Vclocks(data_race) =>
-                AllocDataRaceHandler::Vclocks(
-                    data_race::AllocState::new_allocation(
-                        data_race,
-                        &ecx.machine.threads,
-                        size,
-                        kind,
-                        ecx.machine.current_user_relevant_span(),
-                    ),
-                    data_race.weak_memory.then(weak_memory::AllocState::new_allocation),
+            GlobalDataRaceHandler::Vclocks(data_race) => AllocDataRaceHandler::Vclocks(
+                data_race::AllocState::new_allocation(
+                    data_race,
+                    &ecx.machine.threads,
+                    size,
+                    kind,
+                    ecx.machine.current_user_relevant_span(),
                 ),
+                data_race.weak_memory.then(weak_memory::AllocState::new_allocation),
+            ),
             GlobalDataRaceHandler::Genmc(_genmc_ctx) => {
                 // GenMC learns about new allocations directly from the alloc_addresses module,
                 // since it has to be able to control the address at which they are placed.
@@ -1532,8 +1530,9 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         // The order of checks is deliberate, to prefer reporting a data race over a borrow tracker error.
         match &machine.data_race {
             GlobalDataRaceHandler::None => {}
-            GlobalDataRaceHandler::Genmc(genmc_ctx) =>
-                genmc_ctx.memory_load(machine, ptr.addr(), range.size)?,
+            GlobalDataRaceHandler::Genmc(genmc_ctx) => {
+                genmc_ctx.memory_load(machine, ptr.addr(), range.size)?
+            }
             GlobalDataRaceHandler::Vclocks(_data_race) => {
                 let _trace = enter_trace_span!(data_race::before_memory_read);
                 let AllocDataRaceHandler::Vclocks(data_race, _weak_memory) = &alloc_extra.data_race
@@ -1567,8 +1566,9 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         }
         match &machine.data_race {
             GlobalDataRaceHandler::None => {}
-            GlobalDataRaceHandler::Genmc(genmc_ctx) =>
-                genmc_ctx.memory_store(machine, ptr.addr(), range.size)?,
+            GlobalDataRaceHandler::Genmc(genmc_ctx) => {
+                genmc_ctx.memory_store(machine, ptr.addr(), range.size)?
+            }
             GlobalDataRaceHandler::Vclocks(_global_state) => {
                 let _trace = enter_trace_span!(data_race::before_memory_write);
                 let AllocDataRaceHandler::Vclocks(data_race, weak_memory) =
@@ -1605,8 +1605,9 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         }
         match &machine.data_race {
             GlobalDataRaceHandler::None => {}
-            GlobalDataRaceHandler::Genmc(genmc_ctx) =>
-                genmc_ctx.handle_dealloc(machine, alloc_id, ptr.addr(), kind)?,
+            GlobalDataRaceHandler::Genmc(genmc_ctx) => {
+                genmc_ctx.handle_dealloc(machine, alloc_id, ptr.addr(), kind)?
+            }
             GlobalDataRaceHandler::Vclocks(_global_state) => {
                 let _trace = enter_trace_span!(data_race::before_memory_deallocation);
                 let data_race = alloc_extra.data_race.as_vclocks_mut().unwrap();

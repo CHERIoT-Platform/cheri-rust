@@ -35,8 +35,8 @@ use crate::attributes;
 use crate::common::Funclet;
 use crate::context::{CodegenCx, FullCx, GenericCx, SCx};
 use crate::llvm::{
-    self, AtomicOrdering, AtomicRmwBinOp, BasicBlock, FromGeneric, GEPNoWrapFlags, Metadata, PreserveCheriTags, TRUE,
-    ToLlvmBool, Type, Value,
+    self, AtomicOrdering, AtomicRmwBinOp, BasicBlock, FromGeneric, GEPNoWrapFlags, Metadata,
+    PreserveCheriTags, TRUE, ToLlvmBool, Type, Value,
 };
 use crate::type_of::LayoutLlvmExt;
 
@@ -734,7 +734,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             });
             OperandValue::Immediate(llval)
         } else if let abi::BackendRepr::ScalarPair(a, b) = place.layout.backend_repr {
-            let b_offset = a.size(self).align_to(b.align(self).abi);
+            let b_offset = a.in_memory_size(self).align_to(b.align(self).abi);
 
             let mut load = |i, scalar: abi::Scalar, layout, align, offset| {
                 let llptr = if i == 0 {

@@ -972,12 +972,12 @@ pub trait EvalContextExt<'tcx>: MiriInterpCxExt<'tcx> {
         let this = self.eval_context_ref();
         interp_ok(match &this.machine.data_race {
             GlobalDataRaceHandler::None => None,
-            GlobalDataRaceHandler::Genmc(_genmc_ctx) =>
-                throw_unsup_format!(
-                    "this operation performs synchronization that is not supported in GenMC mode"
-                ),
-            GlobalDataRaceHandler::Vclocks(data_race) =>
-                Some(data_race.release_clock(&this.machine.threads, callback)),
+            GlobalDataRaceHandler::Genmc(_genmc_ctx) => throw_unsup_format!(
+                "this operation performs synchronization that is not supported in GenMC mode"
+            ),
+            GlobalDataRaceHandler::Vclocks(data_race) => {
+                Some(data_race.release_clock(&this.machine.threads, callback))
+            }
         })
     }
 
@@ -987,12 +987,12 @@ pub trait EvalContextExt<'tcx>: MiriInterpCxExt<'tcx> {
         let this = self.eval_context_ref();
         match &this.machine.data_race {
             GlobalDataRaceHandler::None => {}
-            GlobalDataRaceHandler::Genmc(_genmc_ctx) =>
-                throw_unsup_format!(
-                    "this operation performs synchronization that is not supported in GenMC mode"
-                ),
-            GlobalDataRaceHandler::Vclocks(data_race) =>
-                data_race.acquire_clock(clock, &this.machine.threads),
+            GlobalDataRaceHandler::Genmc(_genmc_ctx) => throw_unsup_format!(
+                "this operation performs synchronization that is not supported in GenMC mode"
+            ),
+            GlobalDataRaceHandler::Vclocks(data_race) => {
+                data_race.acquire_clock(clock, &this.machine.threads)
+            }
         }
         interp_ok(())
     }
@@ -1046,8 +1046,9 @@ impl VClockAlloc {
                 | MiriMemoryKind::ExternStatic
                 | MiriMemoryKind::Tls,
             )
-            | MemoryKind::CallerLocation =>
-                (VTimestamp::ZERO, global.thread_index(ThreadId::MAIN_THREAD)),
+            | MemoryKind::CallerLocation => {
+                (VTimestamp::ZERO, global.thread_index(ThreadId::MAIN_THREAD))
+            }
         };
         VClockAlloc {
             alloc_ranges: RefCell::new(DedupRangeMap::new(

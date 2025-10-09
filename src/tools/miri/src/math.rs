@@ -69,12 +69,13 @@ pub(crate) fn apply_random_float_error_ulp<F: rustc_apfloat::Float>(
     let max_error = i64::from(max_error);
     let error = match ecx.machine.float_rounding_error {
         FloatRoundingErrorMode::Random => rng.random_range(-max_error..=max_error),
-        FloatRoundingErrorMode::Max =>
+        FloatRoundingErrorMode::Max => {
             if rng.random() {
                 max_error
             } else {
                 -max_error
-            },
+            }
+        }
         FloatRoundingErrorMode::None => unreachable!(),
     };
     // If upwards ULP and downwards ULP differ, we take the average.
@@ -94,14 +95,18 @@ pub(crate) fn apply_random_float_error_to_imm<'tcx>(
 ) -> InterpResult<'tcx, ImmTy<'tcx>> {
     let scalar = val.to_scalar_int()?;
     let res: ScalarInt = match val.layout.ty.kind() {
-        ty::Float(FloatTy::F16) =>
-            apply_random_float_error_ulp(ecx, scalar.to_f16(), max_error).into(),
-        ty::Float(FloatTy::F32) =>
-            apply_random_float_error_ulp(ecx, scalar.to_f32(), max_error).into(),
-        ty::Float(FloatTy::F64) =>
-            apply_random_float_error_ulp(ecx, scalar.to_f64(), max_error).into(),
-        ty::Float(FloatTy::F128) =>
-            apply_random_float_error_ulp(ecx, scalar.to_f128(), max_error).into(),
+        ty::Float(FloatTy::F16) => {
+            apply_random_float_error_ulp(ecx, scalar.to_f16(), max_error).into()
+        }
+        ty::Float(FloatTy::F32) => {
+            apply_random_float_error_ulp(ecx, scalar.to_f32(), max_error).into()
+        }
+        ty::Float(FloatTy::F64) => {
+            apply_random_float_error_ulp(ecx, scalar.to_f64(), max_error).into()
+        }
+        ty::Float(FloatTy::F128) => {
+            apply_random_float_error_ulp(ecx, scalar.to_f128(), max_error).into()
+        }
         _ => bug!("intrinsic called with non-float input type"),
     };
 
@@ -247,23 +252,26 @@ where
         ("atan2", [x, y]) if (x.is_zero() && (y.is_negative() && !y.is_nan())) => pi.copy_sign(*x),
 
         // atan2(±x,−∞) = ±π for finite x > 0.
-        ("atan2", [x, y]) if (!x.is_zero() && !x.is_infinite()) && y.is_neg_infinity() =>
-            pi.copy_sign(*x),
+        ("atan2", [x, y]) if (!x.is_zero() && !x.is_infinite()) && y.is_neg_infinity() => {
+            pi.copy_sign(*x)
+        }
 
         // atan2(x, ±0) = −π/2 for x < 0.
         // atan2(x, ±0) =  π/2 for x > 0.
         ("atan2", [x, y]) if !x.is_zero() && y.is_zero() => pi_over_2.copy_sign(*x),
 
         //atan2(±∞, −∞) = ±3π/4
-        ("atan2", [x, y]) if x.is_infinite() && y.is_neg_infinity() =>
-            (pi_over_4 * three).value.copy_sign(*x),
+        ("atan2", [x, y]) if x.is_infinite() && y.is_neg_infinity() => {
+            (pi_over_4 * three).value.copy_sign(*x)
+        }
 
         //atan2(±∞, +∞) = ±π/4
         ("atan2", [x, y]) if x.is_infinite() && y.is_pos_infinity() => pi_over_4.copy_sign(*x),
 
         // atan2(±∞, y) returns ±π/2 for finite y.
-        ("atan2", [x, y]) if x.is_infinite() && (!y.is_infinite() && !y.is_nan()) =>
-            pi_over_2.copy_sign(*x),
+        ("atan2", [x, y]) if x.is_infinite() && (!y.is_infinite() && !y.is_nan()) => {
+            pi_over_2.copy_sign(*x)
+        }
 
         // (-1)^(±INF) = 1
         ("pow", [base, exp]) if *base == -one && exp.is_infinite() => one,

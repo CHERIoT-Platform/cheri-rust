@@ -72,30 +72,31 @@ impl fmt::Display for TerminationInfo {
             Abort(msg) => write!(f, "{msg}"),
             Interrupted => write!(f, "interpretation was interrupted"),
             UnsupportedInIsolation(msg) => write!(f, "{msg}"),
-            Int2PtrWithStrictProvenance =>
-                write!(
-                    f,
-                    "integer-to-pointer casts and `ptr::with_exposed_provenance` are not supported with `-Zmiri-strict-provenance`"
-                ),
+            Int2PtrWithStrictProvenance => write!(
+                f,
+                "integer-to-pointer casts and `ptr::with_exposed_provenance` are not supported with `-Zmiri-strict-provenance`"
+            ),
             StackedBorrowsUb { msg, .. } => write!(f, "{msg}"),
             TreeBorrowsUb { title, .. } => write!(f, "{title}"),
             Deadlock => write!(f, "the evaluated program deadlocked"),
-            GenmcBlockedExecution =>
-                write!(f, "GenMC determined that the execution got blocked (this is not an error)"),
-            MultipleSymbolDefinitions { link_name, .. } =>
-                write!(f, "multiple definitions of symbol `{link_name}`"),
-            SymbolShimClashing { link_name, .. } =>
-                write!(f, "found `{link_name}` symbol definition that clashes with a built-in shim",),
-            DataRace { involves_non_atomic, ptr, op1, op2, .. } =>
-                write!(
-                    f,
-                    "{} detected between (1) {} on {} and (2) {} on {} at {ptr:?}",
-                    if *involves_non_atomic { "Data race" } else { "Race condition" },
-                    op1.action,
-                    op1.thread_info,
-                    op2.action,
-                    op2.thread_info
-                ),
+            GenmcBlockedExecution => {
+                write!(f, "GenMC determined that the execution got blocked (this is not an error)")
+            }
+            MultipleSymbolDefinitions { link_name, .. } => {
+                write!(f, "multiple definitions of symbol `{link_name}`")
+            }
+            SymbolShimClashing { link_name, .. } => {
+                write!(f, "found `{link_name}` symbol definition that clashes with a built-in shim",)
+            }
+            DataRace { involves_non_atomic, ptr, op1, op2, .. } => write!(
+                f,
+                "{} detected between (1) {} on {} and (2) {} on {} at {ptr:?}",
+                if *involves_non_atomic { "Data race" } else { "Race condition" },
+                op1.action,
+                op1.thread_info,
+                op2.action,
+                op2.thread_info
+            ),
             UnsupportedForeignItem(msg) => write!(f, "{msg}"),
         }
     }
@@ -247,10 +248,12 @@ pub fn report_error<'tcx>(
             &Exit { code, leak_check } => return Some((code, leak_check)),
             Abort(_) => Some("abnormal termination"),
             Interrupted => None,
-            UnsupportedInIsolation(_) | Int2PtrWithStrictProvenance | UnsupportedForeignItem(_) =>
-                Some("unsupported operation"),
-            StackedBorrowsUb { .. } | TreeBorrowsUb { .. } | DataRace { .. } =>
-                Some("Undefined Behavior"),
+            UnsupportedInIsolation(_) | Int2PtrWithStrictProvenance | UnsupportedForeignItem(_) => {
+                Some("unsupported operation")
+            }
+            StackedBorrowsUb { .. } | TreeBorrowsUb { .. } | DataRace { .. } => {
+                Some("Undefined Behavior")
+            }
             Deadlock => {
                 labels.push(format!("this thread got stuck here"));
                 None
@@ -642,28 +645,32 @@ impl<'tcx> MiriMachine<'tcx> {
         let (stacktrace, _was_pruned) = prune_stacktrace(stacktrace, self);
 
         let (label, diag_level) = match &e {
-            RejectedIsolatedOp(_) =>
-                ("operation rejected by isolation".to_string(), DiagLevel::Warning),
+            RejectedIsolatedOp(_) => {
+                ("operation rejected by isolation".to_string(), DiagLevel::Warning)
+            }
             Int2Ptr { .. } => ("integer-to-pointer cast".to_string(), DiagLevel::Warning),
-            NativeCallSharedMem { .. } =>
-                ("sharing memory with a native function".to_string(), DiagLevel::Warning),
-            NativeCallFnPtr =>
-                (
-                    "sharing a function pointer with a native function".to_string(),
-                    DiagLevel::Warning,
-                ),
-            ExternTypeReborrow =>
-                ("reborrow of reference to `extern type`".to_string(), DiagLevel::Warning),
-            GenmcCompareExchangeWeak | GenmcCompareExchangeOrderingMismatch { .. } =>
-                ("GenMC might miss possible behaviors of this code".to_string(), DiagLevel::Warning),
+            NativeCallSharedMem { .. } => {
+                ("sharing memory with a native function".to_string(), DiagLevel::Warning)
+            }
+            NativeCallFnPtr => (
+                "sharing a function pointer with a native function".to_string(),
+                DiagLevel::Warning,
+            ),
+            ExternTypeReborrow => {
+                ("reborrow of reference to `extern type`".to_string(), DiagLevel::Warning)
+            }
+            GenmcCompareExchangeWeak | GenmcCompareExchangeOrderingMismatch { .. } => {
+                ("GenMC might miss possible behaviors of this code".to_string(), DiagLevel::Warning)
+            }
             CreatedPointerTag(..)
             | PoppedPointerTag(..)
             | TrackingAlloc(..)
             | AccessedAlloc(..)
             | FreedAlloc(..)
             | ProgressReport { .. }
-            | WeakMemoryOutdatedLoad { .. } =>
-                ("tracking was triggered here".to_string(), DiagLevel::Note),
+            | WeakMemoryOutdatedLoad { .. } => {
+                ("tracking was triggered here".to_string(), DiagLevel::Note)
+            }
         };
 
         let title = match &e {
@@ -754,7 +761,7 @@ impl<'tcx> MiriMachine<'tcx> {
                 }
                 v
             }
-            NativeCallSharedMem { tracing } =>
+            NativeCallSharedMem { tracing } => {
                 if *tracing {
                     vec![
                         note!(
@@ -788,7 +795,8 @@ impl<'tcx> MiriMachine<'tcx> {
                             "what this means is that Miri will easily miss Undefined Behavior related to incorrect usage of this shared memory, so you should not take a clean Miri run as a signal that your FFI code is UB-free"
                         ),
                     ]
-                },
+                }
+            }
             NativeCallFnPtr => {
                 vec![note!(
                     "calling Rust functions from C is not supported and will, in the best case, crash the program"

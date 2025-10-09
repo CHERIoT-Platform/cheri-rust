@@ -21,7 +21,7 @@ use super::type_::{ArgAbiBuilderMethods, BaseTypeCodegenMethods, LayoutTypeCodeg
 use super::{CodegenMethods, StaticBuilderMethods};
 use crate::MemFlags;
 use crate::common::{
-     PreserveCheriTags, AtomicRmwBinOp, IntPredicate, RealPredicate, SynchronizationScope, TypeKind,
+    AtomicRmwBinOp, IntPredicate, PreserveCheriTags, RealPredicate, SynchronizationScope, TypeKind,
 };
 use crate::mir::operand::{OperandRef, OperandValue};
 use crate::mir::place::{PlaceRef, PlaceValue};
@@ -512,8 +512,16 @@ pub trait BuilderMethods<'a, 'tcx>:
             temp.val.store_with_flags(self, dst.with_type(layout), flags);
         } else if !layout.is_zst() {
             let bytes = self.const_usize(layout.size.bytes());
-            self.memcpy(dst.llval, dst.align, src.llval, src.align, bytes, flags, None,
-                PreserveCheriTags::Unknown);
+            self.memcpy(
+                dst.llval,
+                dst.align,
+                src.llval,
+                src.align,
+                bytes,
+                flags,
+                None,
+                PreserveCheriTags::Unknown,
+            );
         }
     }
 

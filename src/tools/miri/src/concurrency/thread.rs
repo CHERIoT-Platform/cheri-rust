@@ -130,8 +130,9 @@ impl<'tcx> std::fmt::Debug for ThreadState<'tcx> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Enabled => write!(f, "Enabled"),
-            Self::Blocked { reason, timeout, .. } =>
-                f.debug_struct("Blocked").field("reason", reason).field("timeout", timeout).finish(),
+            Self::Blocked { reason, timeout, .. } => {
+                f.debug_struct("Blocked").field("reason", reason).field("timeout", timeout).finish()
+            }
             Self::Terminated => write!(f, "Terminated"),
         }
     }
@@ -362,8 +363,9 @@ impl Timeout {
     fn get_wait_time(&self, clock: &MonotonicClock) -> Duration {
         match self {
             Timeout::Monotonic(instant) => instant.duration_since(clock.now()),
-            Timeout::RealTime(time) =>
-                time.duration_since(SystemTime::now()).unwrap_or(Duration::ZERO),
+            Timeout::RealTime(time) => {
+                time.duration_since(SystemTime::now()).unwrap_or(Duration::ZERO)
+            }
         }
     }
 
@@ -630,12 +632,11 @@ impl<'tcx> ThreadManager<'tcx> {
     fn next_callback_wait_time(&self, clock: &MonotonicClock) -> Option<Duration> {
         self.threads
             .iter()
-            .filter_map(|t| {
-                match &t.state {
-                    ThreadState::Blocked { timeout: Some(timeout), .. } =>
-                        Some(timeout.get_wait_time(clock)),
-                    _ => None,
+            .filter_map(|t| match &t.state {
+                ThreadState::Blocked { timeout: Some(timeout), .. } => {
+                    Some(timeout.get_wait_time(clock))
                 }
+                _ => None,
             })
             .min()
     }
@@ -880,15 +881,15 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         let current_span = this.machine.current_user_relevant_span();
         match &mut this.machine.data_race {
             GlobalDataRaceHandler::None => {}
-            GlobalDataRaceHandler::Vclocks(data_race) =>
-                data_race.thread_created(&this.machine.threads, new_thread_id, current_span),
-            GlobalDataRaceHandler::Genmc(genmc_ctx) =>
-                genmc_ctx.handle_thread_create(
-                    &this.machine.threads,
-                    start_routine,
-                    &func_arg,
-                    new_thread_id,
-                )?,
+            GlobalDataRaceHandler::Vclocks(data_race) => {
+                data_race.thread_created(&this.machine.threads, new_thread_id, current_span)
+            }
+            GlobalDataRaceHandler::Genmc(genmc_ctx) => genmc_ctx.handle_thread_create(
+                &this.machine.threads,
+                start_routine,
+                &func_arg,
+                new_thread_id,
+            )?,
         }
         // Write the current thread-id, switch to the next thread later
         // to treat this write operation as occurring on the current thread.
@@ -959,24 +960,27 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             // Now free the TLS statics.
             for ptr in free_tls_statics {
                 match tls_alloc_action {
-                    TlsAllocAction::Deallocate =>
-                        this.deallocate_ptr(ptr.into(), None, MiriMemoryKind::Tls.into())?,
-                    TlsAllocAction::Leak =>
+                    TlsAllocAction::Deallocate => {
+                        this.deallocate_ptr(ptr.into(), None, MiriMemoryKind::Tls.into())?
+                    }
+                    TlsAllocAction::Leak => {
                         if let Some(alloc) = ptr.provenance.get_alloc_id() {
                             trace!(
                                 "Thread-local static leaked and stored as static root: {:?}",
                                 alloc
                             );
                             this.machine.static_roots.push(alloc);
-                        },
+                        }
+                    }
                 }
             }
         }
 
         match &mut this.machine.data_race {
             GlobalDataRaceHandler::None => {}
-            GlobalDataRaceHandler::Vclocks(data_race) =>
-                data_race.thread_terminated(&this.machine.threads),
+            GlobalDataRaceHandler::Vclocks(data_race) => {
+                data_race.thread_terminated(&this.machine.threads)
+            }
             GlobalDataRaceHandler::Genmc(genmc_ctx) => {
                 // Inform GenMC that the thread finished.
                 // This needs to happen once all accesses to the thread are done, including freeing any TLS statics.
@@ -1024,11 +1028,10 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
                         TimeoutAnchor::Relative => SystemTime::now(),
                     })
                 }
-                TimeoutClock::Monotonic =>
-                    Timeout::Monotonic(match anchor {
-                        TimeoutAnchor::Absolute => this.machine.monotonic_clock.epoch(),
-                        TimeoutAnchor::Relative => this.machine.monotonic_clock.now(),
-                    }),
+                TimeoutClock::Monotonic => Timeout::Monotonic(match anchor {
+                    TimeoutAnchor::Absolute => this.machine.monotonic_clock.epoch(),
+                    TimeoutAnchor::Relative => this.machine.monotonic_clock.now(),
+                }),
             };
             anchor.add_lossy(duration)
         });
@@ -1093,10 +1096,12 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             let threads = &this.machine.threads;
             match &mut this.machine.data_race {
                 GlobalDataRaceHandler::None => {}
-                GlobalDataRaceHandler::Vclocks(data_race) =>
-                    data_race.thread_joined(threads, joined_thread_id),
-                GlobalDataRaceHandler::Genmc(genmc_ctx) =>
-                    genmc_ctx.handle_thread_join(threads.active_thread, joined_thread_id)?,
+                GlobalDataRaceHandler::Vclocks(data_race) => {
+                    data_race.thread_joined(threads, joined_thread_id)
+                }
+                GlobalDataRaceHandler::Genmc(genmc_ctx) => {
+                    genmc_ctx.handle_thread_join(threads.active_thread, joined_thread_id)?
+                }
             }
             this.write_scalar(success_retval, return_dest)?;
             interp_ok(())
@@ -1266,8 +1271,9 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
                         // See if this thread can do something else.
                         match this.run_on_stack_empty()? {
                             Poll::Pending => {} // keep going
-                            Poll::Ready(()) =>
-                                this.terminate_active_thread(TlsAllocAction::Deallocate)?,
+                            Poll::Ready(()) => {
+                                this.terminate_active_thread(TlsAllocAction::Deallocate)?
+                            }
                         }
                     }
                 }

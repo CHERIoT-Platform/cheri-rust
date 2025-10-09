@@ -701,7 +701,9 @@ impl PreserveCheriTags {
         match value {
             rustc_codegen_ssa::common::PreserveCheriTags::Unknown => PreserveCheriTags::Unknown,
             rustc_codegen_ssa::common::PreserveCheriTags::Required => PreserveCheriTags::Required,
-            rustc_codegen_ssa::common::PreserveCheriTags::Unnecessary => PreserveCheriTags::Unnecessary,
+            rustc_codegen_ssa::common::PreserveCheriTags::Unnecessary => {
+                PreserveCheriTags::Unnecessary
+            }
         }
     }
 }

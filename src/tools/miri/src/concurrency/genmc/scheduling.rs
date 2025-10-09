@@ -51,8 +51,9 @@ fn get_next_instruction_kind<'tcx>(
     match &basic_block.terminator().kind {
         // All atomics are modeled as function calls to intrinsic functions.
         // The one exception is thread joining, but those are also calls.
-        TerminatorKind::Call { func, .. } | TerminatorKind::TailCall { func, .. } =>
-            get_function_kind(ecx, func.ty(&frame.body().local_decls, *ecx.tcx)),
+        TerminatorKind::Call { func, .. } | TerminatorKind::TailCall { func, .. } => {
+            get_function_kind(ecx, func.ty(&frame.body().local_decls, *ecx.tcx))
+        }
         // Non-call terminators are not atomic.
         _ => interp_ok(NonAtomic),
     }

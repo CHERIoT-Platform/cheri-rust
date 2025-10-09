@@ -171,10 +171,9 @@ impl AtomicRwOrd {
             (AtomicReadOrd::Relaxed, AtomicWriteOrd::Release) => AtomicRwOrd::Release,
             (AtomicReadOrd::Acquire, AtomicWriteOrd::Release) => AtomicRwOrd::AcqRel,
             (AtomicReadOrd::SeqCst, AtomicWriteOrd::SeqCst) => AtomicRwOrd::SeqCst,
-            _ =>
-                panic!(
-                    "Unsupported memory ordering combination ({read_ordering:?}, {write_ordering:?})"
-                ),
+            _ => panic!(
+                "Unsupported memory ordering combination ({read_ordering:?}, {write_ordering:?})"
+            ),
         }
     }
 
@@ -196,17 +195,16 @@ pub(super) fn to_genmc_rmw_op(atomic_op: AtomicRmwOp, is_signed: bool) -> RMWBin
         (AtomicRmwOp::Max, true) => RMWBinOp::Max,
         (AtomicRmwOp::Min, false) => RMWBinOp::UMin,
         (AtomicRmwOp::Max, false) => RMWBinOp::UMax,
-        (AtomicRmwOp::MirOp { op, neg }, _is_signed) =>
-            match (op, neg) {
-                (mir::BinOp::Add, false) => RMWBinOp::Add,
-                (mir::BinOp::Sub, false) => RMWBinOp::Sub,
-                (mir::BinOp::BitXor, false) => RMWBinOp::Xor,
-                (mir::BinOp::BitAnd, false) => RMWBinOp::And,
-                (mir::BinOp::BitAnd, true) => RMWBinOp::Nand,
-                (mir::BinOp::BitOr, false) => RMWBinOp::Or,
-                _ => {
-                    panic!("unsupported atomic operation: bin_op: {op:?}, negate: {neg}");
-                }
-            },
+        (AtomicRmwOp::MirOp { op, neg }, _is_signed) => match (op, neg) {
+            (mir::BinOp::Add, false) => RMWBinOp::Add,
+            (mir::BinOp::Sub, false) => RMWBinOp::Sub,
+            (mir::BinOp::BitXor, false) => RMWBinOp::Xor,
+            (mir::BinOp::BitAnd, false) => RMWBinOp::And,
+            (mir::BinOp::BitAnd, true) => RMWBinOp::Nand,
+            (mir::BinOp::BitOr, false) => RMWBinOp::Or,
+            _ => {
+                panic!("unsupported atomic operation: bin_op: {op:?}, negate: {neg}");
+            }
+        },
     }
 }

@@ -88,7 +88,16 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 let dst = dst_val.immediate();
                 let src = src_val.immediate();
                 // Handling of CHERI capabilities could probably be more efficient.
-                bx.memcpy(dst, align, src, align, bytes, crate::MemFlags::empty(), None, PreserveCheriTags::Unknown);
+                bx.memcpy(
+                    dst,
+                    align,
+                    src,
+                    align,
+                    bytes,
+                    crate::MemFlags::empty(),
+                    None,
+                    PreserveCheriTags::Unknown,
+                );
             }
             mir::StatementKind::FakeRead(..)
             | mir::StatementKind::Retag { .. }
