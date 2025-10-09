@@ -291,7 +291,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 OperandValue::Immediate(imm),
                 abi::BackendRepr::Scalar(from_scalar),
                 abi::BackendRepr::Scalar(to_scalar),
-            ) if from_scalar.size(cx) == to_scalar.size(cx) => {
+            ) if from_scalar.in_memory_size(cx) == to_scalar.in_memory_size(cx) => {
                 OperandValue::Immediate(transmute_scalar(bx, imm, from_scalar, to_scalar))
             }
             (
@@ -306,7 +306,9 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 OperandValue::Pair(imm_a, imm_b),
                 abi::BackendRepr::ScalarPair(in_a, in_b),
                 abi::BackendRepr::ScalarPair(out_a, out_b),
-            ) if in_a.size(cx) == out_a.size(cx) && in_b.size(cx) == out_b.size(cx) => {
+            ) if in_a.in_memory_size(cx) == out_a.in_memory_size(cx)
+                && in_b.in_memory_size(cx) == out_b.in_memory_size(cx) =>
+            {
                 OperandValue::Pair(
                     transmute_scalar(bx, imm_a, in_a, out_a),
                     transmute_scalar(bx, imm_b, in_b, out_b),
@@ -946,7 +948,7 @@ pub(super) fn transmute_scalar<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
     from_scalar: abi::Scalar,
     to_scalar: abi::Scalar,
 ) -> Bx::Value {
-    assert_eq!(from_scalar.size(bx.cx()), to_scalar.size(bx.cx()));
+    assert_eq!(from_scalar.in_memory_size(bx.cx()), to_scalar.in_memory_size(bx.cx()));
     let imm_ty = bx.cx().val_ty(imm);
     assert_ne!(
         bx.cx().type_kind(imm_ty),
@@ -1035,7 +1037,7 @@ fn assume_scalar_range<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
         }
         (abi::Scalar::Initialized { valid_range, .. }, Some(known)) => {
             let known_range = known.valid_range(bx.cx());
-            if valid_range.contains_range(known_range, scalar.size(bx.cx())) {
+            if valid_range.contains_range(known_range, scalar.capacity(bx.cx())) {
                 return;
             }
         }

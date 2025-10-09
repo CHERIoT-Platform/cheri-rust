@@ -648,7 +648,7 @@ fn emit_x86_64_sysv64_va_arg<'ll, 'tcx>(
                     let reg_lo = bx.load(ty_lo, reg_lo_addr, align_lo);
                     let reg_hi = bx.load(ty_hi, reg_hi_addr, align_hi);
 
-                    let offset = scalar1.size(bx.cx).align_to(align_hi).bytes();
+                    let offset = scalar1.in_memory_size(bx.cx).align_to(align_hi).bytes();
                     let field0 = tmp;
                     let field1 = bx.inbounds_ptradd(tmp, bx.const_u32(offset as u32));
 
@@ -671,7 +671,7 @@ fn emit_x86_64_sysv64_va_arg<'ll, 'tcx>(
                     let reg_lo = bx.load(ty_lo, reg_lo_addr, align_lo);
                     let reg_hi = bx.load(ty_hi, reg_hi_addr, align_hi);
 
-                    let offset = scalar1.size(bx.cx).align_to(align_hi).bytes();
+                    let offset = scalar1.in_memory_size(bx.cx).align_to(align_hi).bytes();
                     let field0 = tmp;
                     let field1 = bx.inbounds_ptradd(tmp, bx.const_u32(offset as u32));
 
