@@ -711,7 +711,7 @@ where
 
         match value {
             Immediate::Scalar(scalar) => {
-                alloc.write_scalar(alloc_range(Size::ZERO, scalar.in_memory_size()), scalar)?;
+                alloc.write_scalar(alloc_range(Size::ZERO, scalar.data_size()), scalar)?;
             }
             Immediate::ScalarPair(a_val, b_val) => {
                 let BackendRepr::ScalarPair(a, b) = layout.backend_repr else {
@@ -728,8 +728,8 @@ where
                 // but that does not work: We could be a newtype around a pair, then the
                 // fields do not match the `ScalarPair` components.
 
-                alloc.write_scalar(alloc_range(Size::ZERO, a_val.in_memory_size()), a_val)?;
-                alloc.write_scalar(alloc_range(b_offset, b_val.in_memory_size()), b_val)?;
+                alloc.write_scalar(alloc_range(Size::ZERO, a_val.data_size()), a_val)?;
+                alloc.write_scalar(alloc_range(b_offset, b_val.data_size()), b_val)?;
                 // We don't have to reset padding here, `write_immediate` will anyway do a validation run.
             }
             Immediate::Uninit => alloc.write_uninit_full(),
