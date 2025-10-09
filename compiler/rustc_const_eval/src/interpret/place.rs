@@ -722,7 +722,7 @@ where
 
         match value {
             Immediate::Scalar(scalar) => {
-                alloc.write_scalar(alloc_range(Size::ZERO, scalar.in_memory_size()), scalar)?;
+                alloc.write_scalar(alloc_range(Size::ZERO, scalar.data_size()), scalar)?;
             }
             Immediate::ScalarPair(a_val, b_val) => {
                 let BackendRepr::ScalarPair(_a, b) = layout.backend_repr else {
@@ -732,7 +732,7 @@ where
                         layout
                     )
                 };
-                let a_size = a_val.size();
+                let a_size = a_val.in_memory_size();
                 let b_offset = a_size.align_to(b.align(&tcx).abi);
                 assert!(b_offset.bytes() > 0); // in `operand_field` we use the offset to tell apart the fields
 
@@ -744,12 +744,12 @@ where
                 // destination now to ensure that no stray pointer fragments are being
                 // preserved (see <https://github.com/rust-lang/rust/issues/148470>).
                 // We can skip this if there is no padding (e.g. for wide pointers).
-                if !will_later_validate && a_size + b_val.size() != layout.size {
+                if !will_later_validate && a_size + b_val.in_memory_size() != layout.size {
                     alloc.write_uninit_full();
                 }
 
-                alloc.write_scalar(alloc_range(Size::ZERO, a_val.in_memory_size()), a_val)?;
-                alloc.write_scalar(alloc_range(b_offset, b_val.in_memory_size()), b_val)?;
+                alloc.write_scalar(alloc_range(Size::ZERO, a_val.data_size()), a_val)?;
+                alloc.write_scalar(alloc_range(b_offset, b_val.data_size()), b_val)?;
             }
             Immediate::Uninit => alloc.write_uninit_full(),
         }

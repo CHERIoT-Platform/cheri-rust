@@ -1086,7 +1086,7 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
                 // a 16-bit integer, we use the following logic to get a scalar of the right size.
                 let af_inet = this.eval_libc("AF_INET");
                 let address_family =
-                    Scalar::from_int(af_inet.to_int(af_inet.size())?, sin_family_field.layout.size);
+                    Scalar::from_int(af_inet.to_int(af_inet.data_size())?, sin_family_field.layout.size);
                 this.write_scalar(address_family, &sin_family_field)?;
 
                 let sin_port_field = this.project_field_named(&address_buffer, "sin_port")?;
@@ -1129,7 +1129,7 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
                 // a 16-bit integer, we use the following logic to get a scalar of the right size.
                 let af_inet6 = this.eval_libc("AF_INET6");
                 let address_family = Scalar::from_int(
-                    af_inet6.to_int(af_inet6.size())?,
+                    af_inet6.to_int(af_inet6.data_size())?,
                     sin6_family_field.layout.size,
                 );
                 this.write_scalar(address_family, &sin6_family_field)?;

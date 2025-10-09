@@ -216,7 +216,7 @@ impl EnumSizeOpt {
         for (var_idx, layout) in variants.iter_enumerated() {
             let curr_idx = ptr_size * adt_def.discriminant_for_variant(tcx, var_idx).val as u64;
             let val = Scalar::from_target_usize(layout.size.bytes(), &tcx);
-            alloc.write_scalar(&tcx, alloc_range(curr_idx, val.size()), val).unwrap();
+            alloc.write_scalar(&tcx, alloc_range(curr_idx, val.data_size()), val).unwrap();
         }
         alloc.mutability = Mutability::Not;
         let alloc = tcx.reserve_and_set_memory_alloc(tcx.mk_const_alloc(alloc));
