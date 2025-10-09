@@ -199,9 +199,9 @@ pub(super) fn layout_sanity_check<'tcx>(cx: &LayoutCx<'tcx>, layout: &TyAndLayou
                     (offset2, field2, offset1, field1)
                 };
                 // The fields should be at the right offset, and match the `scalar` layout.
-                let size1 = scalar1.size(cx);
+                let size1 = scalar1.in_memory_size(cx);
                 let align1 = scalar1.align(cx).abi;
-                let size2 = scalar2.size(cx);
+                let size2 = scalar2.in_memory_size(cx);
                 let align2 = scalar2.align(cx).abi;
                 assert_eq!(
                     offset1,
@@ -244,7 +244,7 @@ pub(super) fn layout_sanity_check<'tcx>(cx: &LayoutCx<'tcx>, layout: &TyAndLayou
                 let align = layout.align.abi;
                 let size = layout.size;
                 let element_align = element.align(cx).abi;
-                let element_size = element.size(cx);
+                let element_size = element.in_memory_size(cx);
                 // Currently, vectors must always be aligned to at least their elements:
                 assert!(align >= element_align);
                 // And the size has to be element * count plus alignment padding, of course
@@ -272,7 +272,7 @@ pub(super) fn layout_sanity_check<'tcx>(cx: &LayoutCx<'tcx>, layout: &TyAndLayou
             if let TagEncoding::Niche { niche_start, untagged_variant, niche_variants } =
                 tag_encoding
             {
-                let niche_size = tag.size(cx);
+                let niche_size = tag.capacity(cx);
                 assert!(*niche_start <= niche_size.unsigned_int_max());
                 for (idx, variant) in variants.iter_enumerated() {
                     // Ensure all inhabited variants are accounted for.
@@ -326,7 +326,7 @@ pub(super) fn layout_sanity_check<'tcx>(cx: &LayoutCx<'tcx>, layout: &TyAndLayou
                 }
                 // The top-level ABI and the ABI of the variants should be coherent.
                 let scalar_coherent = |s1: Scalar, s2: Scalar| {
-                    s1.size(cx) == s2.size(cx) && s1.align(cx) == s2.align(cx)
+                    s1.in_memory_size(cx) == s2.in_memory_size(cx) && s1.align(cx) == s2.align(cx)
                 };
                 let abi_coherent = match (layout.backend_repr, variant.backend_repr) {
                     (BackendRepr::Scalar(s1), BackendRepr::Scalar(s2)) => scalar_coherent(s1, s2),

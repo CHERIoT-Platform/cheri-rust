@@ -120,9 +120,17 @@ impl<Prov: Provenance> Immediate<Prov> {
     pub fn assert_matches_abi(self, abi: BackendRepr, msg: &str, cx: &impl HasDataLayout) {
         match (self, abi) {
             (Immediate::Scalar(scalar), BackendRepr::Scalar(s)) => {
+                let desired_size = match s.primitive() {
+                    rustc_abi::Primitive::Pointer(_) => match scalar {
+                        Scalar::Int(..) => s.capacity(cx),
+                        Scalar::Ptr { in_memory_size, .. } => Size::from_bytes(in_memory_size),
+                    },
+                    _ => s.capacity(cx),
+                };
+
                 assert_eq!(
                     scalar.in_memory_size(),
-                    s.size(cx),
+                    desired_size,
                     "{msg}: scalar value has wrong size"
                 );
                 if !matches!(s.primitive(), abi::Primitive::Pointer(..)) {
@@ -134,9 +142,17 @@ impl<Prov: Provenance> Immediate<Prov> {
                 }
             }
             (Immediate::ScalarPair(a_val, b_val), BackendRepr::ScalarPair(a, b)) => {
+                let a_desired_size = match a.primitive() {
+                    rustc_abi::Primitive::Pointer(_) => match a_val {
+                        Scalar::Int(..) => a.capacity(cx),
+                        Scalar::Ptr { in_memory_size, .. } => Size::from_bytes(in_memory_size),
+                    },
+                    _ => a.capacity(cx),
+                };
+
                 assert_eq!(
                     a_val.in_memory_size(),
-                    a.size(cx),
+                    a_desired_size,
                     "{msg}: first component of scalar pair has wrong size"
                 );
                 if !matches!(a.primitive(), abi::Primitive::Pointer(..)) {
@@ -145,9 +161,17 @@ impl<Prov: Provenance> Immediate<Prov> {
                         "{msg}: first component of scalar pair should be an integer, but has provenance"
                     );
                 }
+
+                let b_desired_size = match b.primitive() {
+                    rustc_abi::Primitive::Pointer(_) => match b_val {
+                        Scalar::Int(..) => b.capacity(cx),
+                        Scalar::Ptr { in_memory_size, .. } => Size::from_bytes(in_memory_size),
+                    },
+                    _ => b.capacity(cx),
+                };
                 assert_eq!(
                     b_val.in_memory_size(),
-                    b.size(cx),
+                    b_desired_size,
                     "{msg}: second component of scalar pair has wrong size"
                 );
                 if !matches!(b.primitive(), abi::Primitive::Pointer(..)) {
@@ -263,7 +287,10 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
     #[inline]
     pub fn from_scalar(val: Scalar<Prov>, layout: TyAndLayout<'tcx>) -> Self {
         debug_assert!(layout.backend_repr.is_scalar(), "`ImmTy::from_scalar` on non-scalar layout");
-        debug_assert_eq!(val.in_memory_size(), layout.size);
+        /* Sometimes we'll read the niche of a non-ref type (e.g. Option<&T>) which could be a
+         * pointer-capacity sized scalar. All we can say here is that the size of the scalar must be
+         * leq the size of the layout. */
+        debug_assert!(val.in_memory_size() <= layout.size);
         ImmTy { imm: val.into(), layout }
     }
 
@@ -426,7 +453,7 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
                 Immediate::from(if offset.bytes() == 0 {
                     a_val
                 } else {
-                    assert_eq!(offset, a.size(cx).align_to(b.align(cx).abi));
+                    assert_eq!(offset, a.in_memory_size(cx).align_to(b.align(cx).abi));
                     b_val
                 })
             }
@@ -605,8 +632,11 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
         // like a `Scalar` (or `ScalarPair`).
         interp_ok(match mplace.layout.backend_repr {
             BackendRepr::Scalar(abi::Scalar::Initialized { value: s, .. }) => {
-                let size = s.size(self);
-                assert_eq!(size, mplace.layout.size, "abi::Scalar size does not match layout size");
+                let size = s.capacity(self);
+                /* Sometimes we'll read the niche of a non-ref type (e.g. Option<&T>) which could be a
+                 * pointer-capacity sized scalar. All we can say here is that the size of the scalar must be
+                 * leq the size of the layout. */
+                assert!(size <= mplace.layout.size, "abi::Scalar size does not match layout size");
                 let scalar = alloc.read_scalar(
                     alloc_range(Size::ZERO, size),
                     /*read_provenance*/ matches!(s, abi::Primitive::Pointer(_)),
@@ -620,8 +650,8 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                 // We checked `ptr_align` above, so all fields will have the alignment they need.
                 // We would anyway check against `ptr_align.restrict_for_offset(b_offset)`,
                 // which `ptr.offset(b_offset)` cannot possibly fail to satisfy.
-                let (a_size, b_size) = (a.size(self), b.size(self));
-                let b_offset = a_size.align_to(b.align(self).abi);
+                let (a_size, b_size) = (a.capacity(self), b.capacity(self));
+                let b_offset = a.in_memory_size(self).align_to(b.align(self).abi);
                 assert!(b_offset.bytes() > 0); // in `operand_field` we use the offset to tell apart the fields
                 let a_val = alloc.read_scalar(
                     alloc_range(Size::ZERO, a_size),
