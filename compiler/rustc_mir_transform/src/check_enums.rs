@@ -205,8 +205,10 @@ impl<'a, 'tcx> Visitor<'tcx> for EnumFinder<'a, 'tcx> {
                     let valid_discrs =
                         adt_def.discriminants(self.tcx).map(|(_, discr)| discr.val).collect();
 
-                    let discr =
-                        TyAndSize { ty: value.to_int_ty(self.tcx), size: value.size(&self.tcx) };
+                    let discr = TyAndSize {
+                        ty: value.to_int_ty(self.tcx),
+                        size: value.capacity(&self.tcx),
+                    };
                     self.enums.push(EnumCheckType::Direct {
                         source_op: op.to_copy(),
                         discr,
@@ -221,8 +223,10 @@ impl<'a, 'tcx> Visitor<'tcx> for EnumFinder<'a, 'tcx> {
                     tag_field,
                     ..
                 } => {
-                    let discr =
-                        TyAndSize { ty: value.to_int_ty(self.tcx), size: value.size(&self.tcx) };
+                    let discr = TyAndSize {
+                        ty: value.to_int_ty(self.tcx),
+                        size: value.capacity(&self.tcx),
+                    };
                     self.enums.push(EnumCheckType::WithNiche {
                         source_op: op.to_copy(),
                         discr,
