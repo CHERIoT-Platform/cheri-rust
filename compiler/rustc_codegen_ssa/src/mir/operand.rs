@@ -216,8 +216,8 @@ impl<'a, 'tcx, V: CodegenObject> OperandRef<'tcx, V> {
         // like a `Scalar` (or `ScalarPair`).
         match layout.backend_repr {
             BackendRepr::Scalar(s @ abi::Scalar::Initialized { .. }) => {
-                let size = s.size(bx);
-                assert_eq!(size, layout.size, "abi::Scalar size does not match layout size");
+                let size = s.capacity(bx);
+                assert!(size <= layout.size, "abi::Scalar size does not match layout size");
                 let val = read_scalar(offset, size, s, bx.immediate_backend_type(layout));
                 OperandRef { val: OperandValue::Immediate(val), layout, move_annotation: None }
             }
@@ -225,8 +225,8 @@ impl<'a, 'tcx, V: CodegenObject> OperandRef<'tcx, V> {
                 a @ abi::Scalar::Initialized { .. },
                 b @ abi::Scalar::Initialized { .. },
             ) => {
-                let (a_size, b_size) = (a.size(bx), b.size(bx));
-                let b_offset = (offset + a_size).align_to(b.align(bx).abi);
+                let (a_size, b_size) = (a.capacity(bx), b.capacity(bx));
+                let b_offset = (offset + a.in_memory_size(bx)).align_to(b.align(bx).abi);
                 assert!(b_offset.bytes() > 0);
                 let a_val = read_scalar(
                     offset,
@@ -368,11 +368,14 @@ impl<'a, 'tcx, V: CodegenObject> OperandRef<'tcx, V> {
                 // Extract a scalar component from a pair.
                 (OperandValue::Pair(a_llval, b_llval), BackendRepr::ScalarPair(a, b)) => {
                     if offset.bytes() == 0 {
-                        assert_eq!(field.size, a.size(bx.cx()));
+                        assert_eq!(field.size, a.in_memory_size(bx.cx()));
                         (Some(a), a_llval)
                     } else {
-                        assert_eq!(offset, a.size(bx.cx()).align_to(b.align(bx.cx()).abi));
-                        assert_eq!(field.size, b.size(bx.cx()));
+                        assert_eq!(
+                            offset,
+                            a.in_memory_size(bx.cx()).align_to(b.align(bx.cx()).abi)
+                        );
+                        assert_eq!(field.size, b.in_memory_size(bx.cx()));
                         (Some(b), b_llval)
                     }
                 }
@@ -602,7 +605,7 @@ impl<'a, 'tcx, V: CodegenObject> OperandRef<'tcx, V> {
                     // like that we're stuck with the general algorithm.
 
                     let tag_range = tag_scalar.valid_range(&dl);
-                    let tag_size = tag_scalar.size(&dl);
+                    let tag_size = tag_scalar.in_memory_size(&dl);
                     let niche_end = u128::from(relative_max).wrapping_add(niche_start);
                     let niche_end = tag_size.truncate(niche_end);
 
@@ -945,7 +948,7 @@ impl<'a, 'tcx, V: CodegenObject> OperandValue<V> {
                 let BackendRepr::ScalarPair(a_scalar, b_scalar) = dest.layout.backend_repr else {
                     bug!("store_with_flags: invalid ScalarPair layout: {:#?}", dest.layout);
                 };
-                let b_offset = a_scalar.size(bx).align_to(b_scalar.align(bx).abi);
+                let b_offset = a_scalar.in_memory_size(bx).align_to(b_scalar.align(bx).abi);
 
                 let val = bx.from_immediate(a);
                 let align = dest.val.align;

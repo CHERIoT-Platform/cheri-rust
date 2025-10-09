@@ -1021,7 +1021,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
         scalar: Scalar<M::Provenance>,
         scalar_layout: ScalarAbi,
     ) -> InterpResult<'tcx> {
-        let size = scalar_layout.size(self.ecx);
+        let size = scalar_layout.capacity(self.ecx);
         let valid_range = scalar_layout.valid_range(self.ecx);
         let WrappingRange { start, end } = valid_range;
         let max_value = size.unsigned_int_max();

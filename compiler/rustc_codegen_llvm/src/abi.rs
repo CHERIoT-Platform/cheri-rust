@@ -160,8 +160,10 @@ impl LlvmType for Reg {
                     Primitive::Pointer(_) => cx.type_ptr(),
                 };
 
-                assert!(self.size.bytes().is_multiple_of(hint_vector_elem.size(cx).bytes()));
-                let len = self.size.bytes() / hint_vector_elem.size(cx).bytes();
+                assert!(
+                    self.size.bytes().is_multiple_of(hint_vector_elem.in_memory_size(cx).bytes())
+                );
+                let len = self.size.bytes() / hint_vector_elem.in_memory_size(cx).bytes();
                 cx.type_vector(ty, len)
             }
         }
@@ -478,7 +480,11 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                 attributes::apply_to_llfn(
                     llfn,
                     idx,
-                    &[llvm::CreateRangeAttr(cx.llcx, scalar.size(cx), scalar.valid_range(cx))],
+                    &[llvm::CreateRangeAttr(
+                        cx.llcx,
+                        scalar.in_memory_size(cx),
+                        scalar.valid_range(cx),
+                    )],
                 );
             }
         };

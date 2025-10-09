@@ -230,12 +230,12 @@ impl<'gcc, 'tcx> ConstCodegenMethods for CodegenCx<'gcc, 'tcx> {
     }
 
     fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, ty: Type<'gcc>) -> RValue<'gcc> {
-        let bitsize = if layout.is_bool() { 1 } else { layout.size(self).bits() };
+        let bitsize = if layout.is_bool() { 1 } else { layout.in_memory_size(self).bits() };
         match cv {
             Scalar::Int(int) => {
-                let data = int.to_bits(layout.size(self));
+                let data = int.to_bits(layout.capacity(self));
                 let value = self.const_uint_big(self.type_ix(bitsize), data);
-                let bytesize = layout.size(self).bytes();
+                let bytesize = layout.in_memory_size(self).bytes();
                 if bitsize > 1 && ty.is_integral() && bytesize as u32 == ty.get_size() {
                     // NOTE: since the intrinsic _xabort is called with a bitcast, which
                     // is non-const, but expects a constant, do a normal cast instead of a bitcast.
