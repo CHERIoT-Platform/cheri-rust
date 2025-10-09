@@ -269,11 +269,45 @@ impl<Prov> Scalar<Prov> {
         })
     }
 
+    /// Retrieve how many bits it takes to represent in memory this [`Scalar`].
+    ///
+    /// On platforms with integral pointers, the output of this function will be exactly the same as
+    /// [`Self::data_size`]. On platforms with non-integral pointers such as [CHERI], this distinction appears and
+    /// is instead crucial: this function is the one you want when you want to refer to how many
+    /// bits it takes to store this [`Scalar`] in memory.
+    ///
+    /// This distinction is visible only when [`self`] is a [`Scalar::Ptr`] as, in platforms with
+    /// non-integral pointers, storing a pointer in memory generally takes more space than the bits
+    /// of user-visible data contained in the pointer itself, due to metadata attached with the
+    /// data.
+    ///
+    /// [CHERI]: https://en.wikipedia.org/wiki/Capability_Hardware_Enhanced_RISC_Instructions
     #[inline]
     pub fn in_memory_size(self) -> Size {
         match self {
             Scalar::Int(int) => int.size(),
             Scalar::Ptr { in_memory_size, .. } => Size::from_bytes(in_memory_size),
+        }
+    }
+
+    /// Retrieve how many bits of data this [`Scalar`] contains.
+    ///
+    /// On platforms with integral pointers, the output of this function will be exactly the same as
+    /// [`Self::in_memory_size`]. On platforms with non-integral pointers such as [CHERI], this distinction appears
+    /// and is instead crucial: this function is the one you want when you want to refer to how many
+    /// bits of user-visible data can be extracted from this [`Scalar`].
+    ///
+    /// This distinction is visible only when [`self`] is a [`Scalar::Ptr`] as, in platforms with
+    /// non-integral pointers, storing a pointer in memory generally takes more space than the bits
+    /// of user-visible data contained in the pointer itself, due to metadata attached with the
+    /// data.
+    ///
+    /// [CHERI]: https://en.wikipedia.org/wiki/Capability_Hardware_Enhanced_RISC_Instructions
+    #[inline]
+    pub fn data_size(self) -> Size {
+        match self {
+            Scalar::Int(int) => int.size(),
+            Scalar::Ptr { capacity, .. } => Size::from_bytes(capacity),
         }
     }
 }
