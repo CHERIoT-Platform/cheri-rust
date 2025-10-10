@@ -64,4 +64,33 @@ x_check_task:
   check_script: CC="clang" CXX="clang++" ./x check
   ui_test_script: CC="clang" CXX="clang++" ./x test ui
 
+build_core_task:
+  skip: $CIRRUS_PR == ""
+  name: (PR) Build `core` library  for `riscv32cheriot-unknown-cheriotrtos`
+  depends_on:
+    - (PR) Run ./x check
+  timeout_in: 240m
+  gce_instance: &arm_vm
+    image_project: ubuntu-os-cloud
+    image_family: ubuntu-2404-lts-arm64
+    architecture: arm64
+    zone: us-east1-b
+    type: c4a-standard-16
+    disk: 60
+    spot: true
+  env:
+      CIRRUS_CLONE_DEPTH: 0
+
+  dependencies_script:
+    - set -eo pipefail
+    - apt-get update
+    - apt-get install -y clang ninja-build lld cmake ccache perl
+  gen_bootstrap_script: ./cheri/gen_bootstrap.sh
+  setup_env_script:
+    - export CCACHE_REMOTE_STORAGE="http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/"
+    - export CCACHE_REMOTE_ONLY=1
+    - env
+  pull_master_script: git fetch origin master
+  build_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
+
 # -- End PR tasks
