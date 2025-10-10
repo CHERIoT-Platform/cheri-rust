@@ -1836,7 +1836,7 @@ pub trait PrettyPrinter<'tcx>: Printer<'tcx> + fmt::Write {
             }
             // Pointer types
             ty::Ref(..) | ty::RawPtr(_, _) | ty::FnPtr(..) => {
-                let data = int.to_bits(self.tcx().data_layout.pointer_size());
+                let data = int.to_bits(self.tcx().data_layout.pointer_offset());
                 self.typed_value(
                     |this| {
                         write!(this, "0x{data:x}")?;
