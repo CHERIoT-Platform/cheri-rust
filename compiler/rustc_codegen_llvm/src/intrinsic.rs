@@ -3024,11 +3024,11 @@ fn simd_cast<'ll, 'tcx>(
         // disallowed before here, so this unwrap is safe.
         ty::Int(i) => (
             Style::Int(Signed),
-            i.normalize(bx.tcx().sess.target.pointer_width).bit_width().unwrap(),
+            i.normalize(bx.tcx().data_layout.pointer_offset().bits() as _).bit_width().unwrap(),
         ),
         ty::Uint(u) => (
             Style::Int(Unsigned),
-            u.normalize(bx.tcx().sess.target.pointer_width).bit_width().unwrap(),
+            u.normalize(bx.tcx().data_layout.pointer_offset().bits() as _).bit_width().unwrap(),
         ),
         ty::Float(f) => (Style::Float, f.bit_width()),
         _ => (Style::Unsupported, 0),
@@ -3036,11 +3036,11 @@ fn simd_cast<'ll, 'tcx>(
     let (out_style, out_width) = match out_elem.kind() {
         ty::Int(i) => (
             Style::Int(Signed),
-            i.normalize(bx.tcx().sess.target.pointer_width).bit_width().unwrap(),
+            i.normalize(bx.tcx().data_layout.pointer_offset().bits() as _).bit_width().unwrap(),
         ),
         ty::Uint(u) => (
             Style::Int(Unsigned),
-            u.normalize(bx.tcx().sess.target.pointer_width).bit_width().unwrap(),
+            u.normalize(bx.tcx().data_layout.pointer_offset().bits() as _).bit_width().unwrap(),
         ),
         ty::Float(f) => (Style::Float, f.bit_width()),
         _ => (Style::Unsupported, 0),

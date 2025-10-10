@@ -188,7 +188,7 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
     }
 
     fn const_usize(&self, i: u64) -> &'ll Value {
-        let bit_size = self.data_layout().pointer_size().bits();
+        let bit_size = self.data_layout().pointer_offset().bits();
         if bit_size < 64 {
             // make sure it doesn't overflow
             assert!(i < (1 << bit_size));
@@ -269,10 +269,10 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
     }
 
     fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, llty: &'ll Type) -> &'ll Value {
-        let bitsize = if layout.is_bool() { 1 } else { layout.in_memory_size(self).bits() };
+        let bitsize = if layout.is_bool() { 1 } else { layout.capacity(self).bits() };
         match cv {
             Scalar::Int(int) => {
-                let data = int.to_bits(layout.in_memory_size(self));
+                let data = int.to_bits(layout.capacity(self));
                 let llval = self.const_uint_big(self.type_ix(bitsize), data);
                 if matches!(layout.primitive(), Pointer(_)) {
                     unsafe { llvm::LLVMConstIntToPtr(llval, llty) }
