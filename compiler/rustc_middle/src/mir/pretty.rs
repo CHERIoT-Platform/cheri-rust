@@ -3,7 +3,7 @@ use std::fmt::{Display, Write as _};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
-use rustc_abi::Size;
+use rustc_abi::{HasDataLayout, Size};
 use rustc_ast::InlineAsmTemplatePiece;
 use tracing::trace;
 use ty::print::PrettyPrinter;
@@ -1712,6 +1712,7 @@ pub fn write_allocation_bytes<'tcx, Prov: Provenance, Extra, Bytes: AllocBytes>(
     let mut line_start = Size::ZERO;
 
     let ptr_size = tcx.data_layout.pointer_size();
+    let ptr_capacity = tcx.data_layout().pointer_offset();
 
     let mut ascii = String::new();
 
@@ -1730,16 +1731,16 @@ pub fn write_allocation_bytes<'tcx, Prov: Provenance, Extra, Bytes: AllocBytes>(
         }
         if let Some(prov) = alloc.provenance().get_ptr(i) {
             // Memory with provenance must be defined
-            assert!(alloc.init_mask().is_range_initialized(alloc_range(i, ptr_size)).is_ok());
+            assert!(alloc.init_mask().is_range_initialized(alloc_range(i, ptr_capacity)).is_ok());
             let j = i.bytes_usize();
             let offset = alloc
-                .inspect_with_uninit_and_ptr_outside_interpreter(j..j + ptr_size.bytes_usize());
+                .inspect_with_uninit_and_ptr_outside_interpreter(j..j + ptr_capacity.bytes_usize());
             let offset = read_target_uint(tcx.data_layout.endian, offset).unwrap();
             let offset = Size::from_bytes(offset);
             let provenance_width = |bytes| bytes * 3;
             let ptr = Pointer::new(prov, offset);
             let mut target = format!("{ptr:?}");
-            if target.len() > provenance_width(ptr_size.bytes_usize() - 1) {
+            if target.len() > provenance_width(ptr_capacity.bytes_usize() - 1) {
                 // This is too long, try to save some space.
                 target = format!("{ptr:#?}");
             }
