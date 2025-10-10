@@ -709,7 +709,7 @@ impl<Prov: Provenance, Extra, Bytes: AllocBytes> Allocation<Prov, Extra, Bytes> 
         let bits = read_target_uint(cx.data_layout().endian, bytes).unwrap();
 
         if read_provenance {
-            assert_eq!(range.size, cx.data_layout().pointer_size());
+            assert_eq!(range.size, cx.data_layout().pointer_offset());
 
             // When reading data with provenance, the easy case is finding provenance exactly where we
             // are reading, then we can put data and provenance back together and return that.
@@ -806,7 +806,7 @@ impl<Prov: Provenance, Extra, Bytes: AllocBytes> Allocation<Prov, Extra, Bytes> 
 
         // See if we have to also store some provenance.
         if let Some(provenance) = provenance {
-            assert_eq!(range.size, cx.data_layout().pointer_size());
+            assert_eq!(range.size, cx.data_layout().pointer_offset());
             self.provenance.insert_ptr(range.start, provenance, cx);
         }
 
