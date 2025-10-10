@@ -745,6 +745,11 @@ impl<'ll, 'tcx> IntrinsicCallBuilderMethods<'tcx> for Builder<'_, 'll, 'tcx> {
                 self.call_intrinsic(format!("llvm.cheri.cap.address.get.i{width}"), &[llty], &[arg])
             }
 
+            sym::cheri_without_provenance => {
+                let arg = args[0].immediate();
+                self.inttoptr(arg, self.type_ptr())
+            }
+
             _ if name.as_str().starts_with("simd_") => {
                 // Unpack non-power-of-2 #[repr(packed, simd)] arguments.
                 // This gives them the expected layout of a regular #[repr(simd)] vector.
