@@ -450,7 +450,10 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                         // difference as isize, we'll get the proper signed difference. If that
                         // seems *positive* or equal to isize::MIN, they were more than isize::MAX apart.
                         let dist = val.to_target_isize(self)?;
-                        if dist >= 0 || i128::from(dist) == self.pointer_size().signed_int_min() {
+                        if dist >= 0
+                            || i128::from(dist)
+                                == self.data_layout().pointer_offset().signed_int_min()
+                        {
                             throw_ub_format!(
                                 "`{intrinsic_name}` called when first pointer is too far before second"
                             );
