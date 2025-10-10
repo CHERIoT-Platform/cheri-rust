@@ -45,6 +45,8 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
     let dl = cx.data_layout();
     let pointer_size = dl.pointer_size();
     let pointer_size_bytes = pointer_size.bytes() as usize;
+    let pointer_capacity = dl.pointer_offset();
+    let pointer_capacity_bytes = pointer_capacity.bytes() as usize;
 
     // Note: this function may call `inspect_with_uninit_and_ptr_outside_interpreter`, so `range`
     // must be within the bounds of `alloc` and not contain or overlap a pointer provenance.
@@ -102,7 +104,7 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
             // affect interpreter execution (we inspect the result after interpreter execution),
             // and we properly interpret the provenance as a relocation pointer offset.
             alloc.inspect_with_uninit_and_ptr_outside_interpreter(
-                offset..(offset + pointer_size_bytes),
+                offset..(offset + pointer_capacity_bytes),
             ),
         )
         .expect("const_alloc_to_llvm: could not read relocation pointer")
@@ -114,7 +116,7 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
             InterpScalar::from_pointer(Pointer::new(prov, Size::from_bytes(ptr_offset)), &cx.tcx),
             Scalar::Initialized {
                 value: Primitive::Pointer(address_space),
-                valid_range: WrappingRange::full(pointer_size),
+                valid_range: WrappingRange::full(pointer_capacity),
             },
             cx.type_ptr_ext(address_space),
         ));
