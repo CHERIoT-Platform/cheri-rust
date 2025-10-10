@@ -108,6 +108,7 @@ pub(super) fn vtable_allocation_provider<'tcx>(
     let align = layout.align.bytes();
 
     let ptr_size = tcx.data_layout.pointer_size();
+    let ptr_capacity = tcx.data_layout.pointer_offset();
     let ptr_align = tcx.data_layout.pointer_align().abi;
 
     let vtable_size = ptr_size * u64::try_from(vtable_entries.len()).unwrap();
@@ -130,8 +131,8 @@ pub(super) fn vtable_allocation_provider<'tcx>(
                     Scalar::from_maybe_pointer(Pointer::null(), &tcx)
                 }
             }
-            VtblEntry::MetadataSize => Scalar::from_uint(size, ptr_size),
-            VtblEntry::MetadataAlign => Scalar::from_uint(align, ptr_size),
+            VtblEntry::MetadataSize => Scalar::from_uint(size, ptr_capacity),
+            VtblEntry::MetadataAlign => Scalar::from_uint(align, ptr_capacity),
             VtblEntry::Vacant => continue,
             VtblEntry::Method(instance) => {
                 // Prepare the fn ptr we write into the vtable.
@@ -147,7 +148,7 @@ pub(super) fn vtable_allocation_provider<'tcx>(
             }
         };
         vtable
-            .write_scalar(&tcx, alloc_range(ptr_size * idx, ptr_size), scalar)
+            .write_scalar(&tcx, alloc_range(ptr_size * idx, ptr_capacity), scalar)
             .expect("failed to build vtable representation");
     }
 
