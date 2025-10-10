@@ -1,6 +1,6 @@
 //! Validates the MIR to ensure that invariants are upheld.
 
-use rustc_abi::{ExternAbi, FIRST_VARIANT, Size};
+use rustc_abi::{ExternAbi, FIRST_VARIANT, HasDataLayout, Size};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::LangItem;
 use rustc_hir::attrs::InlineAttr;
@@ -1572,7 +1572,7 @@ impl<'a, 'tcx> Visitor<'tcx> for TypeChecker<'a, 'tcx> {
             TerminatorKind::SwitchInt { targets, discr } => {
                 let switch_ty = discr.ty(&self.body.local_decls, self.tcx);
 
-                let target_width = self.tcx.sess.target.pointer_width;
+                let target_width = self.tcx.data_layout().pointer_offset().bits() as _;
 
                 let size = Size::from_bits(match switch_ty.kind() {
                     ty::Uint(uint) => uint.normalize(target_width).bit_width().unwrap(),

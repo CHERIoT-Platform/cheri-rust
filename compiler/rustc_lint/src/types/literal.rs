@@ -1,5 +1,5 @@
 use hir::{ExprKind, Node};
-use rustc_abi::{Integer, Size};
+use rustc_abi::{HasDataLayout, Integer, Size};
 use rustc_apfloat::Float;
 use rustc_apfloat::ieee::{DoubleS, HalfS, IeeeFloat, QuadS, Semantics, SingleS};
 use rustc_ast as ast;
@@ -267,7 +267,7 @@ fn lint_int_literal<'tcx>(
     t: ty::IntTy,
     v: u128,
 ) {
-    let int_type = t.normalize(cx.sess().target.pointer_width);
+    let int_type = t.normalize(cx.data_layout().pointer_offset().bits() as _);
     let (min, max) = int_ty_range(int_type);
     let max = max as u128;
     let negative = type_limits.negated_expr_id == Some(hir_id);
@@ -318,7 +318,7 @@ fn lint_uint_literal<'tcx>(
     lit: &hir::Lit,
     t: ty::UintTy,
 ) {
-    let uint_type = t.normalize(cx.sess().target.pointer_width);
+    let uint_type = t.normalize(cx.data_layout().pointer_offset().bits() as _);
     let (min, max) = uint_ty_range(uint_type);
     let lit_val: u128 = match lit.node {
         // _v is u8, within range by definition

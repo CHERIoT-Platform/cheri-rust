@@ -1,4 +1,4 @@
-use rustc_abi::{Align, Size};
+use rustc_abi::Align;
 use rustc_ast::{IntTy, LitIntType, LitKind, UintTy};
 use rustc_hir::attrs::{IntType, ReprAttr};
 
@@ -267,7 +267,13 @@ fn parse_alignment(node: &LitKind, cx: &AcceptContext<'_, '_>) -> Result<Align, 
         .ok_or("larger than 2^29".to_string())?;
 
     // alignment must not be larger than the pointer width (`isize::MAX`)
-    let max = Size::from_bits(cx.sess.target.pointer_width).signed_int_max() as u64;
+    let data_layout = cx
+        .sess
+        .target
+        .parse_data_layout()
+        .map_err(|_| String::from("Failed to parse DataLayout"))
+        .unwrap();
+    let max = data_layout.pointer_offset().signed_int_max() as u64;
     if align.bytes() > max {
         return Err(format!(
             "alignment larger than `isize::MAX` bytes ({max} for the current target)"

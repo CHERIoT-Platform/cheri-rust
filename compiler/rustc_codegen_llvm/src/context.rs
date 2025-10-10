@@ -185,7 +185,7 @@ pub(crate) unsafe fn create_module<'ll>(
     let mod_name = SmallCStr::new(mod_name);
     let llmod = unsafe { llvm::LLVMModuleCreateWithNameInContext(mod_name.as_ptr(), llcx) };
 
-    let cx = SimpleCx::new(llmod, llcx, tcx.data_layout.pointer_size());
+    let cx = SimpleCx::new(llmod, llcx, tcx.data_layout.pointer_offset());
 
     let mut target_data_layout = sess.target.data_layout.to_string();
     let llvm_version = llvm_util::get_version();
@@ -621,7 +621,7 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
         GenericCx(
             FullCx {
                 tcx,
-                scx: SimpleCx::new(llmod, llcx, tcx.data_layout.pointer_size()),
+                scx: SimpleCx::new(llmod, llcx, tcx.data_layout.pointer_offset()),
                 use_dll_storage_attrs,
                 tls_model,
                 codegen_unit,

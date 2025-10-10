@@ -326,11 +326,17 @@ pub enum Primitive {
 }
 
 impl Primitive {
-    pub fn size(self, target: &MachineInfo) -> Size {
+    pub fn size(self, _target: &MachineInfo) -> Size {
         match self {
             Primitive::Int { length, .. } => Size::from_bits(length.bits()),
             Primitive::Float { length } => Size::from_bits(length.bits()),
-            Primitive::Pointer(_) => target.pointer_width,
+            /*FIXME(xdoardo): change this monstrusity to simply get the relevant info from MachineInfo */
+            Primitive::Pointer(p) => Size::from_bits(
+                crate::compiler_interface::with(|cx| {
+                    cx.cx.borrow().tcx.data_layout.pointer_offset_in(rustc_abi::AddressSpace(p.0))
+                })
+                .bits() as _,
+            ),
         }
     }
 }
