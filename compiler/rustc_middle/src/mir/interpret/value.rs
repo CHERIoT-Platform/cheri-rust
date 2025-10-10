@@ -7,8 +7,7 @@ use rustc_apfloat::ieee::{Double, Half, Quad, Single};
 use rustc_macros::{HashStable, TyDecodable, TyEncodable};
 
 use super::{
-    AllocId, CtfeProvenance, InterpResult, Pointer, PointerArithmetic, Provenance,
-    ScalarSizeMismatch, interp_ok,
+    AllocId, CtfeProvenance, InterpResult, Pointer, Provenance, ScalarSizeMismatch, interp_ok,
 };
 use crate::ty::ScalarInt;
 
@@ -122,15 +121,16 @@ impl<Prov> Scalar<Prov> {
     pub fn from_maybe_pointer(ptr: Pointer<Option<Prov>>, cx: &impl HasDataLayout) -> Self {
         match ptr.into_raw_parts() {
             (Some(prov), offset) => Scalar::from_pointer(Pointer::new(prov, offset), cx),
-            (None, offset) => {
-                Scalar::Int(ScalarInt::try_from_uint(offset.bytes(), cx.pointer_size()).unwrap())
-            }
+            (None, offset) => Scalar::Int(
+                ScalarInt::try_from_uint(offset.bytes(), cx.data_layout().pointer_offset())
+                    .unwrap(),
+            ),
         }
     }
 
     #[inline]
     pub fn null_ptr(cx: &impl HasDataLayout) -> Self {
-        Scalar::Int(ScalarInt::null(cx.pointer_size()))
+        Scalar::Int(ScalarInt::null(cx.data_layout().pointer_offset()))
     }
 
     #[inline]
@@ -315,7 +315,7 @@ impl<Prov> Scalar<Prov> {
 impl<'tcx, Prov: Provenance> Scalar<Prov> {
     pub fn to_pointer(self, cx: &impl HasDataLayout) -> InterpResult<'tcx, Pointer<Option<Prov>>> {
         match self
-            .to_bits_or_ptr_internal(cx.pointer_size())
+            .to_bits_or_ptr_internal(cx.data_layout().pointer_offset())
             .map_err(|s| err_ub!(ScalarSizeMismatch(s)))?
         {
             Right(ptr) => interp_ok(ptr.into()),
@@ -483,7 +483,7 @@ impl<'tcx, Prov: Provenance> Scalar<Prov> {
     /// Converts the scalar to produce a machine-pointer-sized signed integer.
     /// Fails if the scalar is a pointer.
     pub fn to_target_isize(self, cx: &impl HasDataLayout) -> InterpResult<'tcx, i64> {
-        let b = self.to_int(cx.data_layout().pointer_size())?;
+        let b = self.to_int(cx.data_layout().pointer_offset())?;
         interp_ok(i64::try_from(b).unwrap())
     }
 
