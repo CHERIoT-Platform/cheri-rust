@@ -1,0 +1,14 @@
+[workspace]
+members = []
+
+[package]
+name = "cheriot-runner"
+version = "0.1.0"
+edition = "2024"
+description = "Takes a bunch of CHERI tests and runs them on a CHERIoT simulator."
+
+[dependencies]
+clap = { version = "4.5.49", features = ["env", "string", "derive"] }
+clap-verbosity-flag = "3.0.3"
+colored = "3.0.0"
+anyhow = "1.0.100"
