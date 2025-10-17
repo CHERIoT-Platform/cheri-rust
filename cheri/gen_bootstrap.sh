@@ -2,6 +2,12 @@
 
 FILE="bootstrap.toml"
 
+if  [[ $1 = "--build-clang" ]]; then
+    LLVM_PROJECTS=", LLVM_ENABLE_PROJECTS=\"clang;lld\""
+else
+    LLVM_PROJECTS=""
+fi
+
 if [ -e "$FILE" ]; then
   echo "$FILE already exists!"
   exit 1
@@ -27,7 +33,7 @@ std-features = ["compiler-builtins-mem"]
 targets = "all"
 experimental-targets = ""
 download-ci-llvm = false
-build-config = {CMAKE_C_COMPILER="clang", CMAKE_CXX_COMPILER="clang++"}
+build-config = {CMAKE_C_COMPILER="clang", CMAKE_CXX_COMPILER="clang++" $LLVM_PROJECTS}
 
 [target.riscv32cheriot-unknown-cheriotrtos]
 no-std = true
