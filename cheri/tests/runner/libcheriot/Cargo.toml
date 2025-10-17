@@ -1,0 +1,23 @@
+# Ugly workaround to make this crate compile inside the top-level workspace.
+[workspace]
+members = []
+
+[package]
+name = "cheriot"
+version = "0.0.0"
+edition = "2021"
+authors = [
+	"SCI Semiconductor",
+	"Edoardo Marangoni <edoardo.marangoni@scisemi.com>",
+]
+
+[dependencies]
+
+#[profile.release]
+#panic = 'abort'
+#
+#[profile.dev]
+#panic = 'abort'
+
+[features]
+default = []
