@@ -1347,11 +1347,6 @@ impl<'a, 'tcx, Prov: Provenance, Extra, Bytes: AllocBytes>
             .into()
     }
 
-    /// `offset` is relative to this allocation reference, not the base of the allocation.
-    pub fn write_ptr_sized(&mut self, offset: Size, val: Scalar<Prov>) -> InterpResult<'tcx> {
-        self.write_scalar(alloc_range(offset, self.tcx.data_layout().pointer_offset()), val)
-    }
-
     /// Mark the given sub-range (relative to this allocation reference) as uninitialized.
     pub fn write_uninit(&mut self, range: AllocRange) {
         let range = self.range.subrange(range);
