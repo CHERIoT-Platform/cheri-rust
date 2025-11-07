@@ -30,8 +30,7 @@ pr_check_commits_task:
     fi
 
 x_check_task:
-  skip: $CIRRUS_PR == ""
-  name: (PR) Run ./x check
+  name: Run ./x check
   # TODO(xdoardo): Figure out when it makes sense to have this dependency, or
   #   how that dependency should actually work. Having this dependency would
   #   pretty much mean making every PR that merges changes on `beta` to `master`
@@ -65,10 +64,9 @@ x_check_task:
   ui_test_script: CC="clang" CXX="clang++" ./x test ui
 
 build_core_task:
-  skip: $CIRRUS_PR == ""
-  name: (PR) Build `core` library  for `riscv32cheriot-unknown-cheriotrtos`
+  name: Build `core` library  for `riscv32cheriot-unknown-cheriotrtos`
   depends_on:
-    - (PR) Run ./x check
+    - Run ./x check
   timeout_in: 240m
   gce_instance: &arm_vm
     image_project: ubuntu-os-cloud
@@ -93,4 +91,41 @@ build_core_task:
   pull_master_script: git fetch origin master
   build_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
 
+run_cheri_tests_task:
+  name: Run CHERIoT-specific tests
+  depends_on:
+    - Build `core` library  for `riscv32cheriot-unknown-cheriotrtos`
+  timeout_in: 240m
+  gce_instance: &arm_vm
+    image_project: ubuntu-os-cloud
+    image_family: ubuntu-2404-lts-arm64
+    architecture: arm64
+    zone: us-east1-b
+    type: c4a-standard-16
+    disk: 60
+    spot: true
+  env:
+      CIRRUS_CLONE_DEPTH: 0
+      CARGO_HOME: /tmp/cargo
+      RUSTUP_HOME: /tmp/cargo
+      XMAKE_ROOT: "y"
+
+  dependencies_script:
+    - set -eo pipefail
+    - apt-get update
+    - apt-get install -y clang ninja-build lld cmake ccache perl opam z3 libgmp-dev
+  install_xmake_script: curl -fsSL https://xmake.io/shget.text | bash || true # The installer will fail without any informations.
+  verify_xmake_script: /root/.local/bin/xmake -v
+  install_rust_script: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y && . "$CARGO_HOME/env"
+  verify_rust_script: . "$CARGO_HOME/env" && cargo --version
+  build_sail_sim_script: git clone --recurse-submodules https://github.com/CHERIoT-Platform/cheriot-sail && cd cheriot-sail && opam init --reinit --bypass-check --disable-sandboxing --disable-shell-hook && eval $(opam env) && opam install sail --confirm-level=unsafe-yes && make csim && cp c_emulator/cheriot_sim /usr/local/bin
+  gen_bootstrap_script: ./cheri/gen_bootstrap.sh --build-clang
+  setup_env_script:
+    - export CCACHE_REMOTE_STORAGE="http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/"
+    - export CCACHE_REMOTE_ONLY=1
+    - env
+  pull_master_script: git fetch origin master
+  build_rustc_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
+  build_test_runner_script: cd ./cheri/tests/runner && . "$CARGO_HOME/env" && cargo build --release
+  run_tests_script: cd ./cheri/tests && ./runner/target/release/cheriot-runner -vvvvv . --sysroot=../../build/host/llvm --rustc=../../build/host/stage1/bin/rustc --xmake=/root/.local/bin/xmake
 # -- End PR tasks
