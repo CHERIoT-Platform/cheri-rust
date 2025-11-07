@@ -2444,6 +2444,8 @@ pub struct TargetOptions {
     pub is_like_android: bool,
     /// Whether a target toolchain is like VEXos, the operating system used by the VEX Robotics V5 Brain.
     pub is_like_vexos: bool,
+    /// Whether a target toolchain is like CHERI.
+    pub is_like_cheri: bool,
     /// Target's binary file format. Defaults to BinaryFormat::Elf
     pub binary_format: BinaryFormat,
     /// Default supported version of DWARF on this platform.
@@ -2839,6 +2841,7 @@ impl Default for TargetOptions {
             is_like_wasm: false,
             is_like_android: false,
             is_like_vexos: false,
+            is_like_cheri: false,
             binary_format: BinaryFormat::Elf,
             default_dwarf_version: 4,
             allows_weak_linkage: true,
@@ -3014,6 +3017,11 @@ impl Target {
             self.is_like_wasm,
             matches!(self.arch, Arch::Wasm32 | Arch::Wasm64),
             "`is_like_wasm` must be set if and only if `arch` is `wasm32` or `wasm64`"
+        );
+        check_eq!(
+            self.families.contains(&Cow::Borrowed("cheri")),
+            self.is_like_cheri,
+            "`is_like_cheri` must be set if `cheri` is one of the families the target belongs to"
         );
         if self.is_like_msvc {
             check!(self.is_like_windows, "if `is_like_msvc` is set, `is_like_windows` must be set");
