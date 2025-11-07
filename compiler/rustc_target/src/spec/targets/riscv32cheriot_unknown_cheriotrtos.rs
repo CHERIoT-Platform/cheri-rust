@@ -33,6 +33,7 @@ pub(crate) fn target() -> Target {
             eh_frame_header: false,
             families: cvs!["cheri", "cheriot"],
             os: Os::CHERIoTRTOS,
+            is_like_cheri: true,
             executables: false,
             default_address_space: rustc_abi::AddressSpace(200),
             ..Default::default()

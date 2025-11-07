@@ -27,7 +27,7 @@ use rustc_session::lint::builtin::DEPRECATED_LLVM_INTRINSIC;
 use rustc_span::{Span, Symbol, sym};
 use rustc_symbol_mangling::{mangle_internal_symbol, symbol_name_for_instance_in_crate};
 use rustc_target::callconv::PassMode;
-use rustc_target::spec::{Arch, Os};
+use rustc_target::spec::{Arch, HasTargetSpec, Os};
 use tracing::debug;
 
 use crate::abi::FnAbiLlvmExt;
@@ -607,6 +607,12 @@ impl<'ll, 'tcx> IntrinsicCallBuilderMethods<'tcx> for Builder<'_, 'll, 'tcx> {
                 // the memory.
                 let (constraint, inputs): (&str, &[_]) = if result.layout.is_zst() {
                     ("~{memory}", &[])
+                } else if self.target_spec().is_like_cheri {
+                    // Instead of passing the value input to (and output from) black_box() directly,
+                    // it seems the generated IR always passes a pointer to it. Thus, on CHERI-like
+                    // target platforms the register we use must be able to fit a capability, so we
+                    // need to use a `C` constraint instead of the general purpose `r` constraint.
+                    ("C,~{memory}", &result_val_span)
                 } else {
                     ("r,~{memory}", &result_val_span)
                 };
