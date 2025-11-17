@@ -118,6 +118,7 @@ impl App {
 #include <cstdio>
 #include <cstdlib>
 #include <simulator.h>
+#include <fail-simulator-on-error.h>
 
 extern "C" void __rust_test_panic(char *ptr) {{
   fprintf(stderr, "%s", ptr);
