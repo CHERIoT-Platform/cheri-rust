@@ -12,7 +12,7 @@
   
       bb0: {
 +         _2 = copy _1 as *const () (PtrToPtr);
-+         _3 = copy _2 as usize (Transmute);
++         _3 = copy _2 as usize (PointerExposeProvenance);
 +         _4 = Sub(const <u32 as std::mem::SizedTypeProperties>::ALIGN, const 1_usize);
 +         _5 = BitAnd(copy _3, copy _4);
 +         _6 = Eq(copy _5, const 0_usize);
