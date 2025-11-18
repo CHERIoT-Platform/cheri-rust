@@ -58,7 +58,7 @@ x_check_task:
     - export CCACHE_REMOTE_STORAGE="http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/"
     - export CCACHE_REMOTE_ONLY=1
     - env
-  pull_master_script: git fetch origin master:master
+  pull_master_script: git fetch origin master:refs/remotes/origin/master
   tidy_script: CC="clang" CXX="clang++" ./x test tidy
   check_script: CC="clang" CXX="clang++" ./x check
   ui_test_script: CC="clang" CXX="clang++" ./x test ui
@@ -88,7 +88,7 @@ build_core_task:
     - export CCACHE_REMOTE_STORAGE="http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/"
     - export CCACHE_REMOTE_ONLY=1
     - env
-  pull_master_script: git fetch origin master
+  pull_master_script: git fetch origin master:refs/remotes/origin/master
   build_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
 
 run_cheri_tests_task:
@@ -124,7 +124,7 @@ run_cheri_tests_task:
     - export CCACHE_REMOTE_STORAGE="http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/"
     - export CCACHE_REMOTE_ONLY=1
     - env
-  pull_master_script: git fetch origin master
+  pull_master_script: git fetch origin master:refs/remotes/origin/master
   build_rustc_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
   build_test_runner_script: cd ./cheri/tests/runner && . "$CARGO_HOME/env" && cargo build --release
   run_tests_script: cd ./cheri/tests && ./runner/target/release/cheriot-runner -vvvvv . --sysroot=../../build/host/llvm --rustc=../../build/host/stage1/bin/rustc --xmake=/root/.local/bin/xmake
