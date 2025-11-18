@@ -11,9 +11,10 @@
 // EMIT_MIR alignment_checks.sized_ptr.CheckAlignment.diff
 pub unsafe fn sized_ptr(ptr: *const u32) -> u32 {
     // CHECK-LABEL: fn sized_ptr(_1: *const u32)
-    // CHECK: _2 = copy _1 as usize (Transmute);
-    // CHECK: _3 = BitAnd(copy _2, const 3_usize);
-    // CHECK: _4 = Eq(copy _3, const 0_usize);
-    // CHECK: assert(copy _4,
+    // CHECK: _2 = copy _1 as *const () (PtrToPtr);
+    // CHECK: _3 = copy _2 as usize (PointerExposeProvenance);
+    // CHECK: _4 = BitAnd(copy _3, const 3_usize);
+    // CHECK: _5 = Eq(copy _4, const 0_usize);
+    // CHECK: assert(copy _5,
     *ptr
 }
