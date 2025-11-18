@@ -44,8 +44,11 @@ fn insert_null_check<'tcx>(
     let thin_ptr = local_decls.push(LocalDecl::with_source_info(const_raw_ptr, source_info)).into();
     stmts.push(Statement::new(source_info, StatementKind::Assign(Box::new((thin_ptr, rvalue)))));
 
-    // Transmute the pointer to a usize (equivalent to `ptr.addr()`).
-    let rvalue = Rvalue::Cast(CastKind::Transmute, Operand::Copy(thin_ptr), tcx.types.usize);
+    // Extract the address of the pointer exposing its provenance (equivalent to `ptr.expose_provenance()`).
+    // FIXME(xdoardo): replace with an explicit call to `ptr.addr()` or another cast kind that does
+    // not expose the provenance?
+    let rvalue =
+        Rvalue::Cast(CastKind::PointerExposeProvenance, Operand::Copy(thin_ptr), tcx.types.usize);
     let addr = local_decls.push(LocalDecl::with_source_info(tcx.types.usize, source_info)).into();
     stmts.push(Statement::new(source_info, StatementKind::Assign(Box::new((addr, rvalue)))));
 
