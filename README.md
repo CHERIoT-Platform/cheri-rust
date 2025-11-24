@@ -1,79 +1,84 @@
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/rust-lang/www.rust-lang.org/master/static/images/rust-social-wide-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/rust-lang/www.rust-lang.org/master/static/images/rust-social-wide-light.svg">
-    <img alt="The Rust Programming Language: A language empowering everyone to build reliable and efficient software"
-         src="https://raw.githubusercontent.com/rust-lang/www.rust-lang.org/master/static/images/rust-social-wide-light.svg"
-         width="50%">
-  </picture>
+# The Rust Programming Language - experimental CHERI\[oT\] port.
 
-[Website][Rust] | [Getting started] | [Learn] | [Documentation] | [Contributing]
-</div>
+> [!WARNING]  
+> This project is still in its early days, and must be considered experimental and not ready for production.
+>
+> This fork is not built or maintained by the Rust project proper, please don't complain to them if you have issues with it. 
+> If you run into a bug using this compiler, please raise an issue in this repository or reach out in the [public CHERIoT group on Signal](https://signal.group/#CjQKIElxAs3t3MUEMOEmQEuMHRK4rErUk2xVeFzjAjFXAShzEhCK9qQwEMFKGLGZnCjrQ7zm). 
 
-This is the main source code repository for [Rust]. It contains the compiler,
-standard library, and documentation.
+This is a fork of [Rust](https://www.rust-lang.org) which adds experimental
+support for [CHERIoT](https://cheriot.org/), a [CHERI](https://en.wikipedia.org/wiki/Capability_Hardware_Enhanced_RISC_Instructions)-enabled RISC-V platform. As of now, CHERIoT is the only
+platform we officially plan to support, but we strive to make our changes to
+the compiler compatible with other CHERI platforms that may be added in the
+future. 
 
-[Rust]: https://www.rust-lang.org/
-[Getting Started]: https://www.rust-lang.org/learn/get-started
-[Learn]: https://www.rust-lang.org/learn
-[Documentation]: https://www.rust-lang.org/learn#learn-use
-[Contributing]: CONTRIBUTING.md
+If you are working on porting Rust to another CHERI platform, please
+contact us, either on [Signal](https://signal.group/#CjQKIElxAs3t3MUEMOEmQEuMHRK4rErUk2xVeFzjAjFXAShzEhCK9qQwEMFKGLGZnCjrQ7zm)
+or by opening a new discussion in this repository.
 
-## Why Rust?
+### The state of this project
 
-- **Performance:** Fast and memory-efficient, suitable for critical services, embedded devices, and easily integrated with other languages.
+As of late November 2025, we have a `rustc` that can produce
+programs for the CHERIoT platform. This `rustc` can then compile the
+`compiler-builtins`, `core` and `alloc` libraries. We are currently in the
+process of testing the functionalities exposed by these libraries.
 
-- **Reliability:** Our rich type system and ownership model ensure memory and thread safety, reducing bugs at compile-time.
+As of now, CHERIoT-specific bits such as accessing MMIO devices, shared
+objects, defining compartments and using specific calling conventions are
+planned but not implemented yet. To access these functionalities, your best
+chance is to use FFI to call C(++) shims that do what the Rust compiler
+can't currently do. 
 
-- **Productivity:** Comprehensive documentation, a compiler committed to providing great diagnostics, and advanced tooling including package manager and build tool ([Cargo]), auto-formatter ([rustfmt]), linter ([Clippy]) and editor support ([rust-analyzer]).
+### Building the compiler
 
-[Cargo]: https://github.com/rust-lang/cargo
-[rustfmt]: https://github.com/rust-lang/rustfmt
-[Clippy]: https://github.com/rust-lang/rust-clippy
-[rust-analyzer]: https://github.com/rust-lang/rust-analyzer
+We try to keep building the compiler an easy and approachable task.
+In one line:
+```
+git clone https://github.com/CHERIoT-Platform/cheri-rust.git &&\
+    cd cheri-rust &&\
+    ./cheri/gen_bootstrap.sh &&\
+    ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
+```
 
-## Quick Start
+The `./x` command will download a `rustc` to bootstrap Rust, compile LLVM and proceed to compile the compiler and the supported bits of the standard library.
 
-Read ["Installation"] from [The Book].
+> [!TIP]
+> For macOS users: if the one-liner above fails while compiling LLVM due to
+> unresolved imports from C++, you might want to try removing the
+> `build-config` line in the `[llvm]` section from the generated
+> `bootstrap.toml`.
 
-["Installation"]: https://doc.rust-lang.org/book/ch01-01-installation.html
-[The Book]: https://doc.rust-lang.org/book/index.html
+If this process fails, please raise an issue so that we can try to fix the problems you encountered.
 
-## Installing from Source
+You can then use `rustup` to create a new toolchain with the name you prefer:
+```
+rustup toolchain link 'cheri' build/host/stage1
+```
+Notice that this process does not generate `cargo` and `rust-analyzer` as well. You'll have to build them with `./x`...
+```
+ ./x build tools/cargo tools/rust-analyzer --target=aarch64-apple-darwin,riscv32cheriot-unknown-cheriotrtos
+```
+...and then link the results manually to your `$RUSTUP_HOME`:
+```
+ln -s $PWD/build/host/stage1-tools-bin/cargo $RUSTUP_HOME/toolchains/cheri/bin &&\
+ln -s $PWD/build/host/stage1-tools-bin/rust-analyzer $RUSTUP_HOME/toolchains/cheri/bin
+```
 
-If you really want to install from source (though this is not recommended), see
-[INSTALL.md](INSTALL.md).
+### Now what?
 
-## Getting Help
+Keep in mind that this is an experimental project, and anything can break at any time.
 
-See https://www.rust-lang.org/community for a list of chat platforms and forums.
+As of now, the process of getting a final image for CHERIoT will entail
+1. Providing an umangled extern "C" API in your Rust project;
+2. Compiling your project to a static library;
+3. Having a C(++) shim that calls the API exposed from Rust;
+4. Linking everything together with the [CHERIoT RTOS](http://github.com/CHERIoT-Platform/cheriot-rtos);
+5. Flashing and/or running the resulting image with a [CHERIoT simulator](https://github.com/CHERIoT-Platform/cheriot-sail) or a [Sonata](https://lowrisc.github.io/sonata-software/doc/getting-started.html) board.
 
-## Contributing
+For an example of all the steps above, take a look at the [cheri/examples/hello_world](./cheri/examples/hello_world) directory. 
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-For a detailed explanation of the compiler's architecture and how to begin contributing, see the [rustc-dev-guide](https://rustc-dev-guide.rust-lang.org/).
-
-## License
-
-Rust is primarily distributed under the terms of both the MIT license and the
-Apache License (Version 2.0), with portions covered by various BSD-like
-licenses.
-
-See [LICENSE-APACHE](LICENSE-APACHE), [LICENSE-MIT](LICENSE-MIT), and
-[COPYRIGHT](COPYRIGHT) for details.
-
-## Trademark
-
-[The Rust Foundation][rust-foundation] owns and protects the Rust and Cargo
-trademarks and logos (the "Rust Trademarks").
-
-If you want to use these names or brands, please read the
-[Rust language trademark policy][trademark-policy].
-
-Third-party logos may be subject to third-party copyrights and trademarks. See
-[Licenses][policies-licenses] for details.
-
-[rust-foundation]: https://rustfoundation.org/
-[trademark-policy]: https://rustfoundation.org/policy/rust-trademark-policy/
-[policies-licenses]: https://www.rust-lang.org/policies/licenses
+<p align="center">
+</br></br>
+Something went wrong? Please <a href="https://github.com/CHERIoT-Platform/cheri-rust/issues/new?template=bug_report.md">raise an issue</a>
+or contact us on the <a href="https://signal.group/#CjQKIElxAs3t3MUEMOEmQEuMHRK4rErUk2xVeFzjAjFXAShzEhCK9qQwEMFKGLGZnCjrQ7zm">public CHERIoT group on Signal</a>
+</p>
