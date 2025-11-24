@@ -3,9 +3,18 @@
 FILE="bootstrap.toml"
 
 if  [[ $1 = "--build-clang" ]]; then
-    LLVM_PROJECTS=", LLVM_ENABLE_PROJECTS=\"clang;lld\""
-else
-    LLVM_PROJECTS=""
+    CUSTOM_CMAKE_FLAGS="LLVM_ENABLE_PROJECTS=\"clang;lld\""
+fi
+
+if  [ -n "${CIRRUS_TASK_ID+set}" ]; then
+    CI_CMAKE_FLAGS="CMAKE_C_COMPILER=\"clang\", CMAKE_CXX_COMPILER=\"clang++\""
+    if [ -n "${CUSTOM_CMAKE_FLAGS+set}" ]; then
+        CUSTOM_CMAKE_FLAGS="$CI_CMAKE_FLAGS, $CUSTOM_CMAKE_FLAGS"
+    else
+        CUSTOM_CMAKE_FLAGS="$CI_CMAKE_FLAGS"
+    fi
+elif [ -z "${CUSTOM_CMAKE_FLAGS+set}" ]; then
+        CUSTOM_CMAKE_FLAGS=""
 fi
 
 if [ -e "$FILE" ]; then
@@ -33,7 +42,7 @@ std-features = ["compiler-builtins-mem"]
 targets = "all"
 experimental-targets = ""
 download-ci-llvm = false
-build-config = {CMAKE_C_COMPILER="clang", CMAKE_CXX_COMPILER="clang++" $LLVM_PROJECTS}
+build-config = {$CUSTOM_CMAKE_FLAGS}
 
 [target.riscv32cheriot-unknown-cheriotrtos]
 no-std = true
