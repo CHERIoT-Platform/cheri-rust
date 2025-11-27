@@ -32,6 +32,8 @@ pr_check_commits_task:
       exit 1;
     fi
 
+# -- End PR tasks
+
 x_check_task:
   name: Run ./x check
   alias: x_check
@@ -60,8 +62,10 @@ build_core_task:
   name: Build `core` library  for `riscv32cheriot-unknown-cheriotrtos`
   alias: build_core
   depends_on:
-    - Run ./x check
+    - x_check
   timeout_in: 240m
+  env:
+    CIRRUS_CLONE_DEPTH: "1"
   dependencies_script:
     - set -eo pipefail
     - apt-get update
@@ -71,15 +75,17 @@ build_core_task:
     - echo "CCACHE_REMOTE_STORAGE=http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/" >> $CIRRUS_ENV
     - echo "CCACHE_REMOTE_ONLY=1" >> $CIRRUS_ENV
   check_env_script: env
-  pull_master_script: git fetch origin master:refs/remotes/origin/master
+  pull_master_script: git fetch origin master:refs/remotes/origin/master --depth 1
   build_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
 
 run_cheri_tests_task:
   name: Run CHERIoT-specific tests
+  alias: run_cheri_tests
   depends_on:
-    - Build `core` library  for `riscv32cheriot-unknown-cheriotrtos`
+    - build_core
   timeout_in: 240m
   env:
+    CIRRUS_CLONE_DEPTH: "1"
     CARGO_HOME: /tmp/cargo
     RUSTUP_HOME: /tmp/cargo
     XMAKE_ROOT: "y"
@@ -102,11 +108,10 @@ run_cheri_tests_task:
     - echo "CCACHE_REMOTE_STORAGE=http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/" >> $CIRRUS_ENV
     - echo "CCACHE_REMOTE_ONLY=1" >> $CIRRUS_ENV
   check_env_script: env
-  pull_master_script: git fetch origin master:refs/remotes/origin/master
+  pull_master_script: git fetch origin master:refs/remotes/origin/master --depth 1
   build_rustc_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
   build_test_runner_script: cd ./cheri/tests/runner && . "$CARGO_HOME/env" && cargo build --release
-  run_tests_script: ./runner/target/release/cheriot-runner ./cheri/tests -vvvvv
-    --sysroot=./build/host/llvm
-    --rustc=./build/host/stage1/bin/rustc
+  run_tests_script: cd ./cheri/tests && ./runner/target/release/cheriot-runner -vvvvv .
+    --sysroot=../../build/host/llvm
+    --rustc=../../build/host/stage1/bin/rustc
     --xmake=/root/.local/bin/xmake
-# -- End PR tasks
