@@ -42,12 +42,6 @@ git clone https://github.com/CHERIoT-Platform/cheri-rust.git &&\
 
 The `./x` command will download a `rustc` to bootstrap Rust, compile LLVM and proceed to compile the compiler and the supported bits of the standard library.
 
-> [!TIP]
-> For macOS users: if the one-liner above fails while compiling LLVM due to
-> unresolved imports from C++, you might want to try removing the
-> `build-config` line in the `[llvm]` section from the generated
-> `bootstrap.toml`.
-
 If this process fails, please raise an issue so that we can try to fix the problems you encountered.
 
 You can then use `rustup` to create a new toolchain with the name you prefer:
