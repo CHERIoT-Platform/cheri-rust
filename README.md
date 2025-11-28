@@ -42,12 +42,6 @@ git clone https://github.com/CHERIoT-Platform/cheri-rust.git &&\
 
 The `./x` command will download a `rustc` to bootstrap Rust, compile LLVM and proceed to compile the compiler and the supported bits of the standard library.
 
-> [!TIP]
-> For macOS users: if the one-liner above fails while compiling LLVM due to
-> unresolved imports from C++, you might want to try removing the
-> `build-config` line in the `[llvm]` section from the generated
-> `bootstrap.toml`.
-
 If this process fails, please raise an issue so that we can try to fix the problems you encountered.
 
 You can then use `rustup` to create a new toolchain with the name you prefer:
@@ -56,7 +50,7 @@ rustup toolchain link 'cheri' build/host/stage1
 ```
 Notice that this process does not generate `cargo` and `rust-analyzer` as well. You'll have to build them with `./x`...
 ```
- ./x build tools/cargo tools/rust-analyzer --target=aarch64-apple-darwin,riscv32cheriot-unknown-cheriotrtos
+ ./x build tools/cargo tools/rust-analyzer
 ```
 ...and then link the results manually to your `$RUSTUP_HOME`:
 ```
