@@ -50,7 +50,7 @@ rustup toolchain link 'cheri' build/host/stage1
 ```
 Notice that this process does not generate `cargo` and `rust-analyzer` as well. You'll have to build them with `./x`...
 ```
- ./x build tools/cargo tools/rust-analyzer --target=aarch64-apple-darwin,riscv32cheriot-unknown-cheriotrtos
+ ./x build tools/cargo tools/rust-analyzer
 ```
 ...and then link the results manually to your `$RUSTUP_HOME`:
 ```
