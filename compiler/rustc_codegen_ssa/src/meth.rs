@@ -28,7 +28,19 @@ impl<'a, 'tcx> VirtualIndex {
 
         let llty = bx.fn_ptr_backend_type(fn_abi);
         let ptr_size = bx.data_layout().pointer_size();
-        let vtable_byte_offset = self.0 * ptr_size.bytes();
+        let usize_size = bx.data_layout().pointer_offset();
+
+        // FIXME(xdoardo) Find a way to remove the overhead for this comparison too?
+        let vtable_byte_offset = if ptr_size == usize_size {
+            ptr_size.bytes() * self.0
+        } else {
+            match self.0 {
+                0 => 0,
+                1 => usize_size.bytes(),
+                2 => usize_size.bytes() * 2,
+                n => usize_size.bytes() * 2 + ptr_size.bytes() * (n - 2),
+            }
+        };
 
         load_vtable(bx, llvtable, llty, vtable_byte_offset, ty, nonnull)
     }

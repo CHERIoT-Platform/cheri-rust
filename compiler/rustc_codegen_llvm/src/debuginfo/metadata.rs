@@ -1401,6 +1401,20 @@ fn build_vtable_type_di_node<'ll, 'tcx>(
 ) -> &'ll DIType {
     let tcx = cx.tcx;
 
+    // FIXME(xdoardo): Figure out to remove the overhead for the computations relative to the sizes
+    // of the entries happens only for targets that need it (i.e. those where sizeof(usize) !=
+    // sizeof(ptr)
+
+    // All function pointers are described as opaque pointers. This could be improved in the future
+    // by describing them as actual function pointers.
+    let void_pointer_ty = Ty::new_imm_ptr(tcx, tcx.types.unit);
+    let void_pointer_type_di_node = type_di_node(cx, void_pointer_ty);
+    let usize_di_node = type_di_node(cx, tcx.types.usize);
+    let usize_layout = cx.layout_of(tcx.types.usize);
+    let pointer_layout = cx.layout_of(void_pointer_ty);
+    let pointer_align = pointer_layout.align.abi;
+    let size_zero = Size::from_bits(0);
+
     let vtable_entries = if let Some(poly_trait_ref) = poly_trait_ref {
         let trait_ref = poly_trait_ref.with_self_ty(tcx, ty);
         let trait_ref = tcx.erase_and_anonymize_regions(trait_ref);
@@ -1410,23 +1424,12 @@ fn build_vtable_type_di_node<'ll, 'tcx>(
         TyCtxt::COMMON_VTABLE_ENTRIES
     };
 
-    // All function pointers are described as opaque pointers. This could be improved in the future
-    // by describing them as actual function pointers.
-    let void_pointer_ty = Ty::new_imm_ptr(tcx, tcx.types.unit);
-    let void_pointer_type_di_node = type_di_node(cx, void_pointer_ty);
-    let usize_di_node = type_di_node(cx, tcx.types.usize);
-    let pointer_layout = cx.layout_of(void_pointer_ty);
-    let pointer_size = pointer_layout.size;
-    let pointer_align = pointer_layout.align.abi;
-    // If `usize` is not pointer-sized and -aligned then the size and alignment computations
-    // for the vtable as a whole would be wrong. Let's make sure this holds even on weird
-    // platforms.
-    assert_eq!(cx.size_and_align_of(tcx.types.usize), (pointer_size, pointer_align));
-
     let vtable_type_name =
         compute_debuginfo_vtable_name(cx.tcx, ty, poly_trait_ref, VTableNameKind::Type);
     let unique_type_id = UniqueTypeId::for_vtable_ty(tcx, ty, poly_trait_ref);
-    let size = pointer_size * vtable_entries.len() as u64;
+    let entries_size = vtable_entries.iter().map(|e| e.memory_size(&tcx)).collect::<Vec<_>>();
+    let size = entries_size.iter().fold(size_zero, |a, s| a + *s);
+    let mut field_offset = size_zero;
 
     // This gets mapped to a DW_AT_containing_type attribute which allows GDB to correlate
     // the vtable to the type it is for.
@@ -1449,32 +1452,39 @@ fn build_vtable_type_di_node<'ll, 'tcx>(
                 .iter()
                 .enumerate()
                 .filter_map(|(index, vtable_entry)| {
-                    let (field_name, field_type_di_node) = match vtable_entry {
+                    let (field_name, layout, field_type_di_node) = match vtable_entry {
                         ty::VtblEntry::MetadataDropInPlace => {
-                            ("drop_in_place".to_string(), void_pointer_type_di_node)
+                            ("drop_in_place".to_string(), pointer_layout, void_pointer_type_di_node)
                         }
                         ty::VtblEntry::Method(_) => {
                             // Note: This code does not try to give a proper name to each method
                             //       because their might be multiple methods with the same name
                             //       (coming from different traits).
-                            (format!("__method{index}"), void_pointer_type_di_node)
+                            (format!("__method{index}"), pointer_layout, void_pointer_type_di_node)
                         }
-                        ty::VtblEntry::TraitVPtr(_) => {
-                            (format!("__super_trait_ptr{index}"), void_pointer_type_di_node)
+                        ty::VtblEntry::TraitVPtr(_) => (
+                            format!("__super_trait_ptr{index}"),
+                            pointer_layout,
+                            void_pointer_type_di_node,
+                        ),
+                        ty::VtblEntry::MetadataAlign => {
+                            ("align".to_string(), usize_layout, usize_di_node)
                         }
-                        ty::VtblEntry::MetadataAlign => ("align".to_string(), usize_di_node),
-                        ty::VtblEntry::MetadataSize => ("size".to_string(), usize_di_node),
+                        ty::VtblEntry::MetadataSize => {
+                            ("size".to_string(), usize_layout, usize_di_node)
+                        }
                         ty::VtblEntry::Vacant => return None,
                     };
 
-                    let field_offset = pointer_size * index as u64;
+                    let current_offset = field_offset;
+                    field_offset += entries_size[index];
 
                     Some(build_field_di_node(
                         cx,
                         vtable_type_di_node,
                         &field_name,
-                        pointer_layout,
-                        field_offset,
+                        layout,
+                        current_offset,
                         DIFlags::FlagZero,
                         field_type_di_node,
                         None,
