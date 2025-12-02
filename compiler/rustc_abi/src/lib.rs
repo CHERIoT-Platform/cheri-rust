@@ -1372,7 +1372,7 @@ impl Primitive {
     /// and is instead crucial: this function is the one you want when you want to refer to how many
     /// bits of user-visible data can be extracted from this [`Primitive`].
     ///
-    /// This distinction is visible only when [`self`] is a [`Scalar::Ptr`] as, in platforms with
+    /// This distinction is visible only when [`self`] is a [`Primitive::Pointer`] as, in platforms with
     /// non-integral pointers, storing a pointer in memory generally takes more space than the bits
     /// of user-visible data contained in the pointer itself, due to metadata attached with the
     /// data.
