@@ -813,11 +813,23 @@ impl<'a> Arguments<'a> {
     #[inline]
     #[unstable(feature = "fmt_arguments_from_str", issue = "148905")]
     pub const fn from_str(s: &'static str) -> Arguments<'a> {
+        #[cfg(not(target_family = "cheri"))]
         // SAFETY: This is the "static str" representation of fmt::Arguments; see above.
         unsafe {
             Arguments {
                 template: mem::transmute(s.as_ptr()),
                 args: mem::transmute(s.len() << 1 | 1),
+            }
+        }
+
+        #[cfg(target_family = "cheri")]
+        // SAFETY: This is the "static str" representation of fmt::Arguments; see above.
+        unsafe {
+            use crate::num::NonZero;
+            use crate::ptr::NonNull;
+            Arguments {
+                template: mem::transmute(s.as_ptr()),
+                args: NonNull::without_provenance(NonZero::new(s.len() << 1 | 1).unwrap()),
             }
         }
     }
@@ -869,12 +881,34 @@ impl<'a> Arguments<'a> {
     #[must_use]
     #[inline]
     pub const fn as_str(&self) -> Option<&'static str> {
+        #[cfg(not(target_family = "cheri"))]
         // SAFETY: During const eval, `self.args` must have come from a usize,
         // not a pointer, because that's the only way to create a fmt::Arguments in const.
         // (I.e. only fmt::Arguments::from_str is const, fmt::Arguments::new is not.)
         //
         // Outside const eval, transmuting a pointer to a usize is fine.
         let bits: usize = unsafe { mem::transmute(self.args) };
+
+        #[cfg(target_family = "cheri")]
+        // SAFETY: During const eval, `self.args` must have come from a usize,
+        // not a pointer, because that's the only way to create a fmt::Arguments in const.
+        // (I.e. only fmt::Arguments::from_str is const, fmt::Arguments::new is not.)
+        //
+        // It should therefore be technically fine to hack this into a `usize` on CHERI-like platforms,
+        // although we can't simply use a transmute like above.
+        //
+        // Outside const eval, the `bits & 1 == 1` check will fail, so the resulting usize will
+        // never be used.
+        let bits: usize = unsafe {
+            union X {
+                p: usize,
+                v: *const (),
+            }
+
+            let x = X { v: self.args.as_ptr() as *mut () as *const () };
+            x.p
+        };
+
         if bits & 1 == 1 {
             // SAFETY: This fmt::Arguments stores a &'static str. See encoding documentation above.
             Some(unsafe {
