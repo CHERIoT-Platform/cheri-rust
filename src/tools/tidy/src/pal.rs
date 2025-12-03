@@ -48,6 +48,9 @@ const EXCEPTION_PATHS: &[&str] = &[
     "library/core/src/intrinsics/mod.rs",
     // With the addition of CHERI-specific intrinsics for CHERI-like platforms, `ptr` too must have platform specific code (to use those intrinsics).
     "library/core/src/ptr",
+    // Some workarounds to make fmt::Arguments compile to CHERI-like platforms require unsafe and
+    // platform-specific code.
+    "library/core/src/fmt/mod.rs",
     // The `VaList` implementation must have platform specific code.
     // The Windows implementation of a `va_list` is always a character
     // pointer regardless of the target architecture. As a result,
