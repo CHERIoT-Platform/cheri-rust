@@ -48,7 +48,7 @@ x_test_task:
     - set -eo pipefail
     - apt-get update
     - apt-get install -y pkg-config clang ninja-build lld cmake ccache perl libssl-dev
-  gen_bootstrap_script: ./cheri/gen_bootstrap.sh
+  gen_bootstrap_script: ./cheri/gen_bootstrap.sh && cat bootstrap.toml
   setup_env_script:
     - echo "CCACHE_REMOTE_STORAGE=http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/" >> $CIRRUS_ENV
     - echo "CCACHE_REMOTE_ONLY=1" >> $CIRRUS_ENV
