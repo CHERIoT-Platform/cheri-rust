@@ -34,9 +34,9 @@ pr_check_commits_task:
 
 # -- End PR tasks
 
-x_check_task:
-  name: Run ./x check
-  alias: x_check
+x_test_task:
+  name: Run ./x test
+  alias: x_test
   # TODO(xdoardo): Figure out when it makes sense to have this dependency, or
   #   how that dependency should actually work. Having this dependency would
   #   pretty much mean making every PR that merges changes on `beta` to `main`
@@ -47,22 +47,21 @@ x_check_task:
   dependencies_script:
     - set -eo pipefail
     - apt-get update
-    - apt-get install -y clang ninja-build lld cmake ccache perl
+    - apt-get install -y pkg-config clang ninja-build lld cmake ccache perl libssl-dev
   gen_bootstrap_script: ./cheri/gen_bootstrap.sh
   setup_env_script:
     - echo "CCACHE_REMOTE_STORAGE=http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/" >> $CIRRUS_ENV
     - echo "CCACHE_REMOTE_ONLY=1" >> $CIRRUS_ENV
   check_env_script: env
   pull_main_script: git fetch origin main:refs/remotes/origin/main
-  tidy_script: CC="clang" CXX="clang++" ./x test tidy
-  check_script: CC="clang" CXX="clang++" ./x check
-  ui_test_script: CC="clang" CXX="clang++" ./x test ui
+  rust_check_script: CC="clang" CXX="clang++" ./x check
+  rust_test_script: CC="clang" CXX="clang++" ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make
 
 build_core_task:
   name: Build `core` library  for `riscv32cheriot-unknown-cheriotrtos`
   alias: build_core
   depends_on:
-    - x_check
+    - x_test
   timeout_in: 240m
   env:
     CIRRUS_CLONE_DEPTH: "1"
