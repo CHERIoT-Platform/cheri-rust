@@ -34,11 +34,16 @@ impl<'a, 'tcx> VirtualIndex {
         let vtable_byte_offset = if ptr_size == usize_size {
             ptr_size.bytes() * self.0
         } else {
-            match self.0 {
-                0 => 0,
-                1 => usize_size.bytes(),
-                2 => usize_size.bytes() * 2,
-                n => usize_size.bytes() * 2 + ptr_size.bytes() * (n - 2),
+            let idx = self.0 as usize;
+            if idx < TyCtxt::COMMON_VTABLE_ENTRIES.len() {
+                TyCtxt::COMMON_VTABLE_ENTRIES[..idx]
+                    .iter()
+                    .fold(0, |acc, item| acc + item.memory_size(bx).bytes())
+            } else {
+                TyCtxt::COMMON_VTABLE_ENTRIES
+                    .iter()
+                    .fold(0, |acc, item| acc + item.memory_size(bx).bytes())
+                    + (ptr_size.bytes() * (self.0 - TyCtxt::COMMON_VTABLE_ENTRIES.len() as u64))
             }
         };
 
