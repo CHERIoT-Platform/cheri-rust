@@ -1,3 +1,4 @@
+// ignore-tidy-linelength
 //@ revisions: cheriot
 //@ [cheriot] compile-flags: --target riscv32cheriot-unknown-cheriotrtos -Cdebuginfo=2 -Copt-level=0 -Csymbol-mangling-version=v0
 //@ [cheriot] needs-llvm-components: riscv
