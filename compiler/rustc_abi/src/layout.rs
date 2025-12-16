@@ -1062,7 +1062,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
             }
             if let Some((prim, offset)) = common_prim {
                 let prim_scalar = if common_prim_initialized_in_all_variants {
-                    let size = prim.in_memory_size(dl);
+                    let size = prim.capacity(dl);
                     assert!(size.bits() <= 128);
                     Scalar::Initialized { value: prim, valid_range: WrappingRange::full(size) }
                 } else {
