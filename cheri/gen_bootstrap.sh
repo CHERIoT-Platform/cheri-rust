@@ -72,9 +72,5 @@ targets = "all"
 experimental-targets = ""
 download-ci-llvm = false
 build-config = {$CUSTOM_CMAKE_FLAGS}
-
-[target.riscv32cheriot-unknown-cheriotrtos]
-no-std = true
-
 EOF
 fi
