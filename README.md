@@ -36,7 +36,7 @@ In one line:
 ```
 git clone https://github.com/CHERIoT-Platform/cheri-rust.git &&\
     cd cheri-rust &&\
-    ./cheri/gen_bootstrap.sh &&\
+    ./cheri/gen_bootstrap.sh --build-clang &&\
     ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
 ```
 
