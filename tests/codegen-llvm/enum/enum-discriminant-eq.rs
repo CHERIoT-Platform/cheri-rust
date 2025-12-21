@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3 -Zmerge-functions=disabled
 //@ only-64bit
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 //@ revisions: LLVM20 LLVM21
 //@ [LLVM21] min-llvm-version: 21
 //@ [LLVM20] max-llvm-major-version: 20
@@ -8,14 +9,15 @@
 // so make sure we emit that in some reasonable way.
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(ascii_char)]
 #![feature(core_intrinsics)]
 #![feature(repr128)]
 
-use std::ascii::Char as AC;
-use std::cmp::Ordering;
-use std::intrinsics::discriminant_value;
-use std::num::NonZero;
+use core::ascii::Char as AC;
+use core::cmp::Ordering;
+use core::intrinsics::discriminant_value;
+use core::num::NonZero;
 
 // A type that's bigger than `isize`, unlike the usual cases that have small tags.
 #[repr(u128)]

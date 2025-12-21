@@ -2,6 +2,7 @@
 // Test that move/copy operations are NOT annotated when the flag is disabled
 
 #![crate_type = "lib"]
+#![no_std]
 
 struct LargeStruct {
     data: [u64; 20], // 160 bytes - would normally trigger annotation

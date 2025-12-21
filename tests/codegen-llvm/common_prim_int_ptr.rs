@@ -1,7 +1,12 @@
 //@ compile-flags: -Copt-level=3
+//@ ignore-riscv32cheriot-unknown-cheriotrtos FIXME: CHERIoT-Platform/cheri-rust/issues/71
 
 #![crate_type = "lib"]
 #![feature(core_intrinsics)]
+#![no_std]
+
+extern crate alloc;
+use alloc::boxed::Box;
 
 // Tests that codegen works properly when enums like `Result<usize, Box<()>>`
 // are represented as `{ u64, ptr }`, i.e., for `Ok(123)`, `123` is stored
@@ -11,9 +16,9 @@
 #[no_mangle]
 pub fn insert_int(x: usize) -> Result<usize, Box<()>> {
     // CHECK: start:
-    // CHECK-NEXT: %[[WO_PROV:.+]] = inttoptr [[USIZE:i[0-9]+]] %x to ptr
-    // CHECK-NEXT: %[[R:.+]] = insertvalue { [[USIZE]], ptr } { [[USIZE]] 0, ptr poison }, ptr %[[WO_PROV]], 1
-    // CHECK-NEXT: ret { [[USIZE]], ptr } %[[R]]
+    // CHECK-NEXT: %[[WO_PROV:.+]] = inttoptr [[USIZE:i[0-9]+]] %x to ptr[[ADDRSPACE]]
+    // CHECK-NEXT: %[[R:.+]] = insertvalue { [[USIZE]], ptr[[ADDRSPACE]] } { [[USIZE]] 0, ptr[[ADDRSPACE]] poison }, ptr %[[WO_PROV]], 1
+    // CHECK-NEXT: ret { [[USIZE]], ptr[[ADDRSPACE]] } %[[R]]
     Ok(x)
 }
 
@@ -31,11 +36,11 @@ pub fn insert_box(x: Box<()>) -> Result<usize, Box<()>> {
 // CHECK-SAME: (i{{[0-9]+}} {{[^%]+}} [[DISCRIMINANT:%[0-9]+]], ptr {{[^,]+}} [[PAYLOAD:%[0-9]+]])
 #[no_mangle]
 pub unsafe fn extract_int(x: Result<usize, Box<()>>) -> usize {
-    // CHECK: [[TEMP:%.+]] = ptrtoint ptr [[PAYLOAD]] to [[USIZE:i[0-9]+]]
+    // CHECK: [[TEMP:%.+]] = ptrtoint ptr[[ADDRSPACE]] [[PAYLOAD]] to [[USIZE:i[0-9]+]]
     // CHECK: ret [[USIZE]] [[TEMP]]
     match x {
         Ok(v) => v,
-        Err(_) => std::intrinsics::unreachable(),
+        Err(_) => core::intrinsics::unreachable(),
     }
 }
 
@@ -43,9 +48,9 @@ pub unsafe fn extract_int(x: Result<usize, Box<()>>) -> usize {
 // CHECK-SAME: (i{{[0-9]+}} {{[^%]+}} [[DISCRIMINANT:%[0-9]+]], ptr {{[^%]+}} [[PAYLOAD:%[0-9]+]])
 #[no_mangle]
 pub unsafe fn extract_box(x: Result<usize, Box<i32>>) -> Box<i32> {
-    // CHECK: ret ptr [[PAYLOAD]]
+    // CHECK: ret ptr[[ADDRSPACE]] [[PAYLOAD]]
     match x {
-        Ok(_) => std::intrinsics::unreachable(),
+        Ok(_) => core::intrinsics::unreachable(),
         Err(e) => e,
     }
 }

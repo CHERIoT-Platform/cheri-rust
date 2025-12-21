@@ -1,7 +1,8 @@
 //@ compile-flags: -Copt-level=3 -Zmerge-functions=disabled
 #![crate_type = "lib"]
+#![no_std]
 
-use std::num::NonZero;
+use core::num::NonZero;
 
 // #71602 reported a simple array comparison just generating a loop.
 // This was originally fixed by ensuring it generates a single bcmp,
@@ -23,7 +24,7 @@ pub fn is_zero_slice_long(data: &[u8; 456]) -> bool {
 // CHECK-LABEL: @is_zero_slice_short
 #[no_mangle]
 pub fn is_zero_slice_short(data: &[u8; 4]) -> bool {
-    // CHECK: %[[LOAD:.+]] = load i32, ptr %{{.+}}, align 1
+    // CHECK: %[[LOAD:.+]] = load i32, ptr[[ADDRSPACE]] %{{.+}}, align 1
     // CHECK-NEXT: %[[EQ:.+]] = icmp eq i32 %[[LOAD]], 0
     // CHECK-NEXT: ret i1 %[[EQ]]
     &data[..] == [0; 4]
@@ -32,7 +33,7 @@ pub fn is_zero_slice_short(data: &[u8; 4]) -> bool {
 // CHECK-LABEL: @is_zero_array
 #[no_mangle]
 pub fn is_zero_array(data: &[u8; 4]) -> bool {
-    // CHECK: %[[LOAD:.+]] = load i32, ptr %{{.+}}, align 1
+    // CHECK: %[[LOAD:.+]] = load i32, ptr[[ADDRSPACE]] %{{.+}}, align 1
     // CHECK-NEXT: %[[EQ:.+]] = icmp eq i32 %[[LOAD]], 0
     // CHECK-NEXT: ret i1 %[[EQ]]
     *data == [0; 4]

@@ -3,6 +3,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @is_ascii_alphanumeric_char
 #[no_mangle]

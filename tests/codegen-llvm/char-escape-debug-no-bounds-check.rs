@@ -1,7 +1,8 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
-use std::char::EscapeDebug;
+use core::char::EscapeDebug;
 
 // Make sure no bounds checks are emitted when escaping a character.
 
