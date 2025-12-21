@@ -1,8 +1,10 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 #![feature(exact_size_is_empty)]
 
-use std::vec;
+extern crate alloc;
+use alloc::vec;
 
 // CHECK-LABEL: @vec_iter_len_nonnull
 #[no_mangle]

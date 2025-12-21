@@ -1,8 +1,9 @@
 //@ compile-flags: -C opt-level=1 -Z merge-functions=disabled
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 type TwoTuple = (i16, u16);
 
@@ -16,7 +17,7 @@ type TwoTuple = (i16, u16);
 //
 
 // CHECK-LABEL: @check_lt_direct
-// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:.+]])
+// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_lt_direct(a: TwoTuple, b: TwoTuple) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i16 %[[A0]], %[[B0]]
@@ -28,7 +29,7 @@ pub fn check_lt_direct(a: TwoTuple, b: TwoTuple) -> bool {
 }
 
 // CHECK-LABEL: @check_le_direct
-// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:.+]])
+// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_le_direct(a: TwoTuple, b: TwoTuple) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i16 %[[A0]], %[[B0]]
@@ -40,7 +41,7 @@ pub fn check_le_direct(a: TwoTuple, b: TwoTuple) -> bool {
 }
 
 // CHECK-LABEL: @check_gt_direct
-// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:.+]])
+// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_gt_direct(a: TwoTuple, b: TwoTuple) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i16 %[[A0]], %[[B0]]
@@ -52,7 +53,7 @@ pub fn check_gt_direct(a: TwoTuple, b: TwoTuple) -> bool {
 }
 
 // CHECK-LABEL: @check_ge_direct
-// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:.+]])
+// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_ge_direct(a: TwoTuple, b: TwoTuple) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i16 %[[A0]], %[[B0]]
@@ -68,7 +69,7 @@ pub fn check_ge_direct(a: TwoTuple, b: TwoTuple) -> bool {
 //
 
 // CHECK-LABEL: @check_lt_via_cmp
-// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:.+]])
+// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_lt_via_cmp(a: TwoTuple, b: TwoTuple) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i16 %[[A0]], %[[B0]]
@@ -80,7 +81,7 @@ pub fn check_lt_via_cmp(a: TwoTuple, b: TwoTuple) -> bool {
 }
 
 // CHECK-LABEL: @check_le_via_cmp
-// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:.+]])
+// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_le_via_cmp(a: TwoTuple, b: TwoTuple) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i16 %[[A0]], %[[B0]]
@@ -92,7 +93,7 @@ pub fn check_le_via_cmp(a: TwoTuple, b: TwoTuple) -> bool {
 }
 
 // CHECK-LABEL: @check_gt_via_cmp
-// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:.+]])
+// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_gt_via_cmp(a: TwoTuple, b: TwoTuple) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i16 %[[A0]], %[[B0]]
@@ -104,7 +105,7 @@ pub fn check_gt_via_cmp(a: TwoTuple, b: TwoTuple) -> bool {
 }
 
 // CHECK-LABEL: @check_ge_via_cmp
-// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:.+]])
+// CHECK-SAME: (i16 noundef %[[A0:.+]], i16 noundef %[[A1:.+]], i16 noundef %[[B0:.+]], i16 noundef %[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_ge_via_cmp(a: TwoTuple, b: TwoTuple) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i16 %[[A0]], %[[B0]]

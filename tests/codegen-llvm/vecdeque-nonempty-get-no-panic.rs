@@ -3,8 +3,10 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::collections::VecDeque;
+extern crate alloc;
+use alloc::collections::VecDeque;
 
 // CHECK-LABEL: @front
 // CHECK: ret void

@@ -11,8 +11,9 @@
 //@ compile-flags: -Copt-level=3 -Cdebug-assertions=yes
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::ops::Range;
+use core::ops::Range;
 
 // CHECK-LABEL: @slice_get_unchecked(
 #[no_mangle]

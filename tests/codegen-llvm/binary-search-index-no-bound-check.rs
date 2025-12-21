@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 // Make sure no bounds checks are emitted when slicing or indexing
 // with an index from `binary_search`.

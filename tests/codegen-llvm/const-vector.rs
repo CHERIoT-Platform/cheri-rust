@@ -3,10 +3,12 @@
 //@ [OPT0_S390X] only-s390x
 //@ [OPT0] compile-flags: -C no-prepopulate-passes -Copt-level=0
 //@ [OPT0_S390X] compile-flags: -C no-prepopulate-passes -Copt-level=0 -C target-cpu=z13
+//@ ignore-riscv32cheriot-unknown-cheriotrtos FIXME CHERIoT-Platform/cheri-rust/issues/72
 
 // This test checks that constants of SIMD type are passed as immediate vectors.
 // We ensure that both vector representations (struct with fields and struct wrapping array) work.
 #![crate_type = "lib"]
+#![no_std]
 #![feature(abi_unadjusted)]
 #![feature(const_trait_impl)]
 #![feature(repr_simd)]

@@ -1,13 +1,16 @@
 //@ compile-flags: -Zvirtual-function-elimination -Clto -Copt-level=3 -Csymbol-mangling-version=v0
 //@ ignore-32bit
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 // CHECK: @vtable.0 = {{.*}}, !type ![[TYPE0:[0-9]+]], !vcall_visibility ![[VCALL_VIS0:[0-9]+]]
 // CHECK: @vtable.1 = {{.*}}, !type ![[TYPE1:[0-9]+]], !vcall_visibility ![[VCALL_VIS0:[0-9]+]]
 // CHECK: @vtable.2 = {{.*}}, !type ![[TYPE2:[0-9]+]], !vcall_visibility ![[VCALL_VIS2:[0-9]+]]
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::rc::Rc;
+extern crate alloc;
+use alloc::rc::Rc;
 
 trait T {
     // CHECK-LABEL: ; <virtual_function_elimination::S as virtual_function_elimination::T>::used

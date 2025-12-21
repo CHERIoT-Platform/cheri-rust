@@ -2217,6 +2217,16 @@ impl<'test> TestCx<'test> {
             filecheck.arg("--check-prefix").arg(rev);
         }
 
+        // HACK: some targets use a default address space that is different from the
+        // default one in LLVM. This variable is set so to make it slightly easier to adapt
+        // existing tests to those targets using the [[ADDRSPACE]] variable.
+        if self.config.target_cfg().families.contains(&String::from("cheriot")) {
+            // The leading whitespace is intended.
+            filecheck.arg("-DADDRSPACE= addrspace(200)");
+        } else {
+            filecheck.arg("-DADDRSPACE=");
+        }
+
         // HACK: the filecheck tool normally fails if a prefix is defined but not used. However,
         // sometimes revisions are used to specify *compiletest* directives which are not FileCheck
         // concerns.

@@ -1,7 +1,10 @@
 //@ compile-flags: -Copt-level=3
-#![crate_type = "lib"]
+//@ ignore-riscv32cheriot-unknown-cheriotrtos FIXME: See CHERIoT-Platform/cheri-rust/issues/76
 
-use std::ptr::NonNull;
+#![crate_type = "lib"]
+#![no_std]
+
+use core::ptr::NonNull;
 
 // CHECK-LABEL: @slice_ptr_len_1
 // CHECK-NEXT: {{.*}}:

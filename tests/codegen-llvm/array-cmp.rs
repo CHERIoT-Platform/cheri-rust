@@ -4,6 +4,7 @@
 //@ needs-deterministic-layouts (checks depend on tuple layout)
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @compare
 // CHECK: start:
@@ -33,34 +34,34 @@ pub fn array_of_tuple_le(a: &[(i16, u16); 2], b: &[(i16, u16); 2]) -> bool {
     // *exactly* this IR, but be careful if you ever need to update these checks.
 
     // CHECK: start:
-    // CHECK: %[[A00:.+]] = load i16, ptr %a
-    // CHECK: %[[B00:.+]] = load i16, ptr %b
+    // CHECK: %[[A00:.+]] = load i16, ptr[[ADDRSPACE]] %a
+    // CHECK: %[[B00:.+]] = load i16, ptr[[ADDRSPACE]] %b
     // CHECK-NOT: cmp
     // CHECK: %[[EQ00:.+]] = icmp eq i16 %[[A00]], %[[B00]]
     // CHECK-NEXT: br i1 %[[EQ00]], label %[[L01:.+]], label %[[EXIT_S:.+]]
 
-    // CHECK: %[[PA10:.+]] = getelementptr{{.+}}i8, ptr %a, {{i32|i64}} 4
-    // CHECK: %[[PB10:.+]] = getelementptr{{.+}}i8, ptr %b, {{i32|i64}} 4
-    // CHECK: %[[A10:.+]] = load i16, ptr %[[PA10]]
-    // CHECK: %[[B10:.+]] = load i16, ptr %[[PB10]]
+    // CHECK: %[[PA10:.+]] = getelementptr{{.+}}i8, ptr[[ADDRSPACE]] %a, {{i32|i64}} 4
+    // CHECK: %[[PB10:.+]] = getelementptr{{.+}}i8, ptr[[ADDRSPACE]] %b, {{i32|i64}} 4
+    // CHECK: %[[A10:.+]] = load i16, ptr[[ADDRSPACE]] %[[PA10]]
+    // CHECK: %[[B10:.+]] = load i16, ptr[[ADDRSPACE]] %[[PB10]]
     // CHECK-NOT: cmp
     // CHECK: %[[EQ10:.+]] = icmp eq i16 %[[A10]], %[[B10]]
     // CHECK-NEXT: br i1 %[[EQ10]], label %[[L11:.+]], label %[[EXIT_S]]
 
     // CHECK: [[L11]]:
-    // CHECK: %[[PA11:.+]] = getelementptr{{.+}}i8, ptr %a, {{i32|i64}} 6
-    // CHECK: %[[PB11:.+]] = getelementptr{{.+}}i8, ptr %b, {{i32|i64}} 6
-    // CHECK: %[[A11:.+]] = load i16, ptr %[[PA11]]
-    // CHECK: %[[B11:.+]] = load i16, ptr %[[PB11]]
+    // CHECK: %[[PA11:.+]] = getelementptr{{.+}}i8, ptr[[ADDRSPACE]]  %a, {{i32|i64}} 6
+    // CHECK: %[[PB11:.+]] = getelementptr{{.+}}i8, ptr[[ADDRSPACE]]  %b, {{i32|i64}} 6
+    // CHECK: %[[A11:.+]] = load i16, ptr[[ADDRSPACE]] %[[PA11]]
+    // CHECK: %[[B11:.+]] = load i16, ptr[[ADDRSPACE]] %[[PB11]]
     // CHECK-NOT: cmp
     // CHECK: %[[EQ11:.+]] = icmp eq i16 %[[A11]], %[[B11]]
     // CHECK-NEXT: br i1 %[[EQ11]], label %[[DONE:.+]], label %[[EXIT_U:.+]]
 
     // CHECK: [[L01]]:
-    // CHECK: %[[PA01:.+]] = getelementptr{{.+}}i8, ptr %a, {{i32|i64}} 2
-    // CHECK: %[[PB01:.+]] = getelementptr{{.+}}i8, ptr %b, {{i32|i64}} 2
-    // CHECK: %[[A01:.+]] = load i16, ptr %[[PA01]]
-    // CHECK: %[[B01:.+]] = load i16, ptr %[[PB01]]
+    // CHECK: %[[PA01:.+]] = getelementptr{{.+}}i8, ptr[[ADDRSPACE]] %a, {{i32|i64}} 2
+    // CHECK: %[[PB01:.+]] = getelementptr{{.+}}i8, ptr[[ADDRSPACE]] %b, {{i32|i64}} 2
+    // CHECK: %[[A01:.+]] = load i16, ptr[[ADDRSPACE]] %[[PA01]]
+    // CHECK: %[[B01:.+]] = load i16, ptr[[ADDRSPACE]] %[[PB01]]
     // CHECK-NOT: cmp
     // CHECK: %[[EQ01:.+]] = icmp eq i16 %[[A01]], %[[B01]]
     // CHECK-NEXT: br i1 %[[EQ01]], label %{{.+}}, label %[[EXIT_U]]
