@@ -1,6 +1,8 @@
 //@ compile-flags: -Copt-level=3
+//@ ignore-riscv32cheriot-unknown-cheriotrtos FIXME: See CHERIoT-Platform/cheri-rust/issues/70
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @align8
 #[no_mangle]
@@ -23,7 +25,7 @@ pub fn align_to4(x: &[u8]) -> bool {
 // CHECK-LABEL: @align_offset_byte_ptr(ptr{{.+}}%ptr)
 #[no_mangle]
 pub fn align_offset_byte_ptr(ptr: *const u8) -> usize {
-    // CHECK: %[[ADDR:.+]] = ptrtoint ptr %ptr to [[USIZE:i[0-9]+]]
+    // CHECK: %[[ADDR:.+]] = ptrtoint ptr[[ADDRSPACE]] %ptr to [[USIZE:i[0-9]+]]
     // CHECK: %[[UP:.+]] = add [[USIZE]] %[[ADDR]], {{31|28}}
     // CHECK: %[[ALIGNED:.+]] = and [[USIZE]] %[[UP]], -32
     // CHECK: %[[OFFSET:.+]] = sub [[USIZE]] %[[ALIGNED]], %[[ADDR]]
@@ -40,7 +42,7 @@ pub fn align_offset_byte_ptr(ptr: *const u8) -> usize {
 // CHECK-LABEL: @align_offset_word_slice(ptr{{.+}}align 4{{.+}}%slice.0
 #[no_mangle]
 pub fn align_offset_word_slice(slice: &[Align4]) -> usize {
-    // CHECK: %[[ADDR:.+]] = ptrtoint ptr %slice.0 to [[USIZE]]
+    // CHECK: %[[ADDR:.+]] = ptrtoint ptr[[ADDRSPACE]] %slice.0 to [[USIZE]]
     // CHECK: %[[UP:.+]] = add [[USIZE]] %[[ADDR]], {{31|28}}
     // CHECK: %[[ALIGNED:.+]] = and [[USIZE]] %[[UP]], -32
     // CHECK: %[[BOFFSET:.+]] = sub [[USIZE]] %[[ALIGNED]], %[[ADDR]]
@@ -56,7 +58,7 @@ pub fn align_offset_word_slice(slice: &[Align4]) -> usize {
 // CHECK-LABEL: @align_offset_word_ptr(ptr{{.+}}%ptr
 #[no_mangle]
 pub fn align_offset_word_ptr(ptr: *const Align4) -> usize {
-    // CHECK: %[[ADDR:.+]] = ptrtoint ptr %ptr to [[USIZE]]
+    // CHECK: %[[ADDR:.+]] = ptrtoint ptr[[ADDRSPACE]] %ptr to [[USIZE]]
     // CHECK: %[[UP:.+]] = add [[USIZE]] %[[ADDR]], {{31|28}}
     // CHECK: %[[ALIGNED:.+]] = and [[USIZE]] %[[UP]], -32
     // CHECK: %[[BOFFSET:.+]] = sub [[USIZE]] %[[ALIGNED]], %[[ADDR]]

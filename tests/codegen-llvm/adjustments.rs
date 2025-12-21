@@ -1,9 +1,10 @@
 //@ compile-flags: -C no-prepopulate-passes -Copt-level=0
 
 #![crate_type = "lib"]
+#![no_std]
 
 // Hack to get the correct size for the length part in slices
-// CHECK: @helper([[USIZE:i[0-9]+]] %_1)
+// CHECK: @helper([[USIZE:i[0-9]+]]
 #[no_mangle]
 pub fn helper(_: usize) {}
 
@@ -12,9 +13,9 @@ pub fn helper(_: usize) {}
 pub fn no_op_slice_adjustment(x: &[u8]) -> &[u8] {
     // We used to generate an extra alloca and memcpy for the block's trailing expression value, so
     // check that we copy directly to the return value slot
-    // CHECK: %0 = insertvalue { ptr, [[USIZE]] } poison, ptr %x.0, 0
-    // CHECK: %1 = insertvalue { ptr, [[USIZE]] } %0, [[USIZE]] %x.1, 1
-    // CHECK: ret { ptr, [[USIZE]] } %1
+    // CHECK: %0 = insertvalue { ptr[[ADDRSPACE]], [[USIZE]] } poison, ptr[[ADDRSPACE]] %x.0, 0
+    // CHECK: %1 = insertvalue { ptr[[ADDRSPACE]], [[USIZE]] } %0, [[USIZE]] %x.1, 1
+    // CHECK: ret { ptr[[ADDRSPACE]], [[USIZE]] } %1
     { x }
 }
 

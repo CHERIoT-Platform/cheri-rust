@@ -1,9 +1,11 @@
 //@ compile-flags: -Copt-level=0
 //@ only-64bit
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::ops::ControlFlow;
+use core::ops::ControlFlow;
 
 pub enum Never {}
 

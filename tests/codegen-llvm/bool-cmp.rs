@@ -4,8 +4,9 @@
 //@ compile-flags: -C opt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 // CHECK-LABEL: @cmp_bool
 #[no_mangle]

@@ -4,6 +4,7 @@
 //@ compile-flags: -Copt-level=2
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @test(
 #[no_mangle]

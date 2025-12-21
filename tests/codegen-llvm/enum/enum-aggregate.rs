@@ -1,12 +1,14 @@
 //@ compile-flags: -Copt-level=0 -Cno-prepopulate-passes
 //@ only-64bit
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 #![crate_type = "lib"]
 #![feature(pattern_types, pattern_type_macro)]
+#![no_std]
 
-use std::cmp::Ordering;
-use std::num::NonZero;
-use std::ptr::NonNull;
+use core::cmp::Ordering;
+use core::num::NonZero;
+use core::ptr::NonNull;
 
 #[no_mangle]
 fn make_some_bool(x: bool) -> Option<bool> {

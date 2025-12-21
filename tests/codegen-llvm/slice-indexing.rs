@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 //@ only-64bit (because the LLVM type of i64 for usize shows up)
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 #![crate_type = "lib"]
 

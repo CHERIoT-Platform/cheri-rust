@@ -2,9 +2,10 @@
 
 #![crate_type = "lib"]
 #![feature(repr_simd)]
+#![no_std]
 
 // Hack to get the correct size for the length part in slices
-// CHECK: @helper([[USIZE:i[0-9]+]] %_1)
+// CHECK: @helper([[USIZE:i[0-9]+]]{{( signext)?}} %_1)
 #[no_mangle]
 pub fn helper(_: usize) {}
 

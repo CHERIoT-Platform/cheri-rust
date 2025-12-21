@@ -1,6 +1,7 @@
 //@ compile-flags: -Z annotate-moves=100 -Copt-level=0 -g
 // Test that custom size limits work correctly
 #![crate_type = "lib"]
+#![no_std]
 
 struct Struct99 {
     data: [u8; 99], // just below custom 100-byte threshold

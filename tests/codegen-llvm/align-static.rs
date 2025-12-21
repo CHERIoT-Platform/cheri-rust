@@ -1,6 +1,7 @@
 //@ compile-flags: -C no-prepopulate-passes -Z mir-opt-level=0
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(static_align)]
 
 // CHECK: @STATIC_ALIGN =

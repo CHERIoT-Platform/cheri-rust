@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // Ensure that when val < base, we do not divide or multiply.
 

@@ -1,7 +1,9 @@
 //@ compile-flags: -Copt-level=1
 //@ only-64bit
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
 // Check each of the 3 cases for `codegen_get_discr`.
@@ -176,7 +178,7 @@ pub fn match4_is_c(e: MiddleNiche) -> bool {
     // Before #139098, this couldn't optimize out the `select` because it looked
     // like it was possible for a `2` to be produced on both sides.
 
-    std::intrinsics::discriminant_value(&e) == 2
+    core::intrinsics::discriminant_value(&e) == 2
 }
 
 // You have to do something pretty obnoxious to get a variant index that doesn't
@@ -737,7 +739,7 @@ pub enum Tricky {
     V200,
 }
 
-const _: () = assert!(std::intrinsics::discriminant_value(&Tricky::V100) == 100);
+const _: () = assert!(core::intrinsics::discriminant_value(&Tricky::V100) == 100);
 
 // CHECK-LABEL: define{{( dso_local)?}} noundef{{( range\(i8 [0-9]+, [0-9]+\))?}} i8 @discriminant6(i8 noundef{{( zeroext)?}} %e)
 // CHECK-NEXT: start:
@@ -748,7 +750,7 @@ const _: () = assert!(std::intrinsics::discriminant_value(&Tricky::V100) == 100)
 // CHECK-NEXT: ret i8 %[[DISCR]]
 #[no_mangle]
 pub fn discriminant6(e: Tricky) -> u8 {
-    std::intrinsics::discriminant_value(&e) as _
+    core::intrinsics::discriminant_value(&e) as _
 }
 
 // Case from <https://github.com/rust-lang/rust/issues/104519>,

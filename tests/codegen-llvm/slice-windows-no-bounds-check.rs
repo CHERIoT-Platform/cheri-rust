@@ -1,8 +1,9 @@
-#![crate_type = "lib"]
-
 //@ compile-flags: -Copt-level=3
 
-use std::slice::Windows;
+#![crate_type = "lib"]
+#![no_std]
+
+use core::slice::Windows;
 
 // CHECK-LABEL: @naive_string_search
 #[no_mangle]

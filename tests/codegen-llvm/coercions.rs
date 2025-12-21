@@ -1,6 +1,7 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 
 static X: i32 = 5;
 

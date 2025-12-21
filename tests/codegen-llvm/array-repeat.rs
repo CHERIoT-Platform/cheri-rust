@@ -1,8 +1,9 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::array::repeat;
+use core::array::repeat;
 
 // CHECK-LABEL: @byte_repeat
 #[no_mangle]
