@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 // Check that no panic is generated in `split_at` when calculating the index for
 // the tail chunk using `checked_sub`.

@@ -4,6 +4,7 @@
 //@ compile-flags: -C opt-level=3 -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(rustc_attrs)]
 
 pub trait Trait {

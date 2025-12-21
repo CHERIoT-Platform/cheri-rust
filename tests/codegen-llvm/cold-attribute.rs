@@ -6,6 +6,7 @@
 //@ compile-flags: -Copt-level=0
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: ; cold_attribute::free_function
 // CHECK-NEXT: Function Attrs: cold {{.*}}

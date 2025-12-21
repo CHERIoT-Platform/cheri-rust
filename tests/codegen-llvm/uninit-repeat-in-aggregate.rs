@@ -1,8 +1,12 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
+
+extern crate alloc;
+use alloc::string::String;
 
 // We need to make sure len is at offset 0, otherwise codegen needs an extra instruction
 #[repr(C)]

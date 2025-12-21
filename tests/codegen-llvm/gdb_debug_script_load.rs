@@ -3,6 +3,7 @@
 //@ ignore-apple
 //@ ignore-wasm
 //@ ignore-emscripten
+//@ ignore-riscv32cheriot-unknown-cheriotrtos
 
 //@ compile-flags: -g -C no-prepopulate-passes -Cpanic=abort
 

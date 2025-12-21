@@ -4,6 +4,10 @@
 //@ [new] min-llvm-version: 22
 
 #![crate_type = "lib"]
+#![no_std]
+
+extern crate alloc;
+use alloc::vec::Vec;
 
 #[no_mangle]
 // CHECK-LABEL: @noop(

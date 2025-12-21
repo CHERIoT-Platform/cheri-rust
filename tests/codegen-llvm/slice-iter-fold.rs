@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @slice_fold_to_last
 #[no_mangle]

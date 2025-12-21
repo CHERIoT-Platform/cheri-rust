@@ -1,5 +1,7 @@
 //@ compile-flags: -C opt-level=3
+
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 // CHECK-LABEL: @len_plus_ten_a

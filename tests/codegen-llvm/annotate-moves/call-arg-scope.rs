@@ -6,6 +6,7 @@
 // NOT have an inlinedAt scope pointing to compiler_move/compiler_copy.
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[derive(Clone, Copy)]
 pub struct LargeStruct {

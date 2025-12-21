@@ -6,6 +6,7 @@
 //@ compile-flags: -C opt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @foo
 // CHECK-NOT: panic_bounds_check

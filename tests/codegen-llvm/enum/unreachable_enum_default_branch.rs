@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Int(u32);
@@ -13,7 +14,7 @@ const C: Int = Int(153);
 // This code will basically turn into `matches!(x.partial_cmp(&A), Some(Greater | Equal))`.
 // The otherwise branch must be `Less`.
 // CHECK-LABEL: @implicit_match(
-// CHECK-SAME: [[TMP0:%.*]])
+// CHECK-SAME: [[TMP0:%[a-z0-9]*]])
 // CHECK-NEXT:  start:
 // CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[TMP0]], -201
 // CHECK-NEXT:    icmp ult i32 [[TMP1]], 70

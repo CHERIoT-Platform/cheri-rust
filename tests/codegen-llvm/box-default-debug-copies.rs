@@ -10,6 +10,10 @@
 // of checking for exactly two.
 
 #![crate_type = "lib"]
+#![no_std]
+
+extern crate alloc;
+use alloc::boxed::Box;
 
 #[allow(dead_code)]
 pub struct Thing([u8; 1000000]);

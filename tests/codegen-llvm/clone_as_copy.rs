@@ -6,6 +6,7 @@
 // Ensure that we only generate a memcpy instruction.
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[derive(Clone)]
 struct SubCloneAndCopy {

@@ -1,7 +1,9 @@
 //@ compile-flags: -Copt-level=3 -C no-prepopulate-passes
 //@ only-64bit (because these discriminants are isize)
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 #![crate_type = "lib"]
+#![no_std]
 
 // This directly tests what we emit for these matches, rather than what happens
 // after optimization, so it doesn't need to worry about extra flags on the
@@ -76,7 +78,7 @@ pub fn option_bool_match(x: Option<bool>) -> char {
     }
 }
 
-use std::cmp::Ordering::{self, *};
+use core::cmp::Ordering::{self, *};
 // CHECK-LABEL: @option_ordering_match(
 #[no_mangle]
 pub fn option_ordering_match(x: Option<Ordering>) -> char {
@@ -106,7 +108,7 @@ pub fn option_ordering_match(x: Option<Ordering>) -> char {
 
 // CHECK-LABEL: @option_nonzero_match(
 #[no_mangle]
-pub fn option_nonzero_match(x: Option<std::num::NonZero<u16>>) -> u16 {
+pub fn option_nonzero_match(x: Option<core::num::NonZero<u16>>) -> u16 {
     // CHECK: %[[OUT:.+]] = alloca [2 x i8]
 
     // CHECK: %[[IS_NONE:.+]] = icmp eq i16 %x, 0

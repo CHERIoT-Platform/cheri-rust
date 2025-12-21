@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 //@ only-64bit
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 //
 // This test confirms that we do not reload the length of a Vec after growing it in push.
 

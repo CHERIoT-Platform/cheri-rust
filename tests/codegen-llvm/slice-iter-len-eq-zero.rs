@@ -1,4 +1,6 @@
+// ignore-tidy-linelength
 //@ compile-flags: -Copt-level=3
+//@ ignore-riscv32cheriot-unknown-cheriotrtos CHERIoT will lower pointer equality to ptrtoint equality
 //@ needs-deterministic-layouts (opposite scalar pair orders breaks it)
 #![crate_type = "lib"]
 

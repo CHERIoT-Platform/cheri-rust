@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3 -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: define{{.*}}i32 @test(i32{{.*}} %a, i32{{.*}} %b)
 #[no_mangle]

@@ -1,7 +1,10 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
+extern crate alloc;
+use alloc::boxed::Box;
 
 // Boxing a `MaybeUninit` value should not copy junk from the stack
 #[no_mangle]
@@ -40,7 +43,8 @@ pub fn box_lotsa_padding() -> Box<LotsaPadding> {
 }
 
 // Hide the `allocalign` attribute in the declaration of __rust_alloc
+//
 // from the CHECK-NOT above, and also verify the attributes got set reasonably.
-// CHECK: declare {{(dso_local )?}}noalias noundef ptr @{{.*}}__rust_alloc(i{{[0-9]+}} noundef, i{{[0-9]+}} allocalign noundef range(i{{[0-9]+}} 1, {{-2147483647|-9223372036854775807}})) unnamed_addr [[RUST_ALLOC_ATTRS:#[0-9]+]]
+// CHECK: declare {{(dso_local )?}}noalias noundef ptr[[ADDRSPACE]] @{{.*}}__rust_alloc(i{{[0-9]+}} noundef, i{{[0-9]+}} allocalign noundef range(i{{[0-9]+}} 1, {{-2147483647|-9223372036854775807}})) unnamed_addr[[ADDRSPACE]] [[RUST_ALLOC_ATTRS:#[0-9]+]]
 
 // CHECK-DAG: attributes [[RUST_ALLOC_ATTRS]] = { {{.*}} allockind("alloc,uninitialized,aligned") allocsize(0) {{(uwtable )?}}"alloc-family"="__rust_alloc" {{.*}} }

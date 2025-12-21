@@ -1,9 +1,10 @@
 //@ compile-flags: -C opt-level=1
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(ascii_char)]
 
-use std::ascii::Char as AsciiChar;
+use core::ascii::Char as AsciiChar;
 
 // CHECK-LABEL: i8 @unwrap_digit_from_remainder(i32
 #[no_mangle]

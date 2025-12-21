@@ -1,6 +1,10 @@
 //@ compile-flags: -Z annotate-moves=1 -Copt-level=0 -g
 
 #![crate_type = "lib"]
+#![no_std]
+
+extern crate alloc;
+use alloc::string::{String, ToString};
 
 // Test with large array (non-struct type, Copy)
 type LargeArray = [u64; 20]; // 160 bytes
@@ -113,7 +117,7 @@ pub fn test_explicit_copy_assignment() {
 
 // CHECK-LABEL: integration::test_array_move
 pub fn test_array_move() {
-    let arr: [String; 20] = std::array::from_fn(|i| i.to_string());
+    let arr: [String; 20] = core::array::from_fn(|i| i.to_string());
 
     // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#ARRAY_MOVE_LOC:]]
     let _moved = arr;

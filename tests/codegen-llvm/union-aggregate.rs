@@ -1,7 +1,9 @@
 //@ compile-flags: -Copt-level=0 -Cno-prepopulate-passes
 //@ only-64bit
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 as usize
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(transparent_unions)]
 #![feature(repr_simd)]
 
@@ -11,9 +13,9 @@ union MU<T: Copy> {
     value: T,
 }
 
-use std::cmp::Ordering;
-use std::num::NonZero;
-use std::ptr::NonNull;
+use core::cmp::Ordering;
+use core::num::NonZero;
+use core::ptr::NonNull;
 
 #[no_mangle]
 fn make_mu_bool(x: bool) -> MU<bool> {

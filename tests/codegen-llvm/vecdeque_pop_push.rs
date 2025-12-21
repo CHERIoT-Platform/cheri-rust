@@ -4,8 +4,10 @@
 //@ [new] min-llvm-version: 22
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::collections::VecDeque;
+extern crate alloc;
+use alloc::collections::VecDeque;
 
 #[no_mangle]
 // CHECK-LABEL: @noop_back(

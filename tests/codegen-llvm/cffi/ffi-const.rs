@@ -1,5 +1,6 @@
 //@ compile-flags: -C no-prepopulate-passes
 #![crate_type = "lib"]
+#![no_std]
 #![feature(ffi_const)]
 
 pub fn bar() {

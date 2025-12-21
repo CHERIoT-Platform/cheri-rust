@@ -5,12 +5,13 @@
 
 #![feature(link_llvm_intrinsics)]
 #![crate_type = "lib"]
+#![no_std]
 
 struct A;
 
 impl Drop for A {
     fn drop(&mut self) {
-        println!("A");
+        core::hint::black_box(())
     }
 }
 

@@ -1,6 +1,7 @@
 //@ compile-flags: -Cno-prepopulate-passes -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @zip_copy
 #[no_mangle]
