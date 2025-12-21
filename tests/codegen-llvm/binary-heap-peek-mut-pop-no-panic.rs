@@ -1,8 +1,11 @@
 //@ compile-flags: -Copt-level=3 --crate-name=test
 //@ ignore-std-debug-assertions
 #![crate_type = "lib"]
+#![no_std]
 
-use std::collections::binary_heap::PeekMut;
+extern crate alloc;
+
+use alloc::collections::binary_heap::PeekMut;
 
 // CHECK-LABEL: @peek_mut_pop
 #[no_mangle]

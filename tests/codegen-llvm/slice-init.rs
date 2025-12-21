@@ -1,12 +1,13 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @zero_sized_elem
 #[no_mangle]
 pub fn zero_sized_elem() {
     // CHECK-NOT: br label %repeat_loop_header{{.*}}
-    // CHECK-NOT: call void @llvm.memset.p0
+    // CHECK-NOT: call void @llvm.memset.
     let x = [(); 4];
     opaque(&x);
 }
@@ -15,7 +16,7 @@ pub fn zero_sized_elem() {
 #[no_mangle]
 pub fn zero_len_array() {
     // CHECK-NOT: br label %repeat_loop_header{{.*}}
-    // CHECK-NOT: call void @llvm.memset.p0
+    // CHECK-NOT: call void @llvm.memset.
     let x = [4; 0];
     opaque(&x);
 }
@@ -58,7 +59,7 @@ pub fn zeroed_integer_array() {
 #[no_mangle]
 pub fn nonzero_integer_array() {
     // CHECK: br label %repeat_loop_header{{.*}}
-    // CHECK-NOT: call void @llvm.memset.p0
+    // CHECK-NOT: call void @llvm.memset.
     let x = [0x1a_2b_3c_4d_u32; 4];
     opaque(&x);
 }
@@ -72,7 +73,7 @@ pub fn u16_init_one_bytes() -> [u16; N] {
     // CHECK-NOT: br {{.*}}
     // CHECK-NOT: switch
     // CHECK-NOT: icmp
-    // CHECK: call void @llvm.memset.p0
+    // CHECK: call void @llvm.memset.
     [const { u16::from_be_bytes([1, 1]) }; N]
 }
 
@@ -85,11 +86,11 @@ pub fn option_none_init() -> [Option<u8>; N] {
     // CHECK: br label %repeat_loop_header{{.*}}
     // CHECK-NOT: switch
     // CHECK: icmp
-    // CHECK-NOT: call void @llvm.memset.p0
+    // CHECK-NOT: call void @llvm.memset.
     [None; N]
 }
 
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 // FIXME: This could be optimized into a memset.
 // Regression test for <https://github.com/rust-lang/rust/issues/137892>.
@@ -99,7 +100,7 @@ pub fn half_uninit() -> [(u128, MaybeUninit<u128>); N] {
     // CHECK: br label %repeat_loop_header{{.*}}
     // CHECK-NOT: switch
     // CHECK: icmp
-    // CHECK-NOT: call void @llvm.memset.p0
+    // CHECK-NOT: call void @llvm.memset.
     [const { (0, MaybeUninit::uninit()) }; N]
 }
 

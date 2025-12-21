@@ -5,14 +5,16 @@
 // arguments to `atomicrmw xchg`.
 
 //@ compile-flags: -Copt-level=3 -Cno-prepopulate-passes
+//@ ignore-riscv32cheriot-unknown-cheriotrtos FIXME: See CHERIoT-Platform/cheri-rust/issues/74
 #![crate_type = "lib"]
+#![no_std]
 
-use std::ptr::without_provenance_mut;
-use std::sync::atomic::AtomicPtr;
-use std::sync::atomic::Ordering::Relaxed;
+use core::ptr::without_provenance_mut;
+use core::sync::atomic::AtomicPtr;
+use core::sync::atomic::Ordering::Relaxed;
 
 // Portability hack so that we can say [[USIZE]] instead of i64/i32/i16 for usize.
-// CHECK: @helper([[USIZE:i[0-9]+]] noundef %_1)
+// CHECK: @helper([[USIZE:i[0-9]+]]
 #[no_mangle]
 pub fn helper(_: usize) {}
 
@@ -20,8 +22,8 @@ pub fn helper(_: usize) {}
 #[no_mangle]
 pub fn atomicptr_fetch_byte_add(a: &AtomicPtr<u8>, v: usize) -> *mut u8 {
     // CHECK: llvm.lifetime.start
-    // CHECK-NEXT: %[[RET:.*]] = atomicrmw add ptr %{{.*}}, [[USIZE]] %v
-    // CHECK-NEXT: inttoptr [[USIZE]] %[[RET]] to ptr
+    // CHECK-NEXT: %[[RET:.*]] = atomicrmw add ptr[[ADDRSPACE]] %{{.*}}, [[USIZE]] %v
+    // CHECK-NEXT: inttoptr [[USIZE]] %[[RET]] to ptr[[ADDRSPACE]]
     a.fetch_byte_add(v, Relaxed)
 }
 
@@ -29,7 +31,7 @@ pub fn atomicptr_fetch_byte_add(a: &AtomicPtr<u8>, v: usize) -> *mut u8 {
 #[no_mangle]
 pub fn atomicptr_swap(a: &AtomicPtr<u8>, ptr: *mut u8) -> *mut u8 {
     // CHECK-NOT: ptrtoint
-    // CHECK: atomicrmw xchg ptr %{{.*}}, ptr %{{.*}} monotonic
+    // CHECK: atomicrmw xchg ptr[[ADDRSPACE]] %{{.*}}, ptr[[ADDRSPACE]] %{{.*}} monotonic
     // CHECK-NOT: inttoptr
     a.swap(ptr, Relaxed)
 }

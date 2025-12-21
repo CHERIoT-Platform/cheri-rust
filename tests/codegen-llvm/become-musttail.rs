@@ -2,6 +2,7 @@
 //@ needs-unwind
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(explicit_tail_calls)]
 
 // CHECK-LABEL: define {{.*}}@fibonacci(

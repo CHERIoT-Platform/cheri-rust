@@ -1,5 +1,6 @@
 //@ compile-flags: -C opt-level=3 -C no-prepopulate-passes
 //@ only-64bit
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 #![feature(core_intrinsics, repr_simd)]
 #![no_std]

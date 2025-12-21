@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3 -Z merge-functions=disabled
 #![crate_type = "lib"]
+#![no_std]
 
 // This tests that LLVM can optimize based on the niches in the source or
 // destination types for casts.

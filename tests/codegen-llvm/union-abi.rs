@@ -16,6 +16,7 @@
 // discussed in #54668
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(repr_simd)]
 
 #[derive(Copy, Clone)]
@@ -31,7 +32,7 @@ pub union UnionI64x4 {
     b: i64x4,
 }
 
-// CHECK: define {{(dso_local )?}}void @test_UnionI64x4(ptr {{.*}} %_1)
+// CHECK: define {{(dso_local )?}}void @test_UnionI64x4(ptr[[ADDRSPACE]] {{.*}} %_1)
 #[no_mangle]
 pub fn test_UnionI64x4(_: UnionI64x4) {
     loop {}
@@ -46,7 +47,7 @@ pub union UnionI64x4_ {
     f: UnionI64x4,
 }
 
-// CHECK: define {{(dso_local )?}}void @test_UnionI64x4_(ptr {{.*}} %_1)
+// CHECK: define {{(dso_local )?}}void @test_UnionI64x4_(ptr[[ADDRSPACE]] {{.*}} %_1)
 #[no_mangle]
 pub fn test_UnionI64x4_(_: UnionI64x4_) {
     loop {}
@@ -57,7 +58,7 @@ pub union UnionI64x4I64 {
     b: i64,
 }
 
-// CHECK: define {{(dso_local )?}}void @test_UnionI64x4I64(ptr {{.*}} %_1)
+// CHECK: define {{(dso_local )?}}void @test_UnionI64x4I64(ptr[[ADDRSPACE]] {{.*}} %_1)
 #[no_mangle]
 pub fn test_UnionI64x4I64(_: UnionI64x4I64) {
     loop {}
@@ -68,7 +69,7 @@ pub union UnionI64x4Tuple {
     b: (i64, i64, i64, i64),
 }
 
-// CHECK: define {{(dso_local )?}}void @test_UnionI64x4Tuple(ptr {{.*}} %_1)
+// CHECK: define {{(dso_local )?}}void @test_UnionI64x4Tuple(ptr[[ADDRSPACE]] {{.*}} %_1)
 #[no_mangle]
 pub fn test_UnionI64x4Tuple(_: UnionI64x4Tuple) {
     loop {}
@@ -128,7 +129,7 @@ pub fn test_UnionU128(_: UnionU128) -> UnionU128 {
 pub union CUnionU128 {
     a: u128,
 }
-// CHECK: define {{(dso_local )?}}void @test_CUnionU128(ptr {{.*}} %_1)
+// CHECK: define {{(dso_local )?}}void @test_CUnionU128(ptr[[ADDRSPACE]] {{.*}} %_1)
 #[no_mangle]
 pub fn test_CUnionU128(_: CUnionU128) {
     loop {}

@@ -4,6 +4,7 @@
 // optimizations so it doesn't need to worry about them adding more flags.
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
 // CHECK-LABEL: @unchecked_shl_unsigned_same
@@ -68,7 +69,7 @@ pub unsafe fn unchecked_shr_u128_i8(a: u128, b: i8) -> u128 {
     // CHECK-NOT: assume
     // CHECK: %[[EXT:.+]] = zext i8 %b to i128
     // CHECK: lshr i128 %a, %[[EXT]]
-    std::intrinsics::unchecked_shr(a, b)
+    core::intrinsics::unchecked_shr(a, b)
 }
 
 // CHECK-LABEL: @unchecked_shl_i128_u8
@@ -77,7 +78,7 @@ pub unsafe fn unchecked_shl_i128_u8(a: i128, b: u8) -> i128 {
     // CHECK-NOT: assume
     // CHECK: %[[EXT:.+]] = zext i8 %b to i128
     // CHECK: shl i128 %a, %[[EXT]]
-    std::intrinsics::unchecked_shl(a, b)
+    core::intrinsics::unchecked_shl(a, b)
 }
 
 // CHECK-LABEL: @unchecked_shl_u8_i128
@@ -86,7 +87,7 @@ pub unsafe fn unchecked_shl_u8_i128(a: u8, b: i128) -> u8 {
     // CHECK-NOT: assume
     // CHECK: %[[TRUNC:.+]] = trunc nuw i128 %b to i8
     // CHECK: shl i8 %a, %[[TRUNC]]
-    std::intrinsics::unchecked_shl(a, b)
+    core::intrinsics::unchecked_shl(a, b)
 }
 
 // CHECK-LABEL: @unchecked_shr_i8_u128
@@ -95,5 +96,5 @@ pub unsafe fn unchecked_shr_i8_u128(a: i8, b: u128) -> i8 {
     // CHECK-NOT: assume
     // CHECK: %[[TRUNC:.+]] = trunc nuw i128 %b to i8
     // CHECK: ashr i8 %a, %[[TRUNC]]
-    std::intrinsics::unchecked_shr(a, b)
+    core::intrinsics::unchecked_shr(a, b)
 }

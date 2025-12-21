@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 const LUT: [u8; 4] = [1, 1, 1, 1];
 

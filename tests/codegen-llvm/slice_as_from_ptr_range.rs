@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 //@ only-64bit (because we're using [ui]size)
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 #![crate_type = "lib"]
 #![feature(slice_from_ptr_range)]

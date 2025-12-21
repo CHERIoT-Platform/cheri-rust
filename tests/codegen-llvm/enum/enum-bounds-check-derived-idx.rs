@@ -3,6 +3,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 pub enum Bar {
     A = 1,

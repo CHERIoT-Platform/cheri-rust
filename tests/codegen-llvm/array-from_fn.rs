@@ -3,11 +3,12 @@
 //@ [OPT] compile-flags: -C opt-level=s -C debuginfo=0
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(array_from_fn)]
 
 #[no_mangle]
 pub fn iota() -> [u8; 16] {
     // OPT-NOT: core::array::Guard
     // NORMAL: core::array::Guard
-    std::array::from_fn(|i| i as _)
+    core::array::from_fn(|i| i as _)
 }

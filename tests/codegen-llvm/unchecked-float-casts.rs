@@ -5,6 +5,7 @@
 //@ ignore-wasm32 the wasm target is tested in `wasm_casts_*`
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @f32_to_u32
 #[no_mangle]

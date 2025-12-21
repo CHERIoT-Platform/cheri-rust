@@ -5,6 +5,7 @@
 //@[WIN] only-x86_64
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(rust_cold_cc)]
 
 // wasm marks the definition as `dso_local`, so allow that as optional.
