@@ -1,5 +1,7 @@
 //@ compile-flags: -Copt-level=3
+
 #![crate_type = "lib"]
+#![no_std]
 
 // This test verifies that LLVM 20 properly optimizes the bounds check
 // when accessing the last few elements of a slice with proper conditions.

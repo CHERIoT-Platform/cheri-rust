@@ -5,14 +5,15 @@
 // in the operators for such a type all optimize away.
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 #[derive(PartialOrd, PartialEq)]
 pub struct Foo(i32, u32);
 
 // CHECK-LABEL: @check_lt(
-// CHECK-SAME: i32{{.+}}%[[A0:.+]], i32{{.+}}%[[A1:.+]], i32{{.+}}%[[B0:.+]], i32{{.+}}%[[B1:.+]])
+// CHECK-SAME: i32{{.+}}%[[A0:.+]], i32{{.+}}%[[A1:.+]], i32{{.+}}%[[B0:.+]], i32{{.+}}%[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_lt(a: Foo, b: Foo) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i32 %[[A0]], %[[B0]]
@@ -24,7 +25,7 @@ pub fn check_lt(a: Foo, b: Foo) -> bool {
 }
 
 // CHECK-LABEL: @check_le(
-// CHECK-SAME: i32{{.+}}%[[A0:.+]], i32{{.+}}%[[A1:.+]], i32{{.+}}%[[B0:.+]], i32{{.+}}%[[B1:.+]])
+// CHECK-SAME: i32{{.+}}%[[A0:.+]], i32{{.+}}%[[A1:.+]], i32{{.+}}%[[B0:.+]], i32{{.+}}%[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_le(a: Foo, b: Foo) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i32 %[[A0]], %[[B0]]
@@ -36,7 +37,7 @@ pub fn check_le(a: Foo, b: Foo) -> bool {
 }
 
 // CHECK-LABEL: @check_gt(
-// CHECK-SAME: i32{{.+}}%[[A0:.+]], i32{{.+}}%[[A1:.+]], i32{{.+}}%[[B0:.+]], i32{{.+}}%[[B1:.+]])
+// CHECK-SAME: i32{{.+}}%[[A0:.+]], i32{{.+}}%[[A1:.+]], i32{{.+}}%[[B0:.+]], i32{{.+}}%[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_gt(a: Foo, b: Foo) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i32 %[[A0]], %[[B0]]
@@ -48,7 +49,7 @@ pub fn check_gt(a: Foo, b: Foo) -> bool {
 }
 
 // CHECK-LABEL: @check_ge(
-// CHECK-SAME: i32{{.+}}%[[A0:.+]], i32{{.+}}%[[A1:.+]], i32{{.+}}%[[B0:.+]], i32{{.+}}%[[B1:.+]])
+// CHECK-SAME: i32{{.+}}%[[A0:.+]], i32{{.+}}%[[A1:.+]], i32{{.+}}%[[B0:.+]], i32{{.+}}%[[B1:[0-9]+]])
 #[no_mangle]
 pub fn check_ge(a: Foo, b: Foo) -> bool {
     // CHECK-DAG: %[[EQ:.+]] = icmp eq i32 %[[A0]], %[[B0]]

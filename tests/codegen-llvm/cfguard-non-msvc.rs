@@ -2,6 +2,7 @@
 //@ ignore-msvc
 
 #![crate_type = "lib"]
+#![no_std]
 
 // A basic test function.
 pub fn test() {}

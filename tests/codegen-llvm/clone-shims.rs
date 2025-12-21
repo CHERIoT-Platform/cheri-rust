@@ -4,6 +4,7 @@
 
 //@ compile-flags: -Cno-prepopulate-passes -Csymbol-mangling-version=v0 -Zinline-mir=no
 #![crate_type = "lib"]
+#![no_std]
 
 pub type Test = (i32, i32, *const i32);
 pub static TEST: fn(&Test) -> Test = <Test as core::clone::Clone>::clone;

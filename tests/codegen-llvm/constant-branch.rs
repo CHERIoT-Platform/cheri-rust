@@ -3,6 +3,7 @@
 // branch or a switch
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @if_bool
 #[no_mangle]
