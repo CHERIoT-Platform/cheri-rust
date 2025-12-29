@@ -45,11 +45,14 @@ pub struct App {
     git_path: PathBuf,
 
     /// The URL to the cheriot-rtos repository.
-    #[clap(long = "rtos-repo-url", default_value = "https://github.com/xdoardo/cheriot-rtos.git")]
+    #[clap(
+        long = "rtos-repo-url",
+        default_value = "https://github.com/CHERIoT-Platform/cheriot-rtos.git"
+    )]
     cheriot_rtos_repo_url: String,
 
     /// The URL to the cheriot-rtos repository.
-    #[clap(long = "rtos-repo-branch", default_value = Some("fix-add-ldflags"))]
+    #[clap(long = "rtos-repo-branch", default_value = Some("main"))]
     cheriot_rtos_repo_branch: Option<String>,
 
     /// Paths to Rust files or directories containing Rust files to compile and link together to
@@ -90,31 +93,56 @@ impl App {
             infoln!(self, "already exists".bright_green());
         }
 
-        // Build the tests.
         let build_artefacts_dir = out_dir.join("objs");
-        self.build_libcheriot(&build_artefacts_dir)?;
 
-        let mut test_paths = vec![];
+        // Unfortunately we need to copy libcheriot and the tests somewhere near where the tests
+        // will run, so that xmake won't fail creating temp dirs..
+        let libcheriot_dir =
+            std::path::PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("libcheriot");
+
+        info!(self, "copying libcheriot to ", out_dir.display(), "...");
+        let mut cmd = std::process::Command::new("cp");
+        cmd.arg("-r");
+        cmd.args([&libcheriot_dir, &out_dir]);
+        cmd.output()?;
+        info!(self, "ok");
+
+        let libcheriot_manifest_path = out_dir.join("libcheriot/Cargo.toml");
+
+        let mut test_dirs = vec![];
         let mut test_names = vec![];
 
-        for test in &tests {
-            let (test_path, test_name) = self.build_test(&build_artefacts_dir, &test)?;
+        for test_rs_path in &tests {
+            let (test_dir, test_name, test_path) =
+                self.generate_test_env(&build_artefacts_dir, &test_rs_path)?;
 
-            // Generate the runner and the xmake config.
-            self.generate_runner(&format!("test_{test_name}"), &test_path)?;
-            self.generate_xmake_config(&test_path, "test", &rtos_dir.join("sdk"), &test_path)?;
+            // Generate the C++ shim for this test.
+            self.generate_runner(&format!("test_{test_name}"), &test_dir)?;
+            // Generate the xmake config for this test.
+            self.generate_xmake_config(
+                &test_path,
+                &libcheriot_manifest_path,
+                &rtos_dir.join("sdk"),
+                &test_dir,
+            )?;
 
-            self.xmake_run_config(&test_path)?;
-            self.xmake_build(&test_path)?;
+            self.xmake_run_config(&test_dir)?;
 
-            test_paths.push(test_path);
+            self.xmake_build_libcheriot(&test_dir)?;
+
+            // It is useful to see the generated LLVM IR for the test.
+            self.generate_llvm_ir(&test_path, &test_dir)?;
+
+            self.xmake_build(&test_dir)?;
+
+            test_dirs.push(test_dir);
             test_names.push(test_name);
         }
 
-        let total = test_paths.len();
+        let total = test_dirs.len();
         let mut fails = 0;
 
-        for (i, (path, name)) in test_paths.iter().zip(test_names).enumerate() {
+        for (i, (path, name)) in test_dirs.iter().zip(test_names).enumerate() {
             let output = self.xmake_run(&path);
             print!("[{}/{total}] test {} ... ", i + 1, name.bright_white());
 
@@ -167,18 +195,32 @@ impl App {
     }
 
     fn xmake_run_config(&self, dir: &Path) -> anyhow::Result<()> {
-        traceln!(self, "running `xmake` configuration command");
-        let sdk_flag = format!("--sdk={}", self.sysroot_dir.canonicalize().unwrap().display());
-        self.xmake_strict(dir, &["config", &sdk_flag]).map(|_| ())
+        let sdk_flag = format!("--sdk={}", self.sysroot_dir.canonicalize().unwrap().display(),);
+        let rc_flag = format!("--rc={}", self.rustc_path.canonicalize().unwrap().display());
+        self.xmake_strict(dir, &["config", &sdk_flag, &rc_flag]).map(|_| ())
     }
 
     fn xmake_build(&self, dir: &Path) -> anyhow::Result<()> {
-        traceln!(self, "running `xmake` configuration command");
-        self.xmake_strict(dir, &[]).map(|_| ())
+        self.xmake_strict(dir, &["build"]).map(|_| ())
+    }
+
+    fn xmake_build_libcheriot(&self, dir: &Path) -> anyhow::Result<()> {
+        self.xmake_strict(dir, &["build", "libcheriot"]).map(|_| ())
     }
 
     fn xmake_run(&self, dir: &Path) -> anyhow::Result<std::process::Output> {
-        traceln!(self, "running `xmake`");
         self.xmake(dir, &["run"])
+    }
+
+    fn generate_llvm_ir(&self, test_path: &PathBuf, test_out_dir: &PathBuf) -> anyhow::Result<()> {
+        self.rustc(
+            test_out_dir,
+            &test_path,
+            &[
+                "--emit=llvm-ir",
+                "--extern=cheriot",
+                "-L./build/.objs/libcheriot/cheriot/cheriot/release/cheriot/release",
+            ],
+        )
     }
 }
