@@ -8,7 +8,12 @@ use super::App;
 use super::log::*;
 
 impl App {
-    pub(crate) fn rustc(&self, path: &Path, extra_flags: &[&str]) -> anyhow::Result<()> {
+    pub(crate) fn rustc(
+        &self,
+        cwd: &Path,
+        path: &Path,
+        extra_flags: &[&str],
+    ) -> anyhow::Result<()> {
         let rustc_path = if let Ok(canon) = self.rustc_path.canonicalize() {
             canon
         } else {
@@ -25,6 +30,7 @@ impl App {
             extra_flags.to_vec()
         };
         args.append(&mut vec!["--edition=2021", path.to_str().unwrap(), "-Copt-level=3", &target]);
+        cmd.current_dir(cwd);
         cmd.args(args);
 
         traceln!(self, "running ", format!("{cmd:?}"));

@@ -113,7 +113,7 @@ run_cheri_tests_task:
   build_rustc_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
   run_x_cheriot_tests_script: CC="clang" CXX="clang++" ./x test tests/codegen-llvm --target=riscv32cheriot-unknown-cheriotrtos --skip src/tools/linkchecker
   build_test_runner_script: cd ./cheri/tests/runner && . "$CARGO_HOME/env" && cargo build --release
-  run_tests_script: cd ./cheri/tests && ./runner/target/release/cheriot-runner -vvvvv .
+  run_tests_script: cd ./cheri/tests && . "$CARGO_HOME/env" && ./runner/target/release/cheriot-runner -vvvvv .
     --sysroot=../../build/host/llvm
     --rustc=../../build/host/stage1/bin/rustc
     --xmake=/root/.local/bin/xmake
