@@ -11,6 +11,9 @@ authors = [
 	"Edoardo Marangoni <edoardo.marangoni@scisemi.com>",
 ]
 
+[lib]
+crate-type = ["staticlib", "rlib"]
+
 [dependencies]
 
 #[profile.release]

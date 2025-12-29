@@ -10,31 +10,17 @@ use crate::runner::App;
 use crate::runner::log::*;
 
 impl App {
-    /// Builds `libcheriot.rlib` and returns its location as a [`PathBuf`] relative to the given
-    /// `build_artefacts_dir`.
-    pub(crate) fn build_libcheriot(&self, build_artefacts_dir: &Path) -> anyhow::Result<PathBuf> {
-        // `libcheriot` is the helper library that contains the definitions for the CHERIoT allocator, panic handler and more.
-        // We need to build it here so we can manually link it with the tests later.
-        let libcheriot_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/libcheriot"));
-
-        let lib_path = libcheriot_path.join("src/lib.rs");
-        let output_path = build_artefacts_dir.join("libcheriot.rlib");
-        let output_dir = format!("--out-dir={}", build_artefacts_dir.display());
-
-        self.rustc(&lib_path, &[&output_dir, "--crate-name=cheriot", "--crate-type=rlib"])?;
-        self.rustc(&lib_path, &[&output_dir, "--crate-name=cheriot", "--crate-type=staticlib"])?;
-
-        assert!(output_path.exists());
-        Ok(output_path)
-    }
-
-    /// Compiles the `.rs` file pointed by `test_rs` into an object file, placing the result in
-    /// `build_artefacts_dir/<test_name>/libtest.a`. It returns the path to the compiled object file.
-    pub(crate) fn build_test(
+    /// Given the path to the test and the directory where every test will be compiled and run, retrieve
+    /// the path and the unique name for this specific test.
+    ///
+    /// For example:
+    ///     ("cheri-runner/objs", "my_test.rs") -> ("cheri-runner/objs/my_test", "my_test")
+    ///     ("cheri-runner/objs", "specs/my_test.rs") -> ("cheri-runner/objs/specs/my_test", "specs_my_test")
+    pub(crate) fn generate_test_env(
         &self,
         build_artefacts_dir: &Path,
         test_rs: &Path,
-    ) -> anyhow::Result<(PathBuf, String)> {
+    ) -> anyhow::Result<(PathBuf, String, PathBuf)> {
         // We have the absolute path to the directory that will contain the build artefacts,
         // we have the path to the test file relative to the cwd; we need to find the least common
         // ancestor between the test path and cwd to be able to recreate the same directory
@@ -85,23 +71,12 @@ impl App {
         };
 
         let test_name = to_test_name(&test_rs);
-        let output_path = build_artefacts_dir.join(&test_name);
-        let output_dir = format!("--out-dir={}", output_path.display());
-        let libcheriot_path = format!("-L{}", build_artefacts_dir.display());
-        self.rustc(test_rs, &[&output_dir, &libcheriot_path, "--emit=llvm-ir"])?;
-        self.rustc(
-            test_rs,
-            &[&output_dir, &libcheriot_path, "--extern=cheriot", "--crate-type=staticlib"],
-        )?;
-        let test_output_path = output_path.join(format!("lib{test_stem}.a"));
-        assert!(
-            test_output_path.exists(),
-            "Not your fault, there's something wrong with how the runner resolves the paths of tests.. ({} does not exist when it should)",
-            test_output_path.display()
-        );
+        let test_dir_path = build_artefacts_dir.join(&test_name);
+        std::fs::create_dir_all(&test_dir_path)?;
+        let test_rs_path = test_dir_path.join(&test_name).with_extension("rs");
 
-        std::fs::rename(&test_output_path, &output_path.join(format!("libtest.a")))?;
-        Ok((output_path, test_name))
+        std::fs::copy(test_rs, &test_rs_path)?;
+        Ok((test_dir_path, test_name, test_rs_path))
     }
 
     pub(crate) fn generate_runner(
@@ -170,8 +145,8 @@ int __attribute__((cheriot_compartment("test_runner"))) run_tests() {{
 
     pub(crate) fn generate_xmake_config(
         &self,
-        test_obj_path: &Path,
-        test_name: &str,
+        test_rs_path: &Path,
+        libcheriot_manifest_path: &Path,
         rtos_sdk_path: &Path,
         out_dir: &Path,
     ) -> anyhow::Result<()> {
@@ -186,14 +161,23 @@ set_toolchains("cheriot-clang")
 option("board")
   set_default("sail")
 
+target("libcheriot", function()
+	set_plat("cheriot")
+	set_arch("cheriot")
+	add_files(
+		"{}",
+        {{ rules = {{ "cheriot.rust.crate", override = true }}, force = true, sourcekind = "cheriot.rust.crate" }}
+	)
+	on_run(function() end)
+end)
+
 compartment("test_runner")
     add_deps("freestanding", "string", "crt", "cxxrt", "atomic_fixed", "compartment_helpers", "debug", "softfloat")
-    add_deps("message_queue", "locks", "event_group", "cheriot.allocator")
-    add_deps("stdio")
-    add_deps("strtol")
+    add_deps("message_queue", "locks", "event_group", "cheriot.allocator", "stdio", "strtol", "libcheriot")
 	add_files("runner.cc")
-	add_ldflags("-L{}", {{force = true}})
-    add_ldflags("-l{test_name}", {{force = true}})
+	add_rcflags({{"--extern=cheriot", "-L./build/.objs/libcheriot/cheriot/cheriot/release/cheriot/release"}}, {{force = true}})
+	add_files("{}")
+
 
 firmware("test")
     add_deps("test_runner")
@@ -211,10 +195,11 @@ firmware("test")
     end)
 "#,
             rtos_sdk_path.display(),
-            test_obj_path.display(),
+            libcheriot_manifest_path.display(),
+            test_rs_path.file_name().expect("Must have a test file!").display(),
         );
 
-        info!(self, "generating xmake config...");
+        info!(self, "generating xmake config (", out_dir.display(), ")...");
         let mut file = OpenOptions::new()
             .create(true)
             .truncate(true)
