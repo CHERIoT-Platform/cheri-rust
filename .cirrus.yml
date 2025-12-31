@@ -110,6 +110,7 @@ run_cheri_tests_task:
   check_env_script: env
   pull_main_script: git fetch origin main:refs/remotes/origin/main --depth 1
   build_rustc_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos
+  build_rust_tests_script: CC="clang" CXX="clang++" ./x test tests/codegen-llvm/cheri-intrinsics.rs --target=riscv32cheriot-unknown-cheriotrtos
   build_test_runner_script: cd ./cheri/tests/runner && . "$CARGO_HOME/env" && cargo build --release
   run_tests_script: cd ./cheri/tests && ./runner/target/release/cheriot-runner -vvvvv .
     --sysroot=../../build/host/llvm

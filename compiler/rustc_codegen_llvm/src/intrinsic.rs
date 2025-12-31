@@ -156,6 +156,31 @@ fn call_simple_intrinsic<'ll, 'tcx>(
         sym::roundf64 => ("llvm.round", &[bx.type_f64()]),
         sym::roundf128 => ("llvm.round", &[bx.type_f128()]),
 
+        /* CHERI intrinsics */
+        sym::cheri_address_get => ("llvm.cheri.cap.address.get", &[bx.isize_ty()]),
+        sym::cheri_address_increment => ("llvm.cheri.cap.offset.increment", &[bx.isize_ty()]),
+        sym::cheri_address_set => ("llvm.cheri.cap.address.set", &[bx.isize_ty()]),
+        sym::cheri_base_get => ("llvm.cheri.cap.base.get", &[bx.isize_ty()]),
+        sym::cheri_bounds_set => ("llvm.cheri.cap.bounds.set", &[bx.isize_ty()]),
+        sym::cheri_bounds_set_exact => ("llvm.cheri.cap.bounds.set.exact", &[bx.isize_ty()]),
+        sym::cheri_is_equal_exact => ("llvm.cheri.cap.equal.exact", &[]),
+        sym::cheri_length_get => ("llvm.cheri.cap.length.get", &[bx.isize_ty()]),
+        sym::cheri_permissions_and => ("llvm.cheri.cap.perms.and", &[bx.isize_ty()]),
+        sym::cheri_permissions_get => ("llvm.cheri.cap.perms.get", &[bx.isize_ty()]),
+        sym::cheri_representable_alignment_mask => {
+            ("llvm.cheri.representable.alignment.mask", &[bx.isize_ty()])
+        }
+        sym::cheri_round_representable_length => {
+            ("llvm.cheri.round.representable.length", &[bx.isize_ty()])
+        }
+
+        sym::cheri_seal => ("llvm.cheri.cap.seal", &[]),
+        sym::cheri_subset_test => ("llvm.cheri.cap.subset.test", &[]),
+        sym::cheri_tag_clear => ("llvm.cheri.cap.tag.clear", &[]),
+        sym::cheri_tag_get => ("llvm.cheri.cap.tag.get", &[]),
+        sym::cheri_top_get => ("llvm.cheri.cap.top.get", &[bx.isize_ty()]),
+        sym::cheri_type_get => ("llvm.cheri.cap.type.get", &[bx.isize_ty()]),
+        sym::cheri_unseal => ("llvm.cheri.cap.unseal", &[]),
         _ => return None,
     };
     Some(bx.call_intrinsic(
@@ -605,7 +630,6 @@ impl<'ll, 'tcx> IntrinsicCallBuilderMethods<'tcx> for Builder<'_, 'll, 'tcx> {
                 // We have copied the value to `result` already.
                 return Ok(());
             }
-
             sym::amdgpu_dispatch_ptr => {
                 let val = self.call_intrinsic("llvm.amdgcn.dispatch.ptr", &[], &[]);
                 // Relying on `LLVMBuildPointerCast` to produce an addrspacecast

@@ -86,6 +86,18 @@ fn intrinsic_operation_unsafety(tcx: TyCtxt<'_>, intrinsic_id: LocalDefId) -> hi
         | sym::ceilf32
         | sym::ceilf64
         | sym::ceilf128
+        | sym::cheri_address_get
+        | sym::cheri_base_get
+        | sym::cheri_is_equal_exact
+        | sym::cheri_length_get
+        | sym::cheri_permissions_get
+        | sym::cheri_representable_alignment_mask
+        | sym::cheri_round_representable_length
+        | sym::cheri_subset_test
+        | sym::cheri_tag_get
+        | sym::cheri_top_get
+        | sym::cheri_type_get
+        | sym::cheri_without_provenance
         | sym::cold_path
         | sym::const_eval_select
         | sym::contract_check_ensures
@@ -222,8 +234,7 @@ fn intrinsic_operation_unsafety(tcx: TyCtxt<'_>, intrinsic_id: LocalDefId) -> hi
         | sym::wrapping_sub
         | sym::write_box_via_move
         // tidy-alphabetical-end
-        | sym::cheri_address_get
-        | sym::cheri_without_provenance => hir::Safety::Safe,
+        => hir::Safety::Safe,
         _ => hir::Safety::Unsafe,
     };
 
@@ -814,11 +825,78 @@ pub(crate) fn check_intrinsic_type(
         sym::atomic_fence | sym::atomic_singlethreadfence => (0, 1, Vec::new(), tcx.types.unit),
 
         // CHERI-specific intrinsics
-        sym::cheri_without_provenance => {
-            (1, 0, vec![tcx.types.usize], Ty::new_mut_ptr(tcx, param(0)))
-        }
         sym::cheri_address_get => {
             (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.usize)
+        }
+        sym::cheri_address_increment => (
+            0,
+            0,
+            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), tcx.types.usize],
+            Ty::new_imm_ptr(tcx, tcx.types.unit),
+        ),
+        sym::cheri_address_set => (
+            0,
+            0,
+            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), tcx.types.usize],
+            Ty::new_imm_ptr(tcx, tcx.types.unit),
+        ),
+        sym::cheri_base_get => (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.usize),
+        sym::cheri_bounds_set => (
+            0,
+            0,
+            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), tcx.types.usize],
+            Ty::new_imm_ptr(tcx, tcx.types.unit),
+        ),
+        sym::cheri_bounds_set_exact => (
+            0,
+            0,
+            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), tcx.types.usize],
+            Ty::new_imm_ptr(tcx, tcx.types.unit),
+        ),
+        sym::cheri_is_equal_exact => (
+            0,
+            0,
+            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), Ty::new_imm_ptr(tcx, tcx.types.unit)],
+            tcx.types.bool,
+        ),
+        sym::cheri_length_get => {
+            (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.usize)
+        }
+        sym::cheri_permissions_and => (
+            0,
+            0,
+            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), tcx.types.usize],
+            Ty::new_imm_ptr(tcx, tcx.types.unit),
+        ),
+        sym::cheri_permissions_get => {
+            (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.usize)
+        }
+        sym::cheri_representable_alignment_mask => (0, 0, vec![tcx.types.usize], tcx.types.usize),
+        sym::cheri_round_representable_length => (0, 0, vec![tcx.types.usize], tcx.types.usize),
+        sym::cheri_seal => (
+            0,
+            0,
+            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), Ty::new_imm_ptr(tcx, tcx.types.unit)],
+            Ty::new_imm_ptr(tcx, tcx.types.unit),
+        ),
+        sym::cheri_subset_test => (
+            0,
+            0,
+            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), Ty::new_imm_ptr(tcx, tcx.types.unit)],
+            tcx.types.bool,
+        ),
+        sym::cheri_tag_clear => (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.unit),
+        sym::cheri_tag_get => (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.bool),
+        sym::cheri_top_get => (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.usize),
+        sym::cheri_type_get => (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.u32),
+        sym::cheri_unseal => (
+            0,
+            0,
+            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), Ty::new_imm_ptr(tcx, tcx.types.unit)],
+            Ty::new_imm_ptr(tcx, tcx.types.unit),
+        ),
+        sym::cheri_without_provenance => {
+            (1, 0, vec![tcx.types.usize], Ty::new_mut_ptr(tcx, param(0)))
         }
         other => {
             tcx.dcx().emit_err(UnrecognizedIntrinsicFunction { span, name: other });
