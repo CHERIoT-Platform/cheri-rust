@@ -49,7 +49,7 @@ fn make_test_description(
 ) -> CollectedTestDesc {
     let cache = DirectivesCache::load(config);
     let mut poisoned = false;
-    let file_directives = FileDirectives::from_file_contents(path, file_contents);
+    let file_directives = FileDirectives::from_file_contents(config.suite, path, file_contents);
 
     let mut aux_props = AuxProps::default();
     let test = crate::directives::make_test_description(
@@ -259,7 +259,8 @@ fn cfg() -> ConfigBuilder {
 }
 
 fn parse_early_props(config: &Config, contents: &str) -> EarlyProps {
-    let file_directives = FileDirectives::from_file_contents(Utf8Path::new("a.rs"), contents);
+    let file_directives =
+        FileDirectives::from_file_contents(config.suite, Utf8Path::new("a.rs"), contents);
     EarlyProps::from_file_directives(config, &file_directives)
 }
 
@@ -820,7 +821,12 @@ fn threads_support() {
 }
 
 fn run_path(poisoned: &mut bool, path: &Utf8Path, file_contents: &str) {
-    let file_directives = FileDirectives::from_file_contents(path, file_contents);
+    let file_directives = FileDirectives::from_file_contents(
+        // Arbitrary suite to prevent from_file_contents to add synthetic directives.
+        crate::common::TestSuite::Coverage,
+        path,
+        file_contents,
+    );
     let result = directives::do_early_directives_check(TestMode::Ui, &file_directives);
     if result.is_err() {
         *poisoned = true;
