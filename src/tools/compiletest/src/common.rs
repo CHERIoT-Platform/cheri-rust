@@ -784,6 +784,10 @@ impl Config {
         *&self.target_cfg().pointer_width
     }
 
+    pub(crate) fn get_default_address_space(&self) -> Option<u32> {
+        *&self.target_cfg().default_address_space
+    }
+
     pub(crate) fn can_unwind(&self) -> bool {
         self.target_cfg().panic == PanicStrategy::Unwind
     }
@@ -1058,6 +1062,9 @@ pub(crate) struct TargetCfg {
     /// Supported target atomic widths: e.g. `8` to `128` or `ptr`. This is derived from the builtin
     /// `target_has_atomic` `cfg`s e.g. `target_has_atomic="8"`.
     pub(crate) target_has_atomic: BTreeSet<String>,
+
+    #[serde(rename = "default-address-space", default)]
+    pub(crate) default_address_space: Option<u32>,
 }
 
 impl TargetCfg {

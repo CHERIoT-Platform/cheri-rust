@@ -2217,12 +2217,13 @@ impl<'test> TestCx<'test> {
             filecheck.arg("--check-prefix").arg(rev);
         }
 
-        // HACK: some targets use a default address space that is different from the
-        // default one in LLVM. This variable is set so to make it slightly easier to adapt
-        // existing tests to those targets using the [[ADDRSPACE]] variable.
-        if self.config.target_cfg().families.contains(&String::from("cheriot")) {
+        // HACK: Some targets use a default address space that is different
+        // from the default one in LLVM.
+        // This variable is set to make it slightly easier to adapt existing
+        // tests to those targets using the [[ADDRSPACE]] variable.
+        if let Some(address_space) = self.config.get_default_address_space() {
             // The leading whitespace is intended.
-            filecheck.arg("-DADDRSPACE= addrspace(200)");
+            filecheck.arg(format!("-DADDRSPACE= addrspace({})", address_space));
         } else {
             filecheck.arg("-DADDRSPACE=");
         }
