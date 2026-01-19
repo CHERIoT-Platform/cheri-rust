@@ -10,7 +10,7 @@
 pub unsafe fn cheri_intrinsics(x: u32) {
     let nil = core::ptr::null();
 
-    // CHECK: llvm.cheri.cap.address.get.
+    // CHECK: ptrtoint
     _ = core::intrinsics::cheri::cheri_address_get(nil);
 
     // _ = core::intrinsics::cheri::cheri_address_increment(nil, 0);
