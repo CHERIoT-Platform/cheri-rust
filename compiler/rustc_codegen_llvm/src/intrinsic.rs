@@ -165,7 +165,6 @@ fn call_simple_intrinsic<'ll, 'tcx>(
         sym::roundf128 => ("llvm.round", &[bx.type_f128()]),
 
         /* CHERI intrinsics */
-        sym::cheri_address_get => ("llvm.cheri.cap.address.get", &[bx.isize_ty()]),
         sym::cheri_address_increment => ("llvm.cheri.cap.offset.increment", &[bx.isize_ty()]),
         sym::cheri_address_set => ("llvm.cheri.cap.address.set", &[bx.isize_ty()]),
         sym::cheri_base_get => ("llvm.cheri.cap.base.get", &[bx.isize_ty()]),
@@ -587,6 +586,11 @@ impl<'ll, 'tcx> IntrinsicCallBuilderMethods<'tcx> for Builder<'_, 'll, 'tcx> {
             sym::cheri_without_provenance => {
                 let arg = args[0].immediate();
                 self.inttoptr(arg, self.type_ptr())
+            }
+
+            sym::cheri_address_get => {
+                let arg = args[0].immediate();
+                self.ptrtoint(arg, self.isize_ty)
             }
 
             _ if name.as_str().starts_with("simd_") => {
