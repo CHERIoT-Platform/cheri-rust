@@ -28,9 +28,7 @@ if [ -n "${CIRRUS_BASE_BRANCH+set}" ]; then
         # should restore the normal behaviour once the error is fixed.
         CODEGEN_BACKENDS="codegen-backends = [\"llvm\",\"cranelift\"]"
     else
-        # TODO: change this to `dev` once we add rustfmt to the beta branch, so
-        # that fmt --check is part of the tests.
-        CHANNEL="beta"
+        CHANNEL="dev"
     fi
 # Otherwise we may be running for a direct push to main.
 elif [ -n "${CIRRUS_BRANCH+set}" ]; then
@@ -40,10 +38,10 @@ elif [ -n "${CIRRUS_BRANCH+set}" ]; then
         # See comment above.
         CODEGEN_BACKENDS="codegen-backends = [\"llvm\",\"cranelift\"]"
     else
-        CHANNEL="beta"
+        CHANNEL="dev"
     fi
 else
-        CHANNEL="beta"
+        CHANNEL="dev"
 fi
 
 if [ -e "$FILE" ]; then
@@ -59,6 +57,7 @@ change-id = "ignore"
 
 [build]
 ccache = true
+rustfmt = "./build/host/stage1/bin/rustfmt"
 
 [rust]
 channel = "$CHANNEL"
