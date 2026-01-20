@@ -54,9 +54,10 @@ x_test_task:
     - echo "CCACHE_REMOTE_ONLY=1" >> $CIRRUS_ENV
   check_env_script: env
   pull_main_script: git fetch origin main:refs/remotes/origin/main
-  rust_fmt_check_script: CC="clang" CXX="clang++" ./x fmt --check
   rust_check_script: CC="clang" CXX="clang++" ./x check
-  rust_test_script: CC="clang" CXX="clang++" ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make
+  build_fmt_script: CC="clang" CXX="clang++" ./x build rustfmt
+  rust_test_tidy_script: CC="clang" CXX="clang++" ./x test tidy
+  rust_test_script: CC="clang" CXX="clang++" ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make --skip tidy
 
 build_core_task:
   name: Build `core` library  for `riscv32cheriot-unknown-cheriotrtos`
