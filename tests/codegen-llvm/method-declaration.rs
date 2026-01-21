@@ -6,6 +6,7 @@
 // CHECK: define{{.*}}@function{{.*}} !dbg ![[FUNC_DEF_DBG:[0-9]+]]
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-DAG: ![[FOO_DBG:[0-9]+]] = !DICompositeType(tag: {{.*}} name: "Foo", {{.*}} identifier:
 pub struct Foo;

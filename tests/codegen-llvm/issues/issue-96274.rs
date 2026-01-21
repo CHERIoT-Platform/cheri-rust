@@ -1,8 +1,9 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 pub fn maybe_uninit() -> [MaybeUninit<u8>; 3000] {
     // CHECK-NOT: memset

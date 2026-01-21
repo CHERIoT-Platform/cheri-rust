@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3 -C no-prepopulate-passes -Zmir-opt-level=0
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @test
 #[no_mangle]
@@ -8,7 +9,7 @@ pub fn test() {
     let a = 0u8;
     &a; // keep variable in an alloca
 
-    // CHECK: call void @llvm.lifetime.start{{.*}}({{(i[0-9 ]+, )?}}ptr %a)
+    // CHECK: call void @llvm.lifetime.start{{.*}}({{(i[0-9 ]+, )?}}ptr[[ADDRSPACE]] %a)
 
     {
         let b = &Some(a);
@@ -26,9 +27,9 @@ pub fn test() {
     let c = 1u8;
     &c; // keep variable in an alloca
 
-    // CHECK: call void @llvm.lifetime.start{{.*}}({{(i[0-9 ]+, )?}}ptr %c)
+    // CHECK: call void @llvm.lifetime.start{{.*}}({{(i[0-9 ]+, )?}}ptr[[ADDRSPACE]] %c)
 
-    // CHECK: call void @llvm.lifetime.end{{.*}}({{(i[0-9 ]+, )?}}ptr %c)
+    // CHECK: call void @llvm.lifetime.end{{.*}}({{(i[0-9 ]+, )?}}ptr[[ADDRSPACE]] %c)
 
-    // CHECK: call void @llvm.lifetime.end{{.*}}({{(i[0-9 ]+, )?}}ptr %a)
+    // CHECK: call void @llvm.lifetime.end{{.*}}({{(i[0-9 ]+, )?}}ptr[[ADDRSPACE]] %a)
 }

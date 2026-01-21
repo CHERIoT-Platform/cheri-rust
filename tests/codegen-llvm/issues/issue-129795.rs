@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 // Ensure that a modulo operation with an operand that is known to be
 // a power-of-two is properly optimized.

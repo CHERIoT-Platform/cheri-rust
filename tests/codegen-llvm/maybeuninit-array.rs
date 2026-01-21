@@ -3,8 +3,9 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 #[no_mangle]
 pub fn create_uninit_array() -> [[MaybeUninit<u8>; 4]; 200] {

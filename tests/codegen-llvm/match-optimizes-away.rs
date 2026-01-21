@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3 -Zmerge-functions=disabled
 #![crate_type = "lib"]
+#![no_std]
 
 pub enum Three {
     A,

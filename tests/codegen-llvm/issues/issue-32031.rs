@@ -5,6 +5,7 @@
 //@[other] ignore-x86
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub struct F32(f32);

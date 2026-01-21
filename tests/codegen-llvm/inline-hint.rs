@@ -3,6 +3,10 @@
 //
 //@ compile-flags: -Cno-prepopulate-passes -Csymbol-mangling-version=v0 -Zinline-mir=no
 #![crate_type = "lib"]
+#![no_std]
+
+extern crate alloc;
+use alloc::string::String;
 
 pub fn f() {
     let a = A;

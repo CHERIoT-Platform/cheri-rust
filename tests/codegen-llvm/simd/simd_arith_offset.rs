@@ -1,4 +1,5 @@
 //@ compile-flags: -C no-prepopulate-passes
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 //@ only-64bit (because the LLVM type of i64 for usize shows up)
 //
 

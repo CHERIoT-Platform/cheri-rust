@@ -1,10 +1,14 @@
 //@ compile-flags: -C no-prepopulate-passes -Copt-level=0 -Zmir-opt-level=0
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(ergonomic_clones)]
 #![allow(incomplete_features)]
 
-use std::clone::UseCloned;
+extern crate alloc;
+
+use alloc::string::String;
+use core::clone::UseCloned;
 
 pub fn ergonomic_clone_closure_move() -> String {
     let s = String::from("hi");

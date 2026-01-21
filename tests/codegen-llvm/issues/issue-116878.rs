@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 /// Make sure no bounds checks are emitted after a `get_unchecked`.
 // CHECK-LABEL: @unchecked_slice_no_bounds_check

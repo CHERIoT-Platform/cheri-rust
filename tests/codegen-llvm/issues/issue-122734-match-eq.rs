@@ -2,6 +2,7 @@
 //! Tests that matching + eq on `Option<FieldlessEnum>` produces a simple compare with no branching
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[derive(PartialEq)]
 pub enum TwoNum {

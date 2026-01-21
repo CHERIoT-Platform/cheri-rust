@@ -1,6 +1,7 @@
 //@ compile-flags: -C relocation-model=pic -Z plt=no
 
 #![crate_type = "lib"]
+#![no_std]
 
 // We need a function which is normally called through the PLT.
 extern "C" {

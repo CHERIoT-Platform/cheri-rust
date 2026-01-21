@@ -1,9 +1,10 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::{ctlz, ctlz_nonzero};
+use core::intrinsics::{ctlz, ctlz_nonzero};
 
 // CHECK-LABEL: @ctlz_u16
 #[no_mangle]

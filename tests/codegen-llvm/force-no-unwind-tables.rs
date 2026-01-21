@@ -2,6 +2,7 @@
 //@ ignore-windows: unwind tables are required for panics on Windows
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: define{{.*}}void @foo
 // CHECK-NOT: attributes #{{.*}} uwtable

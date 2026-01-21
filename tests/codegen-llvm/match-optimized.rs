@@ -1,6 +1,7 @@
 //@ compile-flags: -Cno-prepopulate-passes -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 pub enum E {
     A,
@@ -20,13 +21,13 @@ pub fn exhaustive_match(e: E) -> u8 {
     // CHECK-NEXT: unreachable
     //
     // CHECK: [[A]]:
-    // CHECK-NEXT: store i8 0, ptr %_0, align 1
+    // CHECK-NEXT: store i8 0, ptr[[ADDRSPACE]] %_0, align 1
     // CHECK-NEXT: br label %[[EXIT:[a-zA-Z0-9_]+]]
     // CHECK: [[B]]:
-    // CHECK-NEXT: store i8 1, ptr %_0, align 1
+    // CHECK-NEXT: store i8 1, ptr[[ADDRSPACE]] %_0, align 1
     // CHECK-NEXT: br label %[[EXIT]]
     // CHECK: [[C]]:
-    // CHECK-NEXT: store i8 3, ptr %_0, align 1
+    // CHECK-NEXT: store i8 3, ptr[[ADDRSPACE]] %_0, align 1
     // CHECK-NEXT: br label %[[EXIT]]
     match e {
         E::A => 0,

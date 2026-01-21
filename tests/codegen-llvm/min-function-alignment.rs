@@ -5,6 +5,7 @@
 //@ ignore-wasm32 aligning functions is not currently supported on wasm (#143368)
 
 #![crate_type = "lib"]
+#![no_std]
 // FIXME(#82232, #143834): temporarily renamed to mitigate `#[align]` nameres ambiguity
 #![feature(rustc_attrs)]
 #![feature(fn_align)]

@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @trailing_zeros_ge
 #[no_mangle]

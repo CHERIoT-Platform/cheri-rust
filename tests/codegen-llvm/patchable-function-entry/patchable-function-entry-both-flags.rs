@@ -2,6 +2,7 @@
 
 #![feature(patchable_function_entry)]
 #![crate_type = "lib"]
+#![no_std]
 
 // This should have the default, as set by the compile flags
 #[no_mangle]
@@ -39,13 +40,13 @@ pub fn fun5() {}
 #[patchable_function_entry(prefix_nops = 4)]
 pub fn fun6() {}
 
-// CHECK: @fun0() unnamed_addr #0
-// CHECK: @fun1() unnamed_addr #1
-// CHECK: @fun2() unnamed_addr #2
-// CHECK: @fun3() unnamed_addr #3
-// CHECK: @fun4() unnamed_addr #4
-// CHECK: @fun5() unnamed_addr #5
-// CHECK: @fun6() unnamed_addr #6
+// CHECK: @fun0() unnamed_addr[[ADDRSPACE]] #0
+// CHECK: @fun1() unnamed_addr[[ADDRSPACE]] #1
+// CHECK: @fun2() unnamed_addr[[ADDRSPACE]] #2
+// CHECK: @fun3() unnamed_addr[[ADDRSPACE]] #3
+// CHECK: @fun4() unnamed_addr[[ADDRSPACE]] #4
+// CHECK: @fun5() unnamed_addr[[ADDRSPACE]] #5
+// CHECK: @fun6() unnamed_addr[[ADDRSPACE]] #6
 
 // CHECK: attributes #0 = { {{.*}}"patchable-function-entry"="5"{{.*}}"patchable-function-prefix"="10" {{.*}} }
 // CHECK: attributes #1 = { {{.*}}"patchable-function-entry"="2"{{.*}}"patchable-function-prefix"="1" {{.*}} }

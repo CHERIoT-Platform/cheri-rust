@@ -10,11 +10,11 @@
 //@ [NOCHECKS] compile-flags: -Coverflow-checks=no
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(new_range_api)]
 #![feature(new_range_remainder)]
 
-use std::range::RangeFrom;
-
+use core::range::{RangeFrom, RangeFromIter};
 // CHECK-LABEL: @rangefrom_increments(
 #[no_mangle]
 pub unsafe fn rangefrom_increments(range: RangeFrom<i32>) -> RangeFrom<i32> {

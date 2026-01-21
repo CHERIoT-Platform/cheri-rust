@@ -1,6 +1,10 @@
 //@ compile-flags: -Copt-level=3 -Zcross-crate-inline-threshold=always
 
 #![crate_type = "lib"]
+#![cfg_attr(panic = "abort", no_std)]
+
+extern crate alloc;
+use alloc::string::String;
 
 // This function *looks* like it contains a call, but that call will be optimized out by MIR
 // optimizations.

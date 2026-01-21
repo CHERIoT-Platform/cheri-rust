@@ -5,6 +5,7 @@
 //@ min-llvm-version: 23
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum FrameType {
