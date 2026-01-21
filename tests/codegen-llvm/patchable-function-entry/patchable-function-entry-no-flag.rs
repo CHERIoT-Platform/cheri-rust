@@ -1,5 +1,6 @@
 #![feature(patchable_function_entry)]
 #![crate_type = "lib"]
+#![no_std]
 
 // No patchable function entry should be set
 #[no_mangle]
@@ -22,10 +23,10 @@ pub fn fun2() {}
 #[patchable_function_entry(prefix_nops = 4)]
 pub fn fun3() {}
 
-// CHECK: @fun0() unnamed_addr #0
-// CHECK: @fun1() unnamed_addr #1
-// CHECK: @fun2() unnamed_addr #2
-// CHECK: @fun3() unnamed_addr #3
+// CHECK: @fun0() unnamed_addr[[ADDRSPACE]] #0
+// CHECK: @fun1() unnamed_addr[[ADDRSPACE]] #1
+// CHECK: @fun2() unnamed_addr[[ADDRSPACE]] #2
+// CHECK: @fun3() unnamed_addr[[ADDRSPACE]] #3
 
 // CHECK-NOT: attributes #0 = { {{.*}}patchable-function-entry{{.*}} }
 // CHECK-NOT: attributes #0 = { {{.*}}patchable-function-prefix{{.*}} }

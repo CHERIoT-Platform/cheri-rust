@@ -1,6 +1,7 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(repr_simd, core_intrinsics)]
 #![allow(non_camel_case_types)]
 #![deny(unused)]
@@ -9,7 +10,7 @@
 mod minisimd;
 use minisimd::*;
 
-use std::intrinsics::simd::{simd_saturating_add, simd_saturating_sub};
+use core::intrinsics::simd::{simd_saturating_add, simd_saturating_sub};
 
 // NOTE(eddyb) `%{{x|0}}` is used because on some targets (e.g. WASM)
 // SIMD vectors are passed directly, resulting in `%x` being a vector,

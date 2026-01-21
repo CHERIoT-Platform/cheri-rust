@@ -11,8 +11,11 @@
 // CHECK-NOT: {{(call|invoke).*}}should_not_appear_in_output
 
 #![crate_type = "lib"]
-use std::any::Any;
-use std::mem::forget;
+#![no_std]
+extern crate alloc;
+use alloc::boxed::Box;
+use core::any::Any;
+use core::mem::forget;
 
 pub struct ExternDrop;
 impl Drop for ExternDrop {

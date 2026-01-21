@@ -2,8 +2,11 @@
 //
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::iter;
+use core::iter;
+extern crate alloc;
+use alloc::vec::Vec;
 
 // CHECK-LABEL: @repeat_take_collect
 #[no_mangle]

@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // Ensure that we do not call `memcpy` for the following function.
 // `memset` and `init` should be called directly on the return pointer.

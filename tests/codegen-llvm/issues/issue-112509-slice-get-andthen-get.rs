@@ -1,5 +1,7 @@
 //@ compile-flags: -Copt-level=3
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Generates a zext before select (not a bug)
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @write_u8_variant_a
 // CHECK-NEXT: {{.*}}:

@@ -1,6 +1,7 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(repr_simd, core_intrinsics)]
 #![allow(non_camel_case_types)]
 
@@ -8,7 +9,7 @@
 mod minisimd;
 use minisimd::*;
 
-use std::intrinsics::simd::{simd_reduce_all, simd_reduce_any};
+use core::intrinsics::simd::{simd_reduce_all, simd_reduce_any};
 
 pub type mask32x2 = Simd<i32, 2>;
 pub type mask8x16 = Simd<i8, 16>;

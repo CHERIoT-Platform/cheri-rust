@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3 -C overflow-checks=on
 
 #![crate_type = "lib"]
+#![no_std]
 
 pub struct S1<'a> {
     data: &'a [u8],

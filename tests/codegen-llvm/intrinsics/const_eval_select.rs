@@ -1,10 +1,11 @@
 //@ compile-flags: -C no-prepopulate-passes -Copt-level=0
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(const_eval_select)]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::const_eval_select;
+use core::intrinsics::const_eval_select;
 
 const fn foo(_: i32) -> i32 {
     1

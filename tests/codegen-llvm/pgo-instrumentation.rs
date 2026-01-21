@@ -11,6 +11,7 @@
 // CHECK: @__llvm_profile_filename = {{.*}}"default_%m.profraw\00"{{.*}}
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[inline(never)]
 fn some_function() {}

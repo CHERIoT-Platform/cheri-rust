@@ -1,8 +1,9 @@
 #![crate_type = "lib"]
-
+#![no_std]
+extern crate alloc;
+use alloc::boxed::Box;
 //@ compile-flags: -Copt-level=3
-
-use std::mem;
+use core::mem;
 
 fn foo<T>(a: &mut T, b: T) -> bool {
     let b = Some(mem::replace(a, b));

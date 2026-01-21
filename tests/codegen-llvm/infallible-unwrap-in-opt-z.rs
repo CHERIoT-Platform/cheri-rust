@@ -2,6 +2,7 @@
 //@ edition: 2021
 
 #![crate_type = "lib"]
+#![no_std]
 
 // From <https://github.com/rust-lang/rust/issues/115463>
 

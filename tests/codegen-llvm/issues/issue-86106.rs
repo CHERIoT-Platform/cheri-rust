@@ -1,3 +1,4 @@
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 //@ only-64bit llvm appears to use stores instead of memset on 32bit
 //@ compile-flags: -C opt-level=3 -Z merge-functions=disabled
 //@ needs-deterministic-layouts

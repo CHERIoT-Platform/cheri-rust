@@ -3,6 +3,7 @@
 //! function pointers returning `!` (never type).
 
 #![crate_type = "lib"]
+#![no_std]
 
 extern "C" {
     static FOO: fn() -> !;

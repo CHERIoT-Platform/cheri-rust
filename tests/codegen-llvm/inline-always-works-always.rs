@@ -4,6 +4,7 @@
 //@[SPEED-OPT] compile-flags: -Copt-level=3
 
 #![crate_type = "rlib"]
+#![no_std]
 
 #[no_mangle]
 #[inline(always)]

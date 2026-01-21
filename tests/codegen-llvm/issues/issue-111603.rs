@@ -1,4 +1,6 @@
 //@ compile-flags: -Copt-level=3
+// ignore-tidy-linelength
+//@ ignore-riscv32cheriot-unknown-cheriotrtos See https://github.com/CHERIoT-Platform/cheri-rust/issues/74
 
 #![crate_type = "lib"]
 #![feature(get_mut_unchecked, new_uninit)]

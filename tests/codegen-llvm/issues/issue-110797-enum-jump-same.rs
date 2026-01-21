@@ -1,6 +1,10 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::string::String;
 
 pub enum K {
     A(Box<[i32]>),

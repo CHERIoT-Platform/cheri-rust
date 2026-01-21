@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 // Make sure no bounds checks are emitted in the loop when upfront slicing
 // ensures that the slices are big enough.

@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3 -Ccodegen-units=1
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[repr(i64)]
 pub enum Boolean {

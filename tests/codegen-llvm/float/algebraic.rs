@@ -4,6 +4,7 @@
 //@ compile-flags: -Copt-level=1
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(f16)]
 #![feature(f128)]
 #![feature(float_algebraic)]

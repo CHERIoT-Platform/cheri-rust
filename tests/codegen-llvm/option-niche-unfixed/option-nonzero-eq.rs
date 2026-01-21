@@ -4,8 +4,9 @@
 //! optimized by LLVM. If this starts passing, the test and manual impl should
 //! be removed.
 #![crate_type = "lib"]
+#![no_std]
 
-use std::num::NonZero;
+use core::num::NonZero;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Option<T> {

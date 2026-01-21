@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 /// Ensure the function is properly optimized
 /// In the issue #133528, the function was not getting optimized
