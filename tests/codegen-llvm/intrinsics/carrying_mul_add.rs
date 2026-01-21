@@ -3,13 +3,14 @@
 //@[RAW] compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 #![feature(core_intrinsics_fallbacks)]
 
 // Note that LLVM seems to sometimes permute the order of arguments to mul and add,
 // so these tests don't check the arguments in the optimized revision.
 
-use std::intrinsics::{carrying_mul_add, fallback};
+use core::intrinsics::{carrying_mul_add, fallback};
 
 // The fallbacks should not be emitted.
 
@@ -81,9 +82,9 @@ pub unsafe fn cma_u128(a: u128, b: u128, c: u128, d: u128) -> (u128, u128) {
     // OPT: [[HIGH:%.+]] = trunc nuw i256 [[HIGHW]] to i128
     // RAW: [[PAIR0:%.+]] = insertvalue { i128, i128 } poison, i128 [[LOW]], 0
     // RAW: [[PAIR1:%.+]] = insertvalue { i128, i128 } [[PAIR0]], i128 [[HIGH]], 1
-    // OPT: store i128 [[LOW]], ptr %_0
-    // OPT: [[P1:%.+]] = getelementptr inbounds{{( nuw)?}} i8, ptr %_0, {{i32|i64}} 16
-    // OPT: store i128 [[HIGH]], ptr [[P1]]
+    // OPT: store i128 [[LOW]], ptr[[ADDRSPACE]] %_0
+    // OPT: [[P1:%.+]] = getelementptr inbounds{{( nuw)?}} i8, ptr[[ADDRSPACE]] %_0, {{i32|i64}} 16
+    // OPT: store i128 [[HIGH]], ptr[[ADDRSPACE]] [[P1]]
     // CHECK: ret void
     carrying_mul_add(a, b, c, d)
 }
@@ -108,9 +109,9 @@ pub unsafe fn cma_i128(a: i128, b: i128, c: i128, d: i128) -> (u128, i128) {
     // OPT: [[HIGH:%.+]] = trunc nuw i256 [[HIGHW]] to i128
     // RAW: [[PAIR0:%.+]] = insertvalue { i128, i128 } poison, i128 [[LOW]], 0
     // RAW: [[PAIR1:%.+]] = insertvalue { i128, i128 } [[PAIR0]], i128 [[HIGH]], 1
-    // OPT: store i128 [[LOW]], ptr %_0
-    // OPT: [[P1:%.+]] = getelementptr inbounds{{( nuw)?}} i8, ptr %_0, {{i32|i64}} 16
-    // OPT: store i128 [[HIGH]], ptr [[P1]]
+    // OPT: store i128 [[LOW]], ptr[[ADDRSPACE]] %_0
+    // OPT: [[P1:%.+]] = getelementptr inbounds{{( nuw)?}} i8, ptr[[ADDRSPACE]] %_0, {{i32|i64}} 16
+    // OPT: store i128 [[HIGH]], ptr[[ADDRSPACE]] [[P1]]
     // CHECK: ret void
     carrying_mul_add(a, b, c, d)
 }

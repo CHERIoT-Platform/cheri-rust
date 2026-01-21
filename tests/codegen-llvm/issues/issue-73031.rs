@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 // Test that LLVM can eliminate the unreachable `All::None` branch.
 

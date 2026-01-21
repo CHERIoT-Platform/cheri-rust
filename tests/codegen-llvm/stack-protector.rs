@@ -5,10 +5,11 @@
 //@ [basic] compile-flags: -Z stack-protector=basic
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn foo() {
-    // CHECK: @foo() unnamed_addr #0
+    // CHECK: @foo() unnamed_addr[[ADDRSPACE]] #0
 
     // all-NOT: attributes #0 = { {{.*}}sspstrong {{.*}} }
     // all-NOT: attributes #0 = { {{.*}}ssp {{.*}} }

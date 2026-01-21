@@ -1,9 +1,13 @@
 //@ compile-flags: -C opt-level=3 -Z merge-functions=disabled
 #![crate_type = "lib"]
+#![no_std]
 
 //! Make sure str::to_string is specialized not to use fmt machinery.
 //!
 //! Note that the `CHECK-NOT`s here try to match on calls to functions under `core::fmt`.
+
+extern crate alloc;
+use alloc::string::{String, ToString};
 
 // CHECK-LABEL: define {{(dso_local )?}}void @one_ref
 #[no_mangle]

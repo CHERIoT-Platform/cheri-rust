@@ -2,9 +2,10 @@
 
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 #![feature(error_generic_member_access)]
-use std::error::Request;
-use std::fmt;
+use core::error::Request;
+use core::fmt;
 
 #[derive(Debug)]
 struct MyBacktrace1 {}
@@ -29,7 +30,7 @@ impl fmt::Display for MyError {
     }
 }
 
-impl std::error::Error for MyError {
+impl core::error::Error for MyError {
     // CHECK-LABEL: @provide
     #[no_mangle]
     fn provide<'a>(&'a self, request: &mut Request<'a>) {

@@ -4,6 +4,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @no_bounds_check_after_assert
 #[no_mangle]

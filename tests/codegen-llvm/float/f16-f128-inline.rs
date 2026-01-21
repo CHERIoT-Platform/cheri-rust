@@ -5,6 +5,7 @@
 // when the backend does not support these types.
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(f128)]
 #![feature(f16)]
 

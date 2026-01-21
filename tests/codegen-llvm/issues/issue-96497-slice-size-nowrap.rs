@@ -5,6 +5,9 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
+extern crate alloc;
+use alloc::boxed::Box;
 
 // CHECK-LABEL: @simple_size_of_nowrap
 #[no_mangle]

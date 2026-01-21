@@ -1,7 +1,10 @@
 //@ revisions: O Os
 //@[Os] compile-flags: -Copt-level=s
 //@[O] compile-flags: -Copt-level=3
+//@ ignore-riscv32cheriot-unknown-cheriotrtos See CHERIoT-Platform/cheri-rust/issues/87
+
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK: @func{{2|1}} = {{.*}}alias{{.*}}@func{{1|2}}
 

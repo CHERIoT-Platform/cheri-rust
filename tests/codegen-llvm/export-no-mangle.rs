@@ -1,6 +1,7 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 
 mod private {
     // CHECK: @FOO =

@@ -6,6 +6,7 @@
 //! This has been fixed since `rustc 1.70.0`.
 
 #![crate_type = "lib"]
+#![no_std]
 
 type T = i16;
 

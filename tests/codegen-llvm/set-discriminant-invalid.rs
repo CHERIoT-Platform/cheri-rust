@@ -1,5 +1,6 @@
 //@ compile-flags: -C opt-level=0
 #![crate_type = "lib"]
+#![no_std]
 
 pub enum ApiError {}
 #[allow(dead_code)]

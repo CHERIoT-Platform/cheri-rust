@@ -1,4 +1,5 @@
 #![crate_type = "rlib"]
+#![no_std]
 //@ compile-flags: -Copt-level=3 -g
 //
 

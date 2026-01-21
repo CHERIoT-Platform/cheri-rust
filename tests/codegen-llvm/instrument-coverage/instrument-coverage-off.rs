@@ -12,6 +12,7 @@
 // CHECK-NOT: __llvm_coverage_mapping
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[inline(never)]
 fn some_function() {}

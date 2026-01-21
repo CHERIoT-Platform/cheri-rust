@@ -4,6 +4,7 @@
 // while lacking attributes used for optimization, still have ABI-affecting attributes.
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(rustc_attrs)]
 
 pub struct S {
@@ -23,13 +24,13 @@ pub fn boolean_call(x: bool, f: fn(bool) -> bool) -> bool {
     f(x)
 }
 
-// CHECK: align 4 ptr @borrow(ptr align 4 %x)
+// CHECK: align 4 ptr[[ADDRSPACE]] @borrow(ptr[[ADDRSPACE]] align 4 %x)
 #[no_mangle]
 pub fn borrow(x: &i32) -> &i32 {
     x
 }
 
-// CHECK: align 4 ptr @borrow_mut(ptr align 4 %x)
+// CHECK: align 4 ptr[[ADDRSPACE]] @borrow_mut(ptr[[ADDRSPACE]] align 4 %x)
 #[no_mangle]
 pub fn borrow_mut(x: &mut i32) -> &mut i32 {
     x
@@ -38,11 +39,11 @@ pub fn borrow_mut(x: &mut i32) -> &mut i32 {
 // CHECK-LABEL: @borrow_call
 #[no_mangle]
 pub fn borrow_call(x: &i32, f: fn(&i32) -> &i32) -> &i32 {
-    // CHECK: call align 4 ptr %f(ptr align 4 %x)
+    // CHECK: call align 4 ptr[[ADDRSPACE]] %f(ptr[[ADDRSPACE]] align 4 %x)
     f(x)
 }
 
-// CHECK: void @struct_(ptr sret([32 x i8]) align 4{{( %_0)?}}, ptr align 4 %x)
+// CHECK: void @struct_(ptr[[ADDRSPACE]] sret([32 x i8]) align 4{{( %_0)?}}, ptr[[ADDRSPACE]] align 4 %x)
 #[no_mangle]
 pub fn struct_(x: S) -> S {
     x
@@ -51,7 +52,7 @@ pub fn struct_(x: S) -> S {
 // CHECK-LABEL: @struct_call
 #[no_mangle]
 pub fn struct_call(x: S, f: fn(S) -> S) -> S {
-    // CHECK: call void %f(ptr sret([32 x i8]) align 4{{( %_0)?}}, ptr align 4 %{{.+}})
+    // CHECK: call void %f(ptr[[ADDRSPACE]] sret([32 x i8]) align 4{{( %_0)?}}, ptr[[ADDRSPACE]] align 4 %{{.+}})
     f(x)
 }
 

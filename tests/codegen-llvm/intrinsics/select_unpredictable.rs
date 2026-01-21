@@ -1,7 +1,9 @@
 //@ compile-flags: -Copt-level=3 -Zmerge-functions=disabled
+//@ ignore-riscv32cheriot-unknown-cheriotrtos See CHERIoT-Platform/cheri-rust/issues/85
 
 #![feature(core_intrinsics)]
 #![crate_type = "lib"]
+#![no_std]
 
 /* Test the intrinsic */
 

@@ -9,8 +9,9 @@
 // when the code is compiled with `panic=abort`.
 
 #![crate_type = "lib"]
+#![no_std]
 
-// CHECK: @rust_item_that_can_unwind() unnamed_addr [[ATTR0:#[0-9]+]]
+// CHECK: @rust_item_that_can_unwind() unnamed_addr[[ADDRSPACE]] [[ATTR0:#[0-9]+]]
 #[no_mangle]
 pub unsafe extern "C-unwind" fn rust_item_that_can_unwind() {
     // Handle both legacy and v0 symbol mangling.
@@ -21,7 +22,7 @@ pub unsafe extern "C-unwind" fn rust_item_that_can_unwind() {
 }
 
 extern "C-unwind" {
-    // CHECK: @may_unwind() unnamed_addr [[ATTR1:#[0-9]+]]
+    // CHECK: @may_unwind() unnamed_addr[[ADDRSPACE]] [[ATTR1:#[0-9]+]]
     fn may_unwind();
 }
 

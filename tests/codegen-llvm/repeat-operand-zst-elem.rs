@@ -7,6 +7,7 @@
 // test hit that code path, nor did a stage 2 build of the compiler.)
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[repr(transparent)]
 pub struct Wrapper<T, const N: usize>([T; N]);

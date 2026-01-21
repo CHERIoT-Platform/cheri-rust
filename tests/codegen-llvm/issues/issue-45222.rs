@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // verify that LLVM recognizes a loop involving 0..=n and will const-fold it.
 

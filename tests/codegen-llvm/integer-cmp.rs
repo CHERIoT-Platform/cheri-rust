@@ -4,8 +4,9 @@
 //@ compile-flags: -C opt-level=3 -Zmerge-functions=disabled
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 // CHECK-LABEL: @cmp_signed
 #[no_mangle]

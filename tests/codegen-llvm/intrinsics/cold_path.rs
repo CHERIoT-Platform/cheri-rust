@@ -1,8 +1,9 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::cold_path;
+use core::intrinsics::cold_path;
 
 #[no_mangle]
 pub fn test_cold_path(x: bool) {

@@ -5,6 +5,7 @@
 //@ compile-flags: -Copt-level=3 --crate-name=test
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @infallible_max_not_unrolled
 #[no_mangle]

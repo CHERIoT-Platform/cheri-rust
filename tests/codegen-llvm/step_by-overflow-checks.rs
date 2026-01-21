@@ -1,9 +1,10 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::iter::StepBy;
-use std::slice::Iter;
+use core::iter::StepBy;
+use core::slice::Iter;
 
 // The constructor for `StepBy` ensures we can never end up needing to do zero
 // checks on denominators, so check that the code isn't emitting panic paths.

@@ -3,6 +3,7 @@
 //@ [YES]compile-flags: -Zfewer-names=yes
 //@ [NO] compile-flags: -Zfewer-names=no
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn sum(x: u32, y: u32) -> u32 {

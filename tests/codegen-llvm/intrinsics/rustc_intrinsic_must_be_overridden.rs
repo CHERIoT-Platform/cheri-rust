@@ -4,6 +4,7 @@
 //@ compile-flags: -Cno-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
 // CHECK-NOT: core::intrinsics::size_of_val

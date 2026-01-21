@@ -4,9 +4,10 @@
 // Make sure we don't create `br` or `select` instructions.
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::iter::Copied;
-use std::slice::Iter;
+use core::iter::Copied;
+use core::slice::Iter;
 
 #[no_mangle]
 pub unsafe fn foo(x: &mut Copied<Iter<'_, u32>>) -> u32 {

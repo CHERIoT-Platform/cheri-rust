@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3 -C debug-assertions=yes
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn test(src: *const u8, dst: *const u8) -> usize {

@@ -4,11 +4,12 @@
 //@ ignore-wasm32 aligning functions is not currently supported on wasm (#143368)
 
 #![crate_type = "lib"]
+#![no_std]
 // FIXME(#82232, #143834): temporarily renamed to mitigate `#[align]` nameres ambiguity
 #![feature(rustc_attrs)]
 #![feature(fn_align)]
 
-use std::arch::naked_asm;
+use core::arch::naked_asm;
 
 // CHECK: .balign 16
 // CHECK-LABEL: naked_empty:

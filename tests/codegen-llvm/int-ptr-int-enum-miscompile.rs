@@ -3,6 +3,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn mk_result(a: usize) -> Result<u8, *const u8> {

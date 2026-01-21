@@ -1,9 +1,10 @@
 //@ compile-flags: -C no-prepopulate-passes -Z mir-opt-level=0
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::disjoint_bitor;
+use core::intrinsics::disjoint_bitor;
 
 // CHECK-LABEL: @disjoint_bitor_signed
 #[no_mangle]

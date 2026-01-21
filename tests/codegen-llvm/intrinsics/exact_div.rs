@@ -1,9 +1,10 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::exact_div;
+use core::intrinsics::exact_div;
 
 // CHECK-LABEL: @exact_sdiv
 #[no_mangle]

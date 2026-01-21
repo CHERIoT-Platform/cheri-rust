@@ -1,5 +1,9 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::string::String;
 
 // This test checks that we can inline drop_in_place in
 // unwind landing pads.

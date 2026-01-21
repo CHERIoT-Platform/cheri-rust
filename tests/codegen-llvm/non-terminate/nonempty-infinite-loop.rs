@@ -1,6 +1,7 @@
 //@ compile-flags: -C opt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // Verify that we don't miscompile this even if rustc didn't apply the trivial loop detection to
 // insert the sideeffect intrinsic.

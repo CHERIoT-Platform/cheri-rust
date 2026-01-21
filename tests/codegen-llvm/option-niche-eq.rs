@@ -2,8 +2,8 @@
 //@ compile-flags: -Copt-level=3 -Zmerge-functions=disabled
 //@ [LLVM21] min-llvm-version: 21
 #![crate_type = "lib"]
+#![no_std]
 
-extern crate core;
 use core::cmp::Ordering;
 use core::num::NonZero;
 use core::ptr::NonNull;

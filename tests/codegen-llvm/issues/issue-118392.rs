@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @div2
 // CHECK: ashr i32 %a, 1

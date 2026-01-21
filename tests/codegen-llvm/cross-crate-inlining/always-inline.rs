@@ -2,6 +2,10 @@
 //@ aux-build:always.rs
 
 #![crate_type = "lib"]
+#![no_std]
+
+extern crate alloc;
+use alloc::string::String;
 
 extern crate always;
 

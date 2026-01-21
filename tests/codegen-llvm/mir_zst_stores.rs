@@ -1,7 +1,8 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
-use std::marker::PhantomData;
+#![no_std]
+use core::marker::PhantomData;
 
 #[derive(Copy, Clone)]
 struct Zst {

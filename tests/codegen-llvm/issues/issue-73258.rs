@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // Adapted from <https://github.com/rust-lang/rust/issues/73258#issue-637346014>
 

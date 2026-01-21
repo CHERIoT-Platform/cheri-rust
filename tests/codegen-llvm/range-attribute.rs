@@ -6,6 +6,7 @@
 //@[bit32] only-32bit
 //@[bit64] only-64bit
 //@ compile-flags: -Copt-level=3 -C no-prepopulate-passes
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 #![crate_type = "lib"]
 

@@ -1,6 +1,7 @@
 //@ revisions: OPT DBG
 //@ [OPT] compile-flags: -C opt-level=3 -C no-prepopulate-passes
 //@ [DBG] compile-flags: -C opt-level=0 -C no-prepopulate-passes
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 //@ only-64bit (so I don't need to worry about usize)
 #![crate_type = "lib"]
 

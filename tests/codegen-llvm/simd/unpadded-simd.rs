@@ -3,6 +3,7 @@
 // See #87254.
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(repr_simd, abi_unadjusted)]
 
 #[derive(Copy, Clone)]

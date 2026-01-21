@@ -2,6 +2,7 @@
 //@ [OPT0] compile-flags: -Copt-level=0
 //@ [OPT3] compile-flags: -Copt-level=3
 //@ compile-flags: -C no-prepopulate-passes
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 //@ only-64bit (so I don't need to worry about usize)
 // ignore-tidy-linelength (the memcpy calls get long)
 

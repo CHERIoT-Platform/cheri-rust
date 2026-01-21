@@ -5,6 +5,7 @@
 //@ ignore-i686-pc-windows-gnu
 
 #![crate_type = "lib"]
+#![no_std]
 #![allow(non_camel_case_types)]
 #![feature(repr_simd, core_intrinsics)]
 
@@ -19,14 +20,14 @@ pub type T = Simd<f32, 4>;
 #[no_mangle]
 pub fn array_align() -> usize {
     // CHECK: ret [[USIZE:i[0-9]+]] [[ARRAY_ALIGN:[0-9]+]]
-    const { std::mem::align_of::<f32>() }
+    const { core::mem::align_of::<f32>() }
 }
 
 // CHECK-LABEL: @vector_align(
 #[no_mangle]
 pub fn vector_align() -> usize {
     // CHECK: ret [[USIZE]] [[VECTOR_ALIGN:[0-9]+]]
-    const { std::mem::align_of::<T>() }
+    const { core::mem::align_of::<T>() }
 }
 
 // CHECK-LABEL: @build_array_s
@@ -40,7 +41,7 @@ pub fn build_array_s(x: [f32; 4]) -> S<4> {
 #[no_mangle]
 pub fn build_array_transmute_s(x: [f32; 4]) -> S<4> {
     // CHECK: call void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
-    unsafe { std::mem::transmute(x) }
+    unsafe { core::mem::transmute(x) }
 }
 
 // CHECK-LABEL: @build_array_t
@@ -54,5 +55,5 @@ pub fn build_array_t(x: [f32; 4]) -> T {
 #[no_mangle]
 pub fn build_array_transmute_t(x: [f32; 4]) -> T {
     // CHECK: call void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
-    unsafe { std::mem::transmute(x) }
+    unsafe { core::mem::transmute(x) }
 }

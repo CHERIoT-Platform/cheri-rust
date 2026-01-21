@@ -1,21 +1,23 @@
+// ignore-tidy-linelength
 //@ revisions: INT32 INT16
 //@ compile-flags: -Copt-level=3
 //@ [INT32] ignore-16bit
 //@ [INT16] only-16bit
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::compare_bytes;
+use core::intrinsics::compare_bytes;
 
 #[no_mangle]
 // CHECK-LABEL: @bytes_cmp(
 pub unsafe fn bytes_cmp(a: *const u8, b: *const u8, n: usize) -> i32 {
-    // INT32: %[[TEMP:.+]] = tail call i32 @memcmp(ptr %a, ptr %b, {{i32|i64}} %n)
+    // INT32: %[[TEMP:.+]] = tail call i32 @memcmp(ptr[[ADDRSPACE]] %a, ptr[[ADDRSPACE]] %b, {{i32|i64}} %n)
     // INT32-NOT: sext
     // INT32: ret i32 %[[TEMP]]
 
-    // INT16: %[[TEMP1:.+]] = tail call i16 @memcmp(ptr %a, ptr %b, i16 %n)
+    // INT16: %[[TEMP1:.+]] = tail call i16 @memcmp(ptr[[ADDRSPACE]] %a, ptr[[ADDRSPACE]] %b, i16 %n)
     // INT16: %[[TEMP2:.+]] = sext i16 %[[TEMP1]] to i32
     // INT16: ret i32 %[[TEMP2]]
     compare_bytes(a, b, n)
@@ -26,7 +28,7 @@ pub unsafe fn bytes_cmp(a: *const u8, b: *const u8, n: usize) -> i32 {
 #[no_mangle]
 // CHECK-LABEL: @bytes_eq(
 pub unsafe fn bytes_eq(a: *const u8, b: *const u8, n: usize) -> bool {
-    // CHECK: call {{.+}} @{{bcmp|memcmp}}(ptr %a, ptr %b, {{i16|i32|i64}} %n)
+    // CHECK: call {{.+}} @{{bcmp|memcmp}}(ptr[[ADDRSPACE]] %a, ptr[[ADDRSPACE]] %b, {{i16|i32|i64}} %n)
     // CHECK-NOT: sext
     // INT32: icmp eq i32
     // INT16: icmp eq i16

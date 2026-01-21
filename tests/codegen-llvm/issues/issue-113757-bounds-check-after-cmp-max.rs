@@ -1,8 +1,11 @@
 // in Rust 1.73, -O and opt-level=3 optimizes differently
 //@ compile-flags: -C opt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
-use std::cmp::max;
+extern crate alloc;
+use alloc::vec::Vec;
+use core::cmp::max;
 
 // CHECK-LABEL: @foo
 // CHECK-NOT: slice_index_fail
