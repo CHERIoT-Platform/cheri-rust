@@ -12,6 +12,7 @@
 //@ [NOCHECKS] compile-flags: -Coverflow-checks=no
 
 #![crate_type = "lib"]
+#![no_std]
 
 extern crate overflow_checks_add;
 

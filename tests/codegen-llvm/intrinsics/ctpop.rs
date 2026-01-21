@@ -1,9 +1,10 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::ctpop;
+use core::intrinsics::ctpop;
 
 // CHECK-LABEL: @ctpop_u16
 #[no_mangle]

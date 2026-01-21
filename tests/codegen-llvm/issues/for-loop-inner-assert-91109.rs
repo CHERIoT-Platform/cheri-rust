@@ -3,6 +3,10 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
+
+extern crate alloc;
+use alloc::vec::Vec;
 
 // CHECK-LABEL: @zero
 #[no_mangle]

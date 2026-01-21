@@ -1,6 +1,7 @@
 //@ compile-flags: -C opt-level=0 -Cpanic=abort
 
 #![crate_type = "lib"]
+#![no_std]
 
 // We disable optimizations to prevent LLVM from inferring the attribute.
 

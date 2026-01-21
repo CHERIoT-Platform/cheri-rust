@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3 -g
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[inline(always)]
 fn foo() {
@@ -20,6 +21,6 @@ pub fn example() {
 
 // CHECK-LABEL: @example
 // CHECK:   tail call void @bar(){{( #[0-9]+)?}}, !dbg [[DBG_ID:![0-9]+]]
-// CHECK: [[DBG_ID]] = !DILocation(line: 7,
+// CHECK: [[DBG_ID]] = !DILocation(line: 8,
 // CHECK-SAME:                     inlinedAt: [[INLINE_ID:![0-9]+]])
-// CHECK: [[INLINE_ID]] = !DILocation(line: 18,
+// CHECK: [[INLINE_ID]] = !DILocation(line: 19,

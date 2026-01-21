@@ -2,6 +2,7 @@
 //! (and optimal) code; #63646
 //@ compile-flags: -Copt-level=3 -Zmerge-functions=disabled
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 // CHECK-LABEL: range_to(

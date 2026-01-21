@@ -1,9 +1,10 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics;
+use core::intrinsics;
 
 // CHECK-LABEL: @volatile_copy_memory
 #[no_mangle]

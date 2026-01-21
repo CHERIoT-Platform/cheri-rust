@@ -1,6 +1,7 @@
 //@ compile-flags: -Cdebug-assertions=yes
 
 #![crate_type = "lib"]
+#![cfg_attr(panic = "abort", no_std)]
 #![feature(core_intrinsics)]
 
 /// Emulates the default behavior of `+` using `intrinsics::overflow_checks()`.

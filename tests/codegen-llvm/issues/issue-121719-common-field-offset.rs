@@ -3,6 +3,7 @@
 //!
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 #[repr(C)]
 pub struct A {

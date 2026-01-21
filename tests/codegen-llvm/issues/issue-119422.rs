@@ -3,6 +3,7 @@
 //!
 //@ compile-flags: -Copt-level=3 -Zmerge-functions=disabled
 //@ edition: 2021
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 //@ only-64bit (because the LLVM type of i64 for usize shows up)
 #![crate_type = "lib"]
 

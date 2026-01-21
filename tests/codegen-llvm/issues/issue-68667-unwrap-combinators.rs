@@ -1,4 +1,5 @@
 #![crate_type = "lib"]
+#![no_std]
 
 //@ compile-flags: -Copt-level=3
 

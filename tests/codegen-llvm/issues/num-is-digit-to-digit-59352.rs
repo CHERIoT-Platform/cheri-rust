@@ -4,6 +4,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @num_to_digit_slow
 #[no_mangle]

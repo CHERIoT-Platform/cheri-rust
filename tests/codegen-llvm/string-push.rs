@@ -2,6 +2,9 @@
 
 //@ compile-flags: -O
 #![crate_type = "lib"]
+#![no_std]
+extern crate alloc;
+use alloc::string::String;
 
 // CHECK-LABEL: @string_push_does_not_call_memcpy
 #[no_mangle]

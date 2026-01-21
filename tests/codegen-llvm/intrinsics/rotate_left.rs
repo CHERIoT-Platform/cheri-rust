@@ -1,9 +1,10 @@
 //@ compile-flags: -O
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::rotate_left;
+use core::intrinsics::rotate_left;
 
 // CHECK-LABEL: @rotate_left_u16
 #[no_mangle]

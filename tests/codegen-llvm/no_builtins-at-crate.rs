@@ -2,6 +2,7 @@
 
 #![no_builtins]
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK: define
 // CHECK-SAME: @__aeabi_memcpy

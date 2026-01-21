@@ -13,6 +13,7 @@
 // CHECK-DAG: @__llvm_profile_filename = {{.*}}"default_%m_%p.profraw\00"{{.*}}
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[inline(never)]
 fn some_function() {}

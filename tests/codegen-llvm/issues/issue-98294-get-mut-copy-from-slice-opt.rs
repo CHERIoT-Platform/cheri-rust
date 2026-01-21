@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // There should be no calls to panic / len_mismatch_fail.
 

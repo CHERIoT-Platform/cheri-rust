@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3 -C overflow-checks
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn test(arr: &[u8], weight: u32) {

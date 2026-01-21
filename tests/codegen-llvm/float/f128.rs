@@ -17,6 +17,7 @@
 // Verify that our intrinsics generate the correct LLVM calls for f128
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(f128)]
 #![feature(f16)]
 #![feature(core_intrinsics)]
@@ -133,7 +134,7 @@ pub fn f128_rem(a: f128, b: f128) -> f128 {
 #[no_mangle]
 pub fn f128_add_assign(a: &mut f128, b: f128) {
     // CHECK: fadd fp128 %{{.+}}, %{{.+}}
-    // CHECK-NEXT: store fp128 %{{.+}}, ptr %{{.+}}
+    // CHECK-NEXT: store fp128 %{{.+}}, ptr[[ADDRSPACE]] %{{.+}}
     *a += b;
 }
 
@@ -141,7 +142,7 @@ pub fn f128_add_assign(a: &mut f128, b: f128) {
 #[no_mangle]
 pub fn f128_sub_assign(a: &mut f128, b: f128) {
     // CHECK: fsub fp128 %{{.+}}, %{{.+}}
-    // CHECK-NEXT: store fp128 %{{.+}}, ptr %{{.+}}
+    // CHECK-NEXT: store fp128 %{{.+}}, ptr[[ADDRSPACE]] %{{.+}}
     *a -= b;
 }
 
@@ -149,7 +150,7 @@ pub fn f128_sub_assign(a: &mut f128, b: f128) {
 #[no_mangle]
 pub fn f128_mul_assign(a: &mut f128, b: f128) {
     // CHECK: fmul fp128 %{{.+}}, %{{.+}}
-    // CHECK-NEXT: store fp128 %{{.+}}, ptr %{{.+}}
+    // CHECK-NEXT: store fp128 %{{.+}}, ptr[[ADDRSPACE]] %{{.+}}
     *a *= b
 }
 
@@ -157,7 +158,7 @@ pub fn f128_mul_assign(a: &mut f128, b: f128) {
 #[no_mangle]
 pub fn f128_div_assign(a: &mut f128, b: f128) {
     // CHECK: fdiv fp128 %{{.+}}, %{{.+}}
-    // CHECK-NEXT: store fp128 %{{.+}}, ptr %{{.+}}
+    // CHECK-NEXT: store fp128 %{{.+}}, ptr[[ADDRSPACE]] %{{.+}}
     *a /= b
 }
 
@@ -165,7 +166,7 @@ pub fn f128_div_assign(a: &mut f128, b: f128) {
 #[no_mangle]
 pub fn f128_rem_assign(a: &mut f128, b: f128) {
     // CHECK: frem fp128 %{{.+}}, %{{.+}}
-    // CHECK-NEXT: store fp128 %{{.+}}, ptr %{{.+}}
+    // CHECK-NEXT: store fp128 %{{.+}}, ptr[[ADDRSPACE]] %{{.+}}
     *a %= b
 }
 
@@ -210,10 +211,10 @@ pub fn f128_as_f64(a: f128) -> f64 {
 // emscripten-LABEL: void @f128_as_self({{.*}}sret([16 x i8])
 #[no_mangle]
 pub fn f128_as_self(a: f128) -> f128 {
-    // x86: store fp128 %a, ptr %_0, align 16
-    // bit32: store fp128 %a, ptr %_0, align 16
+    // x86: store fp128 %a, ptr[[ADDRSPACE]] %_0, align 16
+    // bit32: store fp128 %a, ptr[[ADDRSPACE]] %_0, align 16
     // bit64: ret fp128 %{{.+}}
-    // emscripten: store fp128 %a, ptr %_0, align 8
+    // emscripten: store fp128 %a, ptr[[ADDRSPACE]] %_0, align 8
     a as f128
 }
 

@@ -3,6 +3,7 @@
 //@[bit32] only-32bit
 //@[bit64] only-64bit
 //@ compile-flags: -C no-prepopulate-passes -Copt-level=0
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 
 // Test that tuples get optimized layout, in particular with a ZST in the last field (#63244)
 

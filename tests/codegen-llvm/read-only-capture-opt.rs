@@ -2,6 +2,7 @@
 //@ min-llvm-version: 21
 
 #![crate_type = "lib"]
+#![no_std]
 
 unsafe extern "C" {
     safe fn do_something(p: &i32);

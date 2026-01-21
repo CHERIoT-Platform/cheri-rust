@@ -1,5 +1,6 @@
 //@ compile-flags: -Copt-level=3
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn test_assert(x: bool) {

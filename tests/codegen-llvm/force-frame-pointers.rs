@@ -12,6 +12,7 @@
 // result is platform-dependent based on platform's frame pointer settings
 
 #![crate_type = "lib"]
+#![no_std]
 
 // Always: attributes #{{.*}} "frame-pointer"="all"
 // NonLeaf: attributes #{{.*}} "frame-pointer"="non-leaf"

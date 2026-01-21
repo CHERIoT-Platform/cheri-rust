@@ -5,6 +5,7 @@
 //@ min-llvm-version: 21
 
 #![crate_type = "lib"]
+#![no_std]
 
 // CHECK-LABEL: @bounds_check_is_elided
 #[no_mangle]

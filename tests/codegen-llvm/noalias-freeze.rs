@@ -7,6 +7,7 @@
 // See https://github.com/rust-lang/rust/issues/46239
 
 #![crate_type = "lib"]
+#![no_std]
 
 fn project<T>(x: &(T,)) -> &T {
     &x.0

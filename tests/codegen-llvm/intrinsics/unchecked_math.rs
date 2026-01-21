@@ -1,7 +1,8 @@
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::*;
+use core::intrinsics::*;
 
 // CHECK-LABEL: @unchecked_add_signed
 #[no_mangle]

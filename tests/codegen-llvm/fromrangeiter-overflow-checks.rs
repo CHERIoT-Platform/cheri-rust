@@ -10,8 +10,9 @@
 //@ [NOCHECKS] compile-flags: -Coverflow-checks=no
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(new_range_api)]
-use std::range::{RangeFrom, RangeFromIter};
+use core::range::{RangeFrom, RangeFromIter};
 
 // CHECK-LABEL: @iterrangefrom_remainder(
 #[no_mangle]
