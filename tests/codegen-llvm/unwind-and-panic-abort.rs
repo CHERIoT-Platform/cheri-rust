@@ -6,6 +6,7 @@
 //@ [WASMEXN] compile-flags: -Ctarget-feature=+exception-handling
 
 #![crate_type = "lib"]
+#![no_std]
 
 extern "C-unwind" {
     fn bar();

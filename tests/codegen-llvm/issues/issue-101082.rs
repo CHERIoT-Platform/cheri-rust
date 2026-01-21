@@ -14,6 +14,7 @@
 //@[x86-64-v3] compile-flags: -Ctarget-cpu=x86-64-v3
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn test() -> usize {

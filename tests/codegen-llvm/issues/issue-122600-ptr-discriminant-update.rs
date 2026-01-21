@@ -4,6 +4,7 @@
 //@ [new] min-llvm-version: 22
 
 #![crate_type = "lib"]
+#![no_std]
 
 // The bug here was that it was loading and storing the whole value.
 // It's ok for it to load the discriminant,
@@ -25,7 +26,7 @@ pub unsafe fn update(s: *mut State) {
     // CHECK-NOT: memcpy
     // CHECK-NOT: 75{{3|4}}
 
-    // old: %[[TAG:.+]] = load i8, ptr %s, align 1
+    // old: %[[TAG:.+]] = load i8, ptr[[ADDRSPACE]] %s, align 1
     // old-NEXT: and i8 %[[TAG]], 1
 
     // CHECK-NOT: load
@@ -33,7 +34,7 @@ pub unsafe fn update(s: *mut State) {
     // CHECK-NOT: memcpy
     // CHECK-NOT: 75{{3|4}}
 
-    // CHECK: store i8 1, ptr %s, align 1
+    // CHECK: store i8 1, ptr[[ADDRSPACE]] %s, align 1
 
     // CHECK-NOT: load
     // CHECK-NOT: store
@@ -41,6 +42,6 @@ pub unsafe fn update(s: *mut State) {
     // CHECK-NOT: 75{{3|4}}
 
     // CHECK: ret
-    let State::A(v) = s.read() else { std::hint::unreachable_unchecked() };
+    let State::A(v) = s.read() else { core::hint::unreachable_unchecked() };
     s.write(State::B(v));
 }

@@ -5,6 +5,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[repr(u32)]
 #[derive(Copy, Clone, Eq, PartialEq, PartialOrd)]

@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn u16_be_to_arch(mut data: [u8; 2]) -> [u8; 2] {

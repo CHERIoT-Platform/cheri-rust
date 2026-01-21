@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 #![feature(panic_internals, const_eval_select, rustc_attrs, core_intrinsics)]
 #![crate_type = "lib"]
+#![no_std]
 
 // check that assert! and const_assert! emit branch weights
 

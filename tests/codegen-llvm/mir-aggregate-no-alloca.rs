@@ -5,6 +5,7 @@
 //@ compile-flags: -Copt-level=3 -C no-prepopulate-passes -Z randomize-layout=no
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[repr(transparent)]
 pub struct Transparent32(u32);
@@ -53,21 +54,21 @@ pub fn make_2_tuple(x: u32) -> (u32, u32) {
 
 // CHECK-LABEL: i8 @make_cell_of_bool(i1 noundef zeroext %b)
 #[no_mangle]
-pub fn make_cell_of_bool(b: bool) -> std::cell::Cell<bool> {
+pub fn make_cell_of_bool(b: bool) -> core::cell::Cell<bool> {
     // CHECK: %[[BYTE:.+]] = zext i1 %b to i8
     // CHECK: ret i8 %[[BYTE]]
-    std::cell::Cell::new(b)
+    core::cell::Cell::new(b)
 }
 
 // CHECK-LABEL: { i8, i16 } @make_cell_of_bool_and_short(i1 noundef zeroext %b, i16{{.*}} %s)
 #[no_mangle]
-pub fn make_cell_of_bool_and_short(b: bool, s: u16) -> std::cell::Cell<(bool, u16)> {
+pub fn make_cell_of_bool_and_short(b: bool, s: u16) -> core::cell::Cell<(bool, u16)> {
     // CHECK-NOT: alloca
     // CHECK: %[[BYTE:.+]] = zext i1 %b to i8
     // CHECK: %[[TEMP0:.+]] = insertvalue { i8, i16 } poison, i8 %[[BYTE]], 0
     // CHECK: %[[TEMP1:.+]] = insertvalue { i8, i16 } %[[TEMP0]], i16 %s, 1
     // CHECK: ret { i8, i16 } %[[TEMP1]]
-    std::cell::Cell::new((b, s))
+    core::cell::Cell::new((b, s))
 }
 
 // CHECK-LABEL: { i1, i1 } @make_tuple_of_bools(i1 noundef zeroext %a, i1 noundef zeroext %b)

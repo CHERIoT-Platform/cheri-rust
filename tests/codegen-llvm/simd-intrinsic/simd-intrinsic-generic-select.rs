@@ -1,6 +1,7 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(repr_simd, core_intrinsics)]
 #![allow(non_camel_case_types)]
 
@@ -8,7 +9,7 @@
 mod minisimd;
 use minisimd::*;
 
-use std::intrinsics::simd::{simd_select, simd_select_bitmask};
+use core::intrinsics::simd::{simd_select, simd_select_bitmask};
 
 pub type b8x4 = i8x4;
 

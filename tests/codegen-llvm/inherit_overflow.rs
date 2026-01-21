@@ -3,6 +3,8 @@
 //@[ASSERT] compile-flags: -Coverflow-checks=on
 //@[NOASSERT] compile-flags: -Coverflow-checks=off
 
+#![no_std]
+
 // CHECK-LABEL: define{{.*}} @assertion
 // ASSERT: call void @{{.*4core9panicking11panic_const24panic_const_add_overflow}}
 // NOASSERT: ret i8 0
@@ -10,5 +12,5 @@
 pub fn assertion() -> u8 {
     // Optimized MIR will replace this `CheckedBinaryOp` by `const (0, true)`.
     // Verify that codegen does or does not emit the panic.
-    <u8 as std::ops::Add>::add(255, 1)
+    <u8 as core::ops::Add>::add(255, 1)
 }

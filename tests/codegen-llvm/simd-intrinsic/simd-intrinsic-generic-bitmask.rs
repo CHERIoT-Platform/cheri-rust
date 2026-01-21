@@ -2,6 +2,7 @@
 //
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(repr_simd, core_intrinsics)]
 #![allow(non_camel_case_types)]
 
@@ -9,7 +10,7 @@
 mod minisimd;
 use minisimd::*;
 
-use std::intrinsics::simd::simd_bitmask;
+use core::intrinsics::simd::simd_bitmask;
 
 // NOTE(eddyb) `%{{x|1}}` is used because on some targets (e.g. WASM)
 // SIMD vectors are passed directly, resulting in `%x` being a vector,

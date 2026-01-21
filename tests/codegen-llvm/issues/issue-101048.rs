@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn all_zero(data: &[u64]) -> bool {

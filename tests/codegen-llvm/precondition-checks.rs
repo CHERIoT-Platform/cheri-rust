@@ -10,8 +10,9 @@
 // In other words, this tests for a mandatory optimization.
 
 #![crate_type = "lib"]
+#![no_std]
 
-use std::ptr::NonNull;
+use core::ptr::NonNull;
 
 // CHECK-LABEL: ; <core::ptr::non_null::NonNull<u8>>::new_unchecked
 // CHECK-NOT: call

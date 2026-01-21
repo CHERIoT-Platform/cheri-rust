@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 // Ensure that the simple case of rotating by a constant 1 optimizes to the obvious thing
 
@@ -17,7 +18,7 @@ pub fn rotate_left_by_one(slice: &mut [i32]) {
     // CHECK-NEXT: %[[LAST:.+]] = load
     // CHECK-NEXT: %[[FIRST:.+]] = shl
     // CHECK-NEXT: call void @llvm.memmove
-    // CHECK-NEXT: store i32 %[[LAST]], ptr %[[DIM:.+]]
+    // CHECK-NEXT: store i32 %[[LAST]], ptr[[ADDRSPACE]] %[[DIM:.+]]
     // CHECK-NOT: phi
     // CHECK-NOT: call
     // CHECK-NOT: load

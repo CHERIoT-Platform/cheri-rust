@@ -6,6 +6,7 @@
 //@ edition: 2021
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[inline(never)]
 pub fn outer_function(x: usize, y: usize) -> usize {
@@ -15,9 +16,9 @@ pub fn outer_function(x: usize, y: usize) -> usize {
 #[inline]
 fn inner_function(aaaa: usize, bbbb: usize) -> usize {
     // CHECK: !DILocalVariable(name: "aaaa", arg: 1
-    // CHECK-SAME: line: 16
+    // CHECK-SAME: line: 17
     // CHECK-NOT: !DILexicalBlock(
     // CHECK: !DILocalVariable(name: "bbbb", arg: 2
-    // CHECK-SAME: line: 16
+    // CHECK-SAME: line: 17
     aaaa + bbbb
 }

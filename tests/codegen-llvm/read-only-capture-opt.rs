@@ -1,6 +1,7 @@
 //@ compile-flags: -C opt-level=3 -Z mir-opt-level=0
 
 #![crate_type = "lib"]
+#![no_std]
 
 unsafe extern "C" {
     safe fn do_something(p: &i32);

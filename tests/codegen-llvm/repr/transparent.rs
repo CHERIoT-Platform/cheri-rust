@@ -2,6 +2,7 @@
 //@ ignore-riscv64 riscv64 has an i128 type used with test_Vector
 //@ ignore-s390x s390x with default march passes vector types per reference
 //@ ignore-loongarch64 see codegen/loongarch-abi for loongarch function call tests
+//@ ignore-riscv32cheriot-unknown-cheriotrtos See CHERIoT-Platform/cheri-rust/issues/88
 
 // This codegen test embeds assumptions about how certain "C" psABIs are handled
 // so it doesn't apply to all architectures or even all OS
@@ -9,9 +10,10 @@
 // For LoongArch: see codegen/loongarch-abi
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(repr_simd, transparent_unions, arm_target_feature, mips_target_feature)]
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[derive(Copy, Clone)]
 pub struct Zst1;
@@ -31,7 +33,7 @@ pub extern "C" fn test_F32(_: F32) -> F32 {
 #[repr(transparent)]
 pub struct Ptr(*mut u8);
 
-// CHECK: define{{.*}}ptr @test_Ptr(ptr noundef %_1)
+// CHECK: define{{.*}}ptr[[ADDRSPACE]] @test_Ptr(ptr[[ADDRSPACE]] noundef %_1)
 #[no_mangle]
 pub extern "C" fn test_Ptr(_: Ptr) -> Ptr {
     loop {}
@@ -49,7 +51,7 @@ pub extern "C" fn test_WithZst(_: WithZst) -> WithZst {
 #[repr(transparent)]
 pub struct WithZeroSizedArray(*const f32, [i8; 0]);
 
-// CHECK: define{{.*}}ptr @test_WithZeroSizedArray(ptr noundef %_1)
+// CHECK: define{{.*}}ptr[[ADDRSPACE]] @test_WithZeroSizedArray(ptr[[ADDRSPACE]] noundef %_1)
 #[no_mangle]
 pub extern "C" fn test_WithZeroSizedArray(_: WithZeroSizedArray) -> WithZeroSizedArray {
     loop {}
@@ -83,7 +85,7 @@ pub extern "C" fn test_Gpz(_: GenericPlusZst<Bool>) -> GenericPlusZst<Bool> {
 #[repr(transparent)]
 pub struct LifetimePhantom<'a, T: 'a>(*const T, PhantomData<&'a T>);
 
-// CHECK: define{{.*}}ptr @test_LifetimePhantom(ptr noundef %_1)
+// CHECK: define{{.*}}ptr[[ADDRSPACE]] @test_LifetimePhantom(ptr[[ADDRSPACE]] noundef %_1)
 #[no_mangle]
 pub extern "C" fn test_LifetimePhantom(_: LifetimePhantom<i16>) -> LifetimePhantom<i16> {
     loop {}

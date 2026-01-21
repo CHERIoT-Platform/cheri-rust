@@ -1,6 +1,7 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(repr_simd, core_intrinsics)]
 #![allow(non_camel_case_types)]
 
@@ -8,7 +9,7 @@
 mod minisimd;
 use minisimd::*;
 
-use std::intrinsics::simd::simd_floor;
+use core::intrinsics::simd::simd_floor;
 
 // CHECK-LABEL: @floor_32x2
 #[no_mangle]

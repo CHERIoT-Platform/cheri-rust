@@ -1,6 +1,7 @@
 //@ compile-flags: -C opt-level=3
 
 #![crate_type = "lib"]
+#![no_std]
 
 fn infinite_loop() -> u8 {
     let i = 2;

@@ -1,6 +1,7 @@
 //@ compile-flags: -Cno-prepopulate-passes -Copt-level=0
 
 #![crate_type = "lib"]
+#![no_std]
 
 #[no_mangle]
 pub fn demo_for_i32() {
@@ -26,7 +27,7 @@ fn generic_impl<T>() {
         const IS_BIG: bool;
     }
     impl<T> MagicTrait for T {
-        const IS_BIG: bool = std::mem::size_of::<T>() > 10;
+        const IS_BIG: bool = core::mem::size_of::<T>() > 10;
     }
     if T::IS_BIG {
         big_impl::<T>();

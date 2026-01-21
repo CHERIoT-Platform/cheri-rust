@@ -1,6 +1,7 @@
 //@ compile-flags: -Copt-level=3 -Zmutable-noalias=no
 
 #![crate_type = "lib"]
+#![no_std]
 
 // `-Zmutable-noalias=no` should disable noalias on mut refs...
 

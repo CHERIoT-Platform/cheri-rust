@@ -7,6 +7,7 @@
 #![feature(rustc_attrs)]
 #![feature(fn_align)]
 #![crate_type = "lib"]
+#![no_std]
 
 // functions without explicit alignment use the global minimum
 //

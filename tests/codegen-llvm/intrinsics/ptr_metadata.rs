@@ -1,4 +1,5 @@
 //@ compile-flags: -Copt-level=3 -C no-prepopulate-passes -Z inline-mir
+//@ ignore-riscv32cheriot-unknown-cheriotrtos Uses i64 for usize
 //@ only-64bit (so I don't need to worry about usize)
 
 #![crate_type = "lib"]

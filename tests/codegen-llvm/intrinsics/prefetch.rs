@@ -1,9 +1,10 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 #![feature(core_intrinsics)]
 
-use std::intrinsics::{
+use core::intrinsics::{
     prefetch_read_data, prefetch_read_instruction, prefetch_write_data, prefetch_write_instruction,
 };
 

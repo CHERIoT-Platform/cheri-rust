@@ -2,8 +2,9 @@
 //@ compile-flags: -C no-prepopulate-passes
 
 #![crate_type = "lib"]
+#![no_std]
 
-// CHECK: @VAR1 = {{(dso_local )?}}constant [4 x i8] c"\01\00\00\00", section "__TEST,one"
+// CHECK: @VAR1 = {{(dso_local )?(addrspace\(200\) )?}}constant [4 x i8] c"\01\00\00\00", section "__TEST,one"
 #[no_mangle]
 #[link_section = "__TEST,one"]
 #[cfg(target_endian = "little")]
@@ -19,17 +20,17 @@ pub enum E {
     B(f32),
 }
 
-// CHECK: @VAR2 = {{(dso_local )?}}constant {{.*}}, section "__TEST,two"
+// CHECK: @VAR2 = {{(dso_local )?(addrspace\(200\) )?}}constant {{.*}}, section "__TEST,two"
 #[no_mangle]
 #[link_section = "__TEST,two"]
 pub static VAR2: E = E::A(666);
 
-// CHECK: @VAR3 = {{(dso_local )?}}constant {{.*}}, section "__TEST,three"
+// CHECK: @VAR3 = {{(dso_local )?(addrspace\(200\) )?}}constant {{.*}}, section "__TEST,three"
 #[no_mangle]
 #[link_section = "__TEST,three"]
 pub static VAR3: E = E::B(1.);
 
-// CHECK: define {{(dso_local )?}}void @fn1() {{.*}} section "__TEST,four" {
+// CHECK: define {{(dso_local )?(addrspace\(200\) )?}}void @fn1() {{.*}} section "__TEST,four" {
 #[no_mangle]
 #[link_section = "__TEST,four"]
 pub fn fn1() {}
