@@ -1,4 +1,5 @@
 //@ compile-flags: -Copt-level=3
+//@ ignore-riscv32cheriot-unknown-cheriotrtos See CHERIoT-Platform/cheri-rust/issues/92
 #![feature(panic_internals, const_eval_select, rustc_attrs, core_intrinsics)]
 #![crate_type = "lib"]
 #![no_std]
