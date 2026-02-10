@@ -2714,8 +2714,7 @@ dependencies = [
 [[package]]
 name = "object"
 version = "0.37.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
+source = "git+https://github.com/cheri-rust-patches/object.git?branch=0.37.3-add-risc-v-cheri-e-flags#4cbbda66175bb243d1fad9bb2a916cd895f2e09a"
 dependencies = [
  "crc32fast",
  "flate2",
