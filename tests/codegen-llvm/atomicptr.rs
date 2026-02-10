@@ -5,7 +5,6 @@
 // arguments to `atomicrmw xchg`.
 
 //@ compile-flags: -Copt-level=3 -Cno-prepopulate-passes
-//@ ignore-riscv32cheriot-unknown-cheriotrtos FIXME: See CHERIoT-Platform/cheri-rust/issues/74
 #![crate_type = "lib"]
 #![no_std]
 
