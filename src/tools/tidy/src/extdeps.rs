@@ -11,6 +11,9 @@ const ALLOWED_SOURCES: &[&str] = &[
     r#""registry+https://github.com/rust-lang/crates.io-index""#,
     // This is `rust_team_data` used by `site` in src/tools/rustc-perf,
     r#""git+https://github.com/rust-lang/team#a5260e76d3aa894c64c56e6ddc8545b9a98043ec""#,
+    // FIXME: remove this when all the needed patches to the crates are upstreamed.
+    // CHERI(oT)-specific patches to the `object` crate.
+    r#""git+https://github.com/cheri-rust-patches/object.git?branch=0.37.3-add-risc-v-cheri-e-flags#4cbbda66175bb243d1fad9bb2a916cd895f2e09a""#,
 ];
 
 /// Checks for external package sources. `root` is the path to the directory that contains the
