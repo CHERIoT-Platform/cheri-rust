@@ -1,6 +1,5 @@
 // Code generation of atomic operations.
 //@ compile-flags: -Copt-level=3
-//@ ignore-riscv32cheriot-unknown-cheriotrtos FIXME: See CHERIoT-Platform/cheri-rust/issues/73
 #![crate_type = "lib"]
 #![no_std]
 
