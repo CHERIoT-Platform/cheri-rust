@@ -131,6 +131,15 @@ impl App {
             {
                 let mut stdout = String::from_utf8(output.stdout)?;
 
+                let stderr = String::from_utf8(output.stderr)?;
+
+                traceln!(self, "--- begin stdout from test runner --");
+                traceln!(self, stdout);
+                traceln!(self, "--- end stdout from test runner --");
+                traceln!(self, "--- begin stderr from test runner --");
+                traceln!(self, stderr);
+                traceln!(self, "--- end stderr from test runner --");
+
                 let start_needle = "@rust-test-runner-sync-start\n";
                 let good_end_needle = "@rust-test-runner-sync-end";
                 if let Some(prefix) = stdout.find(start_needle) {
@@ -149,14 +158,6 @@ impl App {
                         }
                     }
                 }
-                let stderr = String::from_utf8(output.stderr)?;
-
-                traceln!(self, "--- begin stdout from test runner --");
-                traceln!(self, stdout);
-                traceln!(self, "--- end stdout from test runner --");
-                traceln!(self, "--- begin stderr from test runner --");
-                traceln!(self, stderr);
-                traceln!(self, "--- end stderr from test runner --");
             }
         }
 
