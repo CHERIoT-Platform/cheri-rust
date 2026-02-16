@@ -125,9 +125,8 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.17.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+version = "0.17.2"
+source = "git+https://github.com/cheri-rust-patches/hashbrown.git?branch=0.17.2-use-strict-provenance#76bfc6b3df486b1ea86120995bf411fff09ffc59"
 dependencies = [
  "foldhash",
  "rustc-std-workspace-alloc",

@@ -86,5 +86,9 @@ rustc-std-workspace-core = { path = 'rustc-std-workspace-core' }
 rustc-std-workspace-alloc = { path = 'rustc-std-workspace-alloc' }
 rustc-std-workspace-std = { path = 'rustc-std-workspace-std' }
 
+# Default hashbrowns crate does some non-strict-provenance things
+hashbrown = { git = "https://github.com/cheri-rust-patches/hashbrown.git", branch = "0.17.2-use-strict-provenance" }
+
 # See comments in `library/windows-sys/Cargo.toml` for why this is patched
 windows-sys = { path = 'windows-sys' }
+
