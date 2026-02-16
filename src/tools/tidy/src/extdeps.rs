@@ -14,6 +14,8 @@ const ALLOWED_SOURCES: &[&str] = &[
     // FIXME: remove this when all the needed patches to the crates are upstreamed.
     // CHERI(oT)-specific patches to the `object` crate.
     r#""git+https://github.com/cheri-rust-patches/object.git?branch=0.37.3-add-risc-v-cheri-e-flags#4cbbda66175bb243d1fad9bb2a916cd895f2e09a""#,
+    // CHERI(oT)-specific patches to the `hashbrown` crate.
+    r#""git+https://github.com/cheri-rust-patches/hashbrown.git?branch=0.16.1-use-strict-provenance#549adea609d20e0448733af3220064a991f6fe1e""#,
 ];
 
 /// Checks for external package sources. `root` is the path to the directory that contains the
