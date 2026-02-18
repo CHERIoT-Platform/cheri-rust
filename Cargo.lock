@@ -157,7 +157,7 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7eb93bbb63b9c227414f6eb3a0adfddca591a8ce1e9b60661bb08969b87e340b"
 dependencies = [
- "object 0.37.3",
+ "object 0.37.4",
 ]
 
 [[package]]
@@ -2713,8 +2713,8 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.37.3"
-source = "git+https://github.com/cheri-rust-patches/object.git?branch=0.37.3-add-risc-v-cheri-e-flags#4cbbda66175bb243d1fad9bb2a916cd895f2e09a"
+version = "0.37.4"
+source = "git+https://github.com/cheri-rust-patches/object.git?branch=0.37.4-add-risc-v-cheri-e-flags#e03ff40d4f6a963282ada858571e4159039feadf"
 dependencies = [
  "crc32fast",
  "flate2",
@@ -3410,7 +3410,7 @@ dependencies = [
  "build_helper",
  "gimli 0.32.3",
  "libc",
- "object 0.37.3",
+ "object 0.37.4",
  "regex",
  "rustdoc-json-types",
  "serde_json",
@@ -3706,7 +3706,7 @@ dependencies = [
  "libc",
  "libloading 0.9.0",
  "measureme",
- "object 0.37.3",
+ "object 0.37.4",
  "rustc-demangle",
  "rustc_abi",
  "rustc_ast",
@@ -3740,7 +3740,7 @@ dependencies = [
  "find-msvc-tools",
  "itertools",
  "libc",
- "object 0.37.3",
+ "object 0.37.4",
  "pathdiff",
  "regex",
  "rustc_abi",
@@ -4704,7 +4704,7 @@ name = "rustc_target"
 version = "0.0.0"
 dependencies = [
  "bitflags",
- "object 0.37.3",
+ "object 0.37.4",
  "rustc_abi",
  "rustc_data_structures",
  "rustc_error_messages",
