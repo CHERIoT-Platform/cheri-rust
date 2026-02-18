@@ -13,7 +13,7 @@ const ALLOWED_SOURCES: &[&str] = &[
     r#""git+https://github.com/rust-lang/team#a5260e76d3aa894c64c56e6ddc8545b9a98043ec""#,
     // FIXME: remove this when all the needed patches to the crates are upstreamed.
     // CHERI(oT)-specific patches to the `object` crate.
-    r#""git+https://github.com/cheri-rust-patches/object.git?branch=0.37.3-add-risc-v-cheri-e-flags#4cbbda66175bb243d1fad9bb2a916cd895f2e09a""#,
+    r#""git+https://github.com/cheri-rust-patches/object.git?branch=0.37.4-add-risc-v-cheri-e-flags#e03ff40d4f6a963282ada858571e4159039feadf""#,
     // CHERI(oT)-specific patches to the `hashbrown` crate.
     r#""git+https://github.com/cheri-rust-patches/hashbrown.git?branch=0.16.2-use-strict-provenance#7dedab5b7166c9653655292031ac26b5e0f30f6f""#,
 ];
