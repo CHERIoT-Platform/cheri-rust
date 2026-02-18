@@ -125,8 +125,8 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.16.1"
-source = "git+https://github.com/cheri-rust-patches/hashbrown.git?branch=0.16.1-use-strict-provenance#549adea609d20e0448733af3220064a991f6fe1e"
+version = "0.16.2"
+source = "git+https://github.com/cheri-rust-patches/hashbrown.git?branch=0.16.2-use-strict-provenance#7dedab5b7166c9653655292031ac26b5e0f30f6f"
 dependencies = [
  "foldhash",
  "rustc-std-workspace-alloc",
