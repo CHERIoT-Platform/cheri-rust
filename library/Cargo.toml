@@ -85,4 +85,4 @@ rustflags = [
 rustc-std-workspace-core = { path = 'rustc-std-workspace-core' }
 rustc-std-workspace-alloc = { path = 'rustc-std-workspace-alloc' }
 rustc-std-workspace-std = { path = 'rustc-std-workspace-std' }
-hashbrown = { git = "https://github.com/cheri-rust-patches/hashbrown.git", branch = "0.16.1-use-strict-provenance" }
+hashbrown = { git = "https://github.com/cheri-rust-patches/hashbrown.git", branch = "0.16.2-use-strict-provenance" }
