@@ -117,6 +117,7 @@ run_cheri_tests_task:
     --sysroot=../../build/host/llvm
     --rustc=../../build/host/stage1/bin/rustc
     --xmake=/root/.local/bin/xmake
+  run_examples_script: cd ./cheri/examples && . "$CARGO_HOME/env" && PATH="/root/.local/bin:$PATH" ./run_examples.sh
 
 release_task:
   timeout_in: 120m
