@@ -1539,10 +1539,10 @@ fn build_vtable_type_di_node<'ll, 'tcx>(
     let pointer_layout = cx.layout_of(void_pointer_ty);
     let pointer_size = pointer_layout.size;
     let pointer_align = pointer_layout.align.abi;
-    // If `usize` is not pointer-sized and -aligned then the size and alignment computations
-    // for the vtable as a whole would be wrong. Let's make sure this holds even on weird
-    // platforms.
-    assert_eq!(cx.size_and_align_of(tcx.types.usize), (pointer_size, pointer_align));
+    // The size and alignment calculations for the vtable assume that a pointer can hold a `usize`, check this is true.
+    let (usize_size, usize_align) = cx.size_and_align_of(tcx.types.usize);
+    assert!(pointer_size >= usize_size);
+    assert!(pointer_align >= usize_align);
 
     let vtable_type_name =
         compute_debuginfo_vtable_name(cx.tcx, ty, poly_trait_ref, VTableNameKind::Type);

@@ -617,7 +617,7 @@ impl TargetDataLayout {
     /// so we adopt such a more-constrained size bound due to its technical limitations.
     #[inline]
     pub fn obj_size_bound(&self) -> u64 {
-        match self.pointer_size().bits() {
+        match self.address_size().bits() {
             16 => 1 << 15,
             32 => 1 << 31,
             64 => 1 << 61,
@@ -636,7 +636,7 @@ impl TargetDataLayout {
     /// so we adopt such a more-constrained size bound due to its technical limitations.
     #[inline]
     pub fn obj_size_bound_in(&self, address_space: AddressSpace) -> u64 {
-        match self.pointer_size_in(address_space).bits() {
+        match self.address_size_in(address_space).bits() {
             16 => 1 << 15,
             32 => 1 << 31,
             64 => 1 << 61,

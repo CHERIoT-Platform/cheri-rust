@@ -1502,7 +1502,7 @@ unsafe fn swap_nonoverlapping_bytes(x: *mut u8, y: *mut u8, bytes: NonZero<usize
         debug_assert_eq!(i, bytes);
     }
 
-    const CHUNK_SIZE: usize = size_of::<*const ()>();
+    const CHUNK_SIZE: usize = size_of::<usize>();
     let bytes = bytes.get();
 
     let chunks = bytes / CHUNK_SIZE;

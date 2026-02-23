@@ -336,17 +336,30 @@ pub(super) fn elf_e_flags(architecture: Architecture, sess: &Session) -> u32 {
                 e_flags |= elf::EF_RISCV_TSO;
             }
 
+            // Check if CAPMODE is enabled
+            if sess.target_features.contains(&sym::cap_dash_mode) {
+                e_flags |= elf::EF_RISCV_CAPMODE;
+            }
+
             // Set the appropriate flag based on ABI
             // This needs to match LLVM `RISCVELFStreamer.cpp`
             match &sess.target.llvm_abiname {
                 LlvmAbi::Ilp32 | LlvmAbi::Lp64 => (),
+                LlvmAbi::Il32pc64 | LlvmAbi::L64pc128 => e_flags |= elf::EF_RISCV_CHERIABI,
                 LlvmAbi::Ilp32f | LlvmAbi::Lp64f => e_flags |= elf::EF_RISCV_FLOAT_ABI_SINGLE,
+                LlvmAbi::Il32pc64f | LlvmAbi::L64pc128f => {
+                    e_flags |= elf::EF_RISCV_FLOAT_ABI_SINGLE;
+                    e_flags |= elf::EF_RISCV_CHERIABI;
+                }
                 LlvmAbi::Ilp32d | LlvmAbi::Lp64d => e_flags |= elf::EF_RISCV_FLOAT_ABI_DOUBLE,
+                LlvmAbi::Il32pc64d | LlvmAbi::L64pc128d => {
+                    e_flags |= elf::EF_RISCV_FLOAT_ABI_DOUBLE;
+                    e_flags |= elf::EF_RISCV_CHERIABI;
+                }
                 // Note that the `lp64e` is still unstable as it's not (yet) part of the ELF psABI.
                 LlvmAbi::Ilp32e | LlvmAbi::Lp64e => e_flags |= elf::EF_RISCV_RVE,
                 LlvmAbi::CHERIoT => {
                     e_flags |= elf::EF_RISCV_CHERIABI;
-                    e_flags |= elf::EF_RISCV_CAPMODE;
                     e_flags |= elf::EF_RISCV_CHERIOT;
                     e_flags |= elf::EF_RISCV_RVE;
                 }

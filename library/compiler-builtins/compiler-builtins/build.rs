@@ -65,6 +65,14 @@ fn main() {
         return;
     }
 
+    // Codasip's CHERI Musl includes all the builtins.
+    if cfg.target_vendor == "codasip"
+        && cfg.target_triple.contains("cheri")
+        && cfg.target_env == "musl"
+    {
+        return;
+    }
+
     // OpenBSD provides compiler_rt by default, use it instead of rebuilding it from source
     if cfg.target_os == "openbsd" {
         println!("cargo:rustc-link-search=native=/usr/lib");
@@ -588,6 +596,8 @@ mod c {
                 );
             }
         } else {
+            /* FIXME(lewis-belsten-revill): Explain why this line is needed */
+            build.target(&target.triple);
             build.compile("libcompiler-rt.a");
         }
     }

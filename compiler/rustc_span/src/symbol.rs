@@ -560,6 +560,7 @@ symbols! {
         call_ref_future,
         caller,
         caller_location,
+        cap_dash_mode: "cap-mode",
         capture_disjoint_fields,
         carrying_mul_add,
         carryless_mul,
