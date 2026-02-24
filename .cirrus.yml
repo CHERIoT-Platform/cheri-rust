@@ -117,3 +117,71 @@ run_cheri_tests_task:
     --sysroot=../../build/host/llvm
     --rustc=../../build/host/stage1/bin/rustc
     --xmake=/root/.local/bin/xmake
+
+release_task:
+  timeout_in: 120m
+  only_if: ($CIRRUS_PR == "") && ($CIRRUS_BRANCH == "beta")
+  matrix:
+    - name: Build and upload artefact amd64
+      env:
+        - PLATFORM: "amd64"
+      gce_instance:
+        image_project: ubuntu-os-cloud
+        image_family: ubuntu-2404-lts-amd64
+        architecture: amd64
+        zone: us-east1-b
+        type: t2d-standard-16
+        disk: 60
+        spot: true
+    - name: Build and upload artefact arm64
+      env:
+        - PLATFORM: "arm64"
+      gce_instance:
+        image_project: ubuntu-os-cloud
+        image_family: ubuntu-2404-lts-arm64
+        architecture: arm64
+        zone: us-east1-b
+        type: c4a-standard-16
+        disk: 60
+        spot: true
+  env:
+    NINJA_STATUS: "%p [%f:%s/%t] %o/s, %es: "
+    CIRRUS_CLONE_DEPTH: 1
+  dependencies_script:
+    - set -eo pipefail
+    - apt-get update
+    - apt-get install -y pkg-config clang ninja-build lld cmake ccache perl libssl-dev
+  build_rustc_script:
+    - |
+      cat <<EOF > bootstrap.toml
+      profile = "compiler"
+      change-id = "ignore"
+
+      [llvm]
+      targets = "all"
+      experimental-targets = ""
+      download-ci-llvm = false
+      build-config = {CMAKE_C_COMPILER="clang", CMAKE_CXX_COMPILER="clang++"}
+
+
+      [build]
+      ccache = true
+      target = ["riscv32cheriot-unknown-cheriotrtos"]
+
+      [install]
+      prefix = "/cheriot-tools"
+      sysconfdir = "etc"
+
+      [rust]
+      channel = "dev"
+      std-features = ["compiler-builtins-mem"]
+      EOF
+    - ./x install
+  binaries_artifacts:
+    paths:
+    - "/cheriot-tools/bin/rustc"
+    - "/cheriot-tools/lib/librustc_driver*"
+    - "/cheriot-tools/lib/rustlib/riscv32cheriot-unknown-cheriotrtos"
+    - "/cheriot-tools/lib/rustlib/manifest-rustc"
+    - "/cheriot-tools/lib/rustlib/manifest-rust-std-riscv32cheriot-unknown-cheriotrtos"
+    - "/cheriot-tools/lib/rustlib/rust-installer-version"
