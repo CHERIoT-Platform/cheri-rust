@@ -117,3 +117,68 @@ run_cheri_tests_task:
     --sysroot=../../build/host/llvm
     --rustc=../../build/host/stage1/bin/rustc
     --xmake=/root/.local/bin/xmake
+
+release_task:
+  timeout_in: 120m
+  depends_on: run_cheri_tests
+  only_if: ($CIRRUS_PR == "") && ($CIRRUS_BRANCH == "beta")
+  matrix:
+    # Warning: the name of the tasks must mach the output of $(uname -p) in the runners.
+    - name: Build and upload artefact x86_64
+      gce_instance:
+        image_project: ubuntu-os-cloud
+        image_family: ubuntu-2404-lts-amd64
+        architecture: amd64
+        zone: us-east1-b
+        type: t2d-standard-16
+        disk: 60
+        spot: true
+    - name: Build and upload artefact aarch64
+      gce_instance:
+        image_project: ubuntu-os-cloud
+        image_family: ubuntu-2404-lts-arm64
+        architecture: arm64
+        zone: us-east1-b
+        type: c4a-standard-16
+        disk: 60
+        spot: true
+  env:
+    NINJA_STATUS: "%p [%f:%s/%t] %o/s, %es: "
+    CIRRUS_CLONE_DEPTH: 1
+  dependencies_script:
+    - set -eo pipefail
+    - apt-get update
+    - apt-get install -y pkg-config clang ninja-build lld cmake ccache perl libssl-dev
+  build_rustc_script:
+    - |
+      cat <<EOF > bootstrap.toml
+      profile = "compiler"
+      change-id = "ignore"
+
+      [llvm]
+      targets = "all"
+      experimental-targets = ""
+      download-ci-llvm = false
+      build-config = {CMAKE_C_COMPILER="clang", CMAKE_CXX_COMPILER="clang++"}
+
+      [build]
+      ccache = true
+      docs = false
+      target = ["riscv32cheriot-unknown-cheriotrtos"]
+      tools = ["cargo", "rustfmt"]
+
+      [dist]
+      compression-formats = ["gz"]
+
+      [rust]
+      channel = "dev"
+      std-features = ["compiler-builtins-mem"]
+      strip = true
+      dist-src = false
+      optimize = "z"
+      EOF
+    - ./x dist --target=riscv32cheriot-unknown-cheriotrtos
+    - ./x dist cargo --target=riscv32cheriot-unknown-cheriotrtos
+    - rm -r build/dist/rust-src* build/dist/rust-dev* build/dist/rustc-dev* build/dist/rustc-docs*
+  binaries_artifacts:
+    path: "build/dist/**"
