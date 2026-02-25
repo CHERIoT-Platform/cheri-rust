@@ -164,7 +164,6 @@ release_task:
       download-ci-llvm = false
       build-config = {CMAKE_C_COMPILER="clang", CMAKE_CXX_COMPILER="clang++"}
 
-
       [build]
       ccache = true
       target = ["riscv32cheriot-unknown-cheriotrtos"]
@@ -176,8 +175,10 @@ release_task:
       [rust]
       channel = "dev"
       std-features = ["compiler-builtins-mem"]
+      strip = true
+      optimize = "z"
       EOF
-    - ./x install
+    - ./x install --target=riscv32cheriot-unknown-cheriotrtos
   binaries_artifacts:
     paths:
     - "/tmp/cirrus-ci-build/cheri-rust/bin/rustc"
