@@ -120,6 +120,7 @@ run_cheri_tests_task:
 
 release_task:
   timeout_in: 120m
+  depends_on: run_cheri_tests
   only_if: ($CIRRUS_PR == "") && ($CIRRUS_BRANCH == "beta")
   matrix:
     - name: Build and upload artefact amd64
@@ -169,7 +170,7 @@ release_task:
       target = ["riscv32cheriot-unknown-cheriotrtos"]
 
       [install]
-      prefix = "/cheriot-tools"
+      prefix = "/tmp/cirrus-ci-build/cheri-rust"
       sysconfdir = "etc"
 
       [rust]
@@ -179,9 +180,9 @@ release_task:
     - ./x install
   binaries_artifacts:
     paths:
-    - "/cheriot-tools/bin/rustc"
-    - "/cheriot-tools/lib/librustc_driver*"
-    - "/cheriot-tools/lib/rustlib/riscv32cheriot-unknown-cheriotrtos"
-    - "/cheriot-tools/lib/rustlib/manifest-rustc"
-    - "/cheriot-tools/lib/rustlib/manifest-rust-std-riscv32cheriot-unknown-cheriotrtos"
-    - "/cheriot-tools/lib/rustlib/rust-installer-version"
+    - "/tmp/cirrus-ci-build/cheri-rust/bin/rustc"
+    - "/tmp/cirrus-ci-build/cheri-rust/lib/librustc_driver*"
+    - "/tmp/cirrus-ci-build/cheri-rust/lib/rustlib/riscv32cheriot-unknown-cheriotrtos"
+    - "/tmp/cirrus-ci-build/cheri-rust/lib/rustlib/manifest-rustc"
+    - "/tmp/cirrus-ci-build/cheri-rust/lib/rustlib/manifest-rust-std-riscv32cheriot-unknown-cheriotrtos"
+    - "/tmp/cirrus-ci-build/cheri-rust/lib/rustlib/rust-installer-version"
