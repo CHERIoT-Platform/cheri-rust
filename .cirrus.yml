@@ -184,5 +184,4 @@ release_task:
     - ./x dist cargo --target=riscv32cheriot-unknown-cheriotrtos
     - rm -r build/dist/rust-src* build/dist/rust-dev* build/dist/rustc-dev* build/dist/rustc-docs*
   binaries_artifacts:
-    paths:
-    - "/tmp/cirrus-ci-build/cheri-rust/build/dist/**"
+    path: "build/dist/**"
