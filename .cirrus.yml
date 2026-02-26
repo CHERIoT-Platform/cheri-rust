@@ -166,24 +166,24 @@ release_task:
 
       [build]
       ccache = true
+      docs = false
       target = ["riscv32cheriot-unknown-cheriotrtos"]
+      tools = ["cargo", "rustfmt"]
 
-      [install]
-      prefix = "/tmp/cirrus-ci-build/cheri-rust"
-      sysconfdir = "etc"
+      [dist]
+      compression-formats = ["gz"]
 
       [rust]
       channel = "dev"
       std-features = ["compiler-builtins-mem"]
       strip = true
+      dist-src = false
       optimize = "z"
       EOF
-    - ./x install --target=riscv32cheriot-unknown-cheriotrtos
+    - ./x dist --target=riscv32cheriot-unknown-cheriotrtos
+    - ./x dist cargo --target=riscv32cheriot-unknown-cheriotrtos
   binaries_artifacts:
     paths:
-    - "/tmp/cirrus-ci-build/cheri-rust/bin/rustc"
-    - "/tmp/cirrus-ci-build/cheri-rust/lib/librustc_driver*"
-    - "/tmp/cirrus-ci-build/cheri-rust/lib/rustlib/riscv32cheriot-unknown-cheriotrtos"
-    - "/tmp/cirrus-ci-build/cheri-rust/lib/rustlib/manifest-rustc"
-    - "/tmp/cirrus-ci-build/cheri-rust/lib/rustlib/manifest-rust-std-riscv32cheriot-unknown-cheriotrtos"
-    - "/tmp/cirrus-ci-build/cheri-rust/lib/rustlib/rust-installer-version"
+    - "/tmp/cirrus-ci-build/cheri-rust/build/dist/*-riscv32cheriot-unknown-cheriotrtos.tar.gz"
+    - "/tmp/cirrus-ci-build/cheri-rust/build/dist/rustc-1*"
+    - "/tmp/cirrus-ci-build/cheri-rust/build/dist/cargo-1*"
