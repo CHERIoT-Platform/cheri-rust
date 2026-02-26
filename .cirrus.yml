@@ -182,8 +182,7 @@ release_task:
       EOF
     - ./x dist --target=riscv32cheriot-unknown-cheriotrtos
     - ./x dist cargo --target=riscv32cheriot-unknown-cheriotrtos
+    - rm -r build/dist/rust-src* build/dist/rust-dev* build/dist/rustc-dev* build/dist/rustc-docs*
   binaries_artifacts:
     paths:
-    - "/tmp/cirrus-ci-build/cheri-rust/build/dist/*-riscv32cheriot-unknown-cheriotrtos.tar.gz"
-    - "/tmp/cirrus-ci-build/cheri-rust/build/dist/rustc-1*"
-    - "/tmp/cirrus-ci-build/cheri-rust/build/dist/cargo-1*"
+    - "/tmp/cirrus-ci-build/cheri-rust/build/dist/**"
