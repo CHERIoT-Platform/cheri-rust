@@ -123,9 +123,8 @@ release_task:
   depends_on: run_cheri_tests
   only_if: ($CIRRUS_PR == "") && ($CIRRUS_BRANCH == "beta")
   matrix:
-    - name: Build and upload artefact amd64
-      env:
-        - PLATFORM: "amd64"
+    # Warning: the name of the tasks must mach the output of $(uname -p) in the runners.
+    - name: Build and upload artefact x86_64
       gce_instance:
         image_project: ubuntu-os-cloud
         image_family: ubuntu-2404-lts-amd64
@@ -134,9 +133,7 @@ release_task:
         type: t2d-standard-16
         disk: 60
         spot: true
-    - name: Build and upload artefact arm64
-      env:
-        - PLATFORM: "arm64"
+    - name: Build and upload artefact aarch64
       gce_instance:
         image_project: ubuntu-os-cloud
         image_family: ubuntu-2404-lts-arm64
