@@ -1,8 +1,27 @@
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt_builders"))]
 mod builders;
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt_float"))]
 mod float;
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt_num"))]
 mod num;
 
+extern crate alloc;
+#[cfg(any(not(feature = "partial_test"), any(feature = "test_fmt",)))]
+use alloc::boxed::Box;
+use alloc::format;
+#[cfg(any(
+    not(feature = "partial_test"),
+    any(feature = "test_fmt", feature = "test_fmt_builders",)
+))]
+use alloc::string::String;
+#[cfg(any(not(feature = "partial_test"), any(feature = "test_fmt",)))]
+use alloc::string::ToString;
+#[cfg(any(not(feature = "partial_test"), any(feature = "test_fmt",)))]
+use alloc::vec::Vec;
+
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME: memory allocation of 1073781078 bytes failed
 fn test_lifetime() {
     // Trigger all different forms of expansion,
     // and check that each of them can be stored as a variable.
@@ -19,12 +38,15 @@ fn test_lifetime() {
     assert_eq!(c.to_string(), "");
 
     // Without arguments, it should also work in consts.
-    const A: std::fmt::Arguments<'static> = format_args!("hello");
+    const A: core::fmt::Arguments<'static> = format_args!("hello");
     assert_eq!(A.to_string(), "hello");
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn test_format_flags() {
+    #[cfg(feature = "partial_test")]
+    use test::print::*;
     // No residual flags left by pointer formatting
     let p = "".as_ptr();
     assert_eq!(format!("{:p} {:x}", p, 16), format!("{p:p} 10"));
@@ -47,6 +69,7 @@ fn test_pointer_formats_data_pointer() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn test_fmt_debug_of_raw_pointers() {
     use core::fmt::Debug;
     use core::ptr;
@@ -70,6 +93,7 @@ fn test_fmt_debug_of_raw_pointers() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn test_fmt_debug_of_mut_reference() {
     let mut x: u32 = 0;
 
@@ -77,10 +101,11 @@ fn test_fmt_debug_of_mut_reference() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn test_fmt_pointer() {
-    use std::rc::Rc;
-    use std::sync::Arc;
-    let p: *const u8 = std::ptr::null();
+    use alloc::rc::Rc;
+    use alloc::sync::Arc;
+    let p: *const u8 = core::ptr::null();
     let rc = Rc::new(1usize);
     let arc = Arc::new(1usize);
     let b = Box::new("hi");
@@ -96,6 +121,7 @@ fn test_fmt_pointer() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn test_default_write_impls() {
     use core::fmt::Write;
 
@@ -119,6 +145,7 @@ fn test_default_write_impls() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn test_estimated_capacity() {
     assert_eq!(format_args!("").estimated_capacity(), 0);
     assert_eq!(format_args!("{}", { "" }).estimated_capacity(), 0);
@@ -129,6 +156,7 @@ fn test_estimated_capacity() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn pad_integral_resets() {
     struct Bar;
 
@@ -144,6 +172,7 @@ fn pad_integral_resets() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn test_maybe_uninit_short() {
     // Ensure that the trimmed `MaybeUninit` Debug implementation doesn't break
     let x = core::mem::MaybeUninit::new(0u32);
@@ -151,6 +180,7 @@ fn test_maybe_uninit_short() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn formatting_options_ctor() {
     use core::fmt::FormattingOptions;
     assert_eq!(FormattingOptions::new(), FormattingOptions::default());
@@ -158,6 +188,7 @@ fn formatting_options_ctor() {
 
 #[test]
 #[allow(deprecated)]
+#[cfg(any(not(feature = "partial_test"), feature = "test_fmt"))]
 fn formatting_options_flags() {
     use core::fmt::*;
     for sign in [None, Some(Sign::Plus), Some(Sign::Minus)] {

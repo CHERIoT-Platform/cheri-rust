@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::format;
+
 #[test]
 fn chunks() {
     macro_rules! assert_chunks {

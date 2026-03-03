@@ -369,6 +369,7 @@ macro_rules! uint_module {
         }
 
         #[cfg(not(miri))] // Miri is too slow
+        #[cfg(not(target_abi = "cheriot"))]
         #[test]
         fn test_lots_of_isqrt() {
             let n_max: $T = (1024 * 1024).min($T::MAX as u128) as $T;
@@ -388,6 +389,7 @@ macro_rules! uint_module {
         }
 
         #[cfg(not(miri))] // Miri is too slow
+        #[cfg(not(target_abi = "cheriot"))]
         #[test]
         fn test_lots_of_gather_scatter() {
             // Generate a handful of bit patterns to use as inputs

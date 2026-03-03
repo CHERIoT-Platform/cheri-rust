@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::format;
+use alloc::string::String;
 use core::num::dec2flt::decimal::Decimal;
 use core::num::dec2flt::parse::parse_number;
 use core::num::dec2flt::{dec2flt, pfe_invalid};

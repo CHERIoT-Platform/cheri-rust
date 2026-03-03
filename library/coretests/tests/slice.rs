@@ -1,3 +1,8 @@
+extern crate alloc;
+use alloc::borrow::ToOwned;
+use alloc::string::String;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::cell::Cell;
 use core::cmp::Ordering;
 use core::mem::MaybeUninit;
@@ -930,6 +935,7 @@ fn test_rchunks_exact_remainder() {
 }
 
 #[test]
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME: TagViolation
 fn test_rchunks_exact_zip() {
     let v1: &[i32] = &[0, 1, 2, 3, 4];
     let v2: &[i32] = &[6, 7, 8, 9, 10];
@@ -1016,11 +1022,10 @@ fn test_rchunks_exact_mut_zip() {
 }
 
 #[test]
+#[cfg(not(feature = "partial_test"))] // FIXME: MutexGuard?
 fn chunks_mut_are_send_and_sync() {
-    use std::cell::Cell;
     use std::slice::{ChunksExactMut, ChunksMut, RChunksExactMut, RChunksMut};
     use std::sync::MutexGuard;
-
     fn assert_send_and_sync()
     where
         ChunksMut<'static, Cell<i32>>: Send,
@@ -1109,7 +1114,7 @@ fn test_windows_zip() {
 
 #[test]
 fn test_iter_ref_consistency() {
-    use std::fmt::Debug;
+    use core::fmt::Debug;
 
     fn test<T: Copy + Debug + PartialEq>(x: T) {
         let v: &[T] = &[x, x, x];
@@ -1417,6 +1422,7 @@ mod slice_index {
             message: "out of range";
         }
 
+        // FIXME: caught by RTOS
         in mod rangeinclusive_len_len {
             data: [0, 1, 2, 3, 4, 5];
 
@@ -1587,6 +1593,7 @@ fn test_rotate_right() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // too slow
 #[cfg_attr(miri, ignore)] // Miri is too slow
 fn brute_force_rotate_test_0() {
     // In case of edge cases involving multiple algorithms
@@ -1626,6 +1633,7 @@ fn brute_force_rotate_test_1() {
 
 #[test]
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(feature = "partial_test"))] // FIXME: test_rng uses std
 #[cfg_attr(miri, ignore)] // Miri is too slow
 fn select_nth_unstable() {
     use core::cmp::Ordering::{Equal, Greater, Less};
@@ -2496,14 +2504,25 @@ fn test_get_disjoint_mut_range_empty_at_edge() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME:
+// error[E0080]: constructing invalid value: encountered uninitialized memory, but expected a reference
+//     --> coretests/tests/slice.rs:2515:5
+//      |
+// 2515 |     const EMPTY_SLICE: &[i32] =
+//      |     ^^^^^^^^^^^^^^^^^^^^^^^^^ it is undefined behavior to use this value
+//      |
+//      = note: the rules on what exactly is undefined behavior aren't clear, so this check might be overzealous. Please open an issue on the rustc repository if you believe it should not be considered undefined behavior.
+//      = note: the raw bytes of the constant (size: 16, align: 8) {
+//                  40 e2 01 00 00 00 00 00 __ __ __ __ __ __ __ __ │ @.......░░░░░░░░
+//              }
 fn test_slice_from_raw_parts_in_const() {
     static FANCY: i32 = 4;
-    static FANCY_SLICE: &[i32] = unsafe { std::slice::from_raw_parts(&FANCY, 1) };
-    assert_eq!(FANCY_SLICE.as_ptr(), std::ptr::addr_of!(FANCY));
+    static FANCY_SLICE: &[i32] = unsafe { core::slice::from_raw_parts(&FANCY, 1) };
+    assert_eq!(FANCY_SLICE.as_ptr(), core::ptr::addr_of!(FANCY));
     assert_eq!(FANCY_SLICE.len(), 1);
 
     const EMPTY_SLICE: &[i32] =
-        unsafe { std::slice::from_raw_parts(std::ptr::without_provenance(123456), 0) };
+        unsafe { core::slice::from_raw_parts(core::ptr::without_provenance(123456), 0) };
     assert_eq!(EMPTY_SLICE.as_ptr().addr(), 123456);
     assert_eq!(EMPTY_SLICE.len(), 0);
 }

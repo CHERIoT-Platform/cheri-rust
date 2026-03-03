@@ -1,3 +1,7 @@
+extern crate alloc;
+use alloc::string::String;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::iter::*;
 
 use super::*;
@@ -294,10 +298,9 @@ fn test_peekable_next_if_map_mutation() {
 
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
+#[cfg(not(feature = "partial_test"))] // FIXME
 fn test_peekable_next_if_map_panic() {
-    use core::cell::Cell;
     use std::panic::{AssertUnwindSafe, catch_unwind};
-
     struct BitsetOnDrop<'a> {
         value: u32,
         cell: &'a Cell<u32>,

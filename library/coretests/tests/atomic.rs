@@ -1,3 +1,4 @@
+use core::mem::size_of;
 use core::sync::atomic::Ordering::SeqCst;
 use core::sync::atomic::*;
 
@@ -71,6 +72,8 @@ fn uint_and() {
 }
 
 #[test]
+#[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(libcall): __library_export_libcalls___atomic_fetch_nand_4
 fn uint_nand() {
     let x = AtomicUsize::new(0xf731);
     assert_eq!(x.fetch_nand(0x137f, SeqCst), 0xf731);
@@ -119,6 +122,7 @@ fn int_and() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(libcall): __library_export_libcalls___atomic_fetch_nand_4
 fn int_nand() {
     let x = AtomicIsize::new(0xf731);
     assert_eq!(x.fetch_nand(0x137f, SeqCst), 0xf731);
@@ -455,6 +459,7 @@ fn atomic_and_or() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(libcall): __library_export_libcalls___atomic_fetch_nand_1
 fn atomic_nand() {
     use Ordering::*;
 

@@ -1,8 +1,8 @@
 use core::any::TypeId;
+use core::fmt::Debug;
 use core::intrinsics::{assume, vtable_for};
-use std::fmt::Debug;
-use std::option::Option;
-use std::ptr::DynMetadata;
+use core::option::Option;
+use core::ptr::DynMetadata;
 
 #[test]
 fn test_typeid_sized_types() {

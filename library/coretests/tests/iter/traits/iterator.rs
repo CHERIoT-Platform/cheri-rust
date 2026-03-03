@@ -1,3 +1,7 @@
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::iter::zip;
 use core::num::NonZero;
@@ -309,10 +313,10 @@ fn test_try_find() {
 }
 
 #[test]
-fn test_try_find_api_usability() -> Result<(), Box<dyn std::error::Error>> {
+fn test_try_find_api_usability() -> Result<(), Box<dyn core::error::Error>> {
     let a = ["1", "2"];
 
-    let is_my_num = |s: &str, search: i32| -> Result<bool, std::num::ParseIntError> {
+    let is_my_num = |s: &str, search: i32| -> Result<bool, core::num::ParseIntError> {
         Ok(s.parse::<i32>()? == search)
     };
 
@@ -507,7 +511,7 @@ fn test_try_reduce() {
     assert_eq!(max, Some(Some("5")));
 
     let v = ["1", "2", "3", "4", "5"];
-    let max: Result<Option<_>, <usize as std::str::FromStr>::Err> =
+    let max: Result<Option<_>, <usize as core::str::FromStr>::Err> =
         v.into_iter().try_reduce(|x, y| {
             if x.parse::<usize>()? > y.parse::<usize>()? { Ok(x) } else { Ok(y) }
         });
@@ -596,7 +600,7 @@ fn iter_try_collect_uses_try_fold_not_next() {
         where
             Self: Sized,
             F: FnMut(B, Self::Item) -> R,
-            R: std::ops::Try<Output = B>,
+            R: core::ops::Try<Output = B>,
         {
             self.0.try_fold(init, f)
         }
@@ -615,7 +619,7 @@ fn test_next_chunk() {
     assert_eq!(it.next_chunk().unwrap(), [4, 5, 6, 7, 8, 9]);
     assert_eq!(it.next_chunk::<4>().unwrap_err().as_slice(), &[10, 11]);
 
-    let mut it = std::iter::repeat_with(|| panic!());
+    let mut it = core::iter::repeat_with(|| panic!());
     assert_eq!(it.next_chunk::<0>().unwrap(), []);
 }
 
@@ -665,9 +669,9 @@ fn test_extend_for_tuple_side_effects_order() {
 }
 
 // just tests by whether or not this compiles
-fn _empty_impl_all_auto_traits<T>() {
-    use std::panic::{RefUnwindSafe, UnwindSafe};
-    fn all_auto_traits<T: Send + Sync + Unpin + UnwindSafe + RefUnwindSafe>() {}
+// fn _empty_impl_all_auto_traits<T>() {
+//     use std::panic::{RefUnwindSafe, UnwindSafe};
+//     fn all_auto_traits<T: Send + Sync + Unpin + UnwindSafe + RefUnwindSafe>() {}
 
-    all_auto_traits::<std::iter::Empty<T>>();
-}
+//     all_auto_traits::<core::iter::Empty<T>>();
+// }

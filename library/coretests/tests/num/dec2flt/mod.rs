@@ -1,5 +1,8 @@
 #![allow(overflowing_literals)]
 
+extern crate alloc;
+use alloc::format;
+
 mod decimal;
 mod decimal_seq;
 mod float;

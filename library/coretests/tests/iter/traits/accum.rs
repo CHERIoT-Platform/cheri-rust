@@ -1,5 +1,5 @@
 use core::iter::*;
-use std::num::Saturating;
+use core::num::Saturating;
 
 #[test]
 fn test_iterator_sum() {

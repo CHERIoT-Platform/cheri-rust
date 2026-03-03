@@ -1,4 +1,7 @@
+extern crate alloc;
+use alloc::format;
 use core::alloc::Layout;
+use core::mem::size_of;
 use core::ptr::{self, NonNull};
 
 #[test]

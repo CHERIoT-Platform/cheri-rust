@@ -1,11 +1,16 @@
+extern crate alloc;
+use alloc::borrow::ToOwned;
+use alloc::string::{String, ToString};
+use alloc::vec;
+use alloc::vec::Vec;
 use core::iter::*;
 
 #[test]
 fn test_intersperse() {
-    let v = std::iter::empty().intersperse(0u32).collect::<Vec<_>>();
+    let v = core::iter::empty().intersperse(0u32).collect::<Vec<_>>();
     assert_eq!(v, vec![]);
 
-    let v = std::iter::once(1).intersperse(0).collect::<Vec<_>>();
+    let v = core::iter::once(1).intersperse(0).collect::<Vec<_>>();
     assert_eq!(v, vec![1]);
 
     let xs = ["a", "", "b", "c"];
@@ -20,7 +25,7 @@ fn test_intersperse() {
 
 #[test]
 fn test_intersperse_size_hint() {
-    let iter = std::iter::empty::<i32>().intersperse(0);
+    let iter = core::iter::empty::<i32>().intersperse(0);
     assert_eq!(iter.size_hint(), (0, Some(0)));
 
     let xs = ["a", "", "b", "c"];

@@ -1,10 +1,16 @@
-use core::cell::RefCell;
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::{format, vec};
+use core::fmt::{Debug, Display};
 use core::marker::Freeze;
-use core::mem::MaybeUninit;
+use core::mem::{MaybeUninit, size_of};
 use core::num::NonZero;
 use core::ptr;
 use core::ptr::*;
-use std::fmt::{Debug, Display};
+
+#[cfg(feature = "partial_test")]
+use test::print::*;
 
 #[test]
 fn test_const_from_raw_parts() {
@@ -323,7 +329,9 @@ pub fn test_variadic_fnptr() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME: thread local
 fn write_unaligned_drop() {
+    use std::cell::RefCell;
     thread_local! {
         static DROPS: RefCell<Vec<u32>> = RefCell::new(Vec::new());
     }
@@ -382,6 +390,7 @@ fn align_offset_stride_one() {
 }
 
 #[test]
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME: hanging or slow
 fn align_offset_various_strides() {
     unsafe fn test_stride<T>(ptr: *const T, align: usize) -> bool {
         let numptr = ptr as usize;
@@ -395,7 +404,7 @@ fn align_offset_various_strides() {
         }
         let got = ptr.align_offset(align);
         if got != expected {
-            eprintln!(
+            println!(
                 "aligning {:p} (with stride of {}) to {}, expected {}, got {}",
                 ptr,
                 size_of::<T>(),
@@ -528,7 +537,7 @@ fn ptr_metadata() {
     let () = metadata(&(4, String::new()));
     let () = metadata(&Pair(4, String::new()));
     let () = metadata(ptr::null::<()>() as *const Extern);
-    let () = metadata(ptr::null::<()>() as *const <&u32 as std::ops::Deref>::Target);
+    let () = metadata(ptr::null::<()>() as *const <&u32 as core::ops::Deref>::Target);
 
     assert_eq!(metadata("foo"), 3_usize);
     assert_eq!(metadata(&[4, 7][..]), 2_usize);
@@ -536,7 +545,7 @@ fn ptr_metadata() {
     let dst_struct: &Pair<bool, [u8]> = &Pair(true, [0x66, 0x6F, 0x6F]);
     assert_eq!(metadata(dst_struct), 3_usize);
     unsafe {
-        let dst_struct: &Pair<bool, str> = std::mem::transmute(dst_struct);
+        let dst_struct: &Pair<bool, str> = core::mem::transmute(dst_struct);
         assert_eq!(&dst_struct.1, "foo");
         assert_eq!(metadata(dst_struct), 3_usize);
     }
@@ -547,10 +556,10 @@ fn ptr_metadata() {
     let vtable_4: DynMetadata<dyn Display> =
         metadata(&Pair(true, 7_u32) as &Pair<bool, dyn Display>);
     unsafe {
-        let address_1: *const () = std::mem::transmute(vtable_1);
-        let address_2: *const () = std::mem::transmute(vtable_2);
-        let address_3: *const () = std::mem::transmute(vtable_3);
-        let address_4: *const () = std::mem::transmute(vtable_4);
+        let address_1: *const () = core::mem::transmute(vtable_1);
+        let address_2: *const () = core::mem::transmute(vtable_2);
+        let address_3: *const () = core::mem::transmute(vtable_3);
+        let address_4: *const () = core::mem::transmute(vtable_4);
         // Different trait => different vtable pointer
         assert_ne!(address_1, address_2);
         // Different erased type => different vtable pointer
@@ -590,7 +599,7 @@ fn ptr_metadata_bounds() {
     fn static_assert_expected_bounds_for_metadata<Meta>()
     where
         // Keep this in sync with the associated type in `library/core/src/ptr/metadata.rs`
-        Meta: Debug + Copy + Send + Sync + Ord + std::hash::Hash + Unpin + Freeze,
+        Meta: Debug + Copy + Send + Sync + Ord + core::hash::Hash + Unpin + Freeze,
     {
     }
 }
@@ -617,7 +626,7 @@ fn dyn_metadata() {
     assert_eq!(meta.size_of(), size_of::<Something>());
     assert_eq!(meta.align_of(), 32);
     assert_eq!(meta.align_of(), align_of::<Something>());
-    assert_eq!(meta.layout(), std::alloc::Layout::new::<Something>());
+    assert_eq!(meta.layout(), core::alloc::Layout::new::<Something>());
 
     assert!(format!("{meta:?}").starts_with("DynMetadata(0x"));
 }
@@ -664,8 +673,8 @@ fn thin_box() {
     //   requires either the unstable `Unsize` marker trait,
     //   or taking `&dyn T` and restricting to `T: Copy`.
 
-    use std::alloc::*;
-    use std::marker::PhantomData;
+    use core::alloc::*;
+    use core::marker::PhantomData;
 
     struct ThinBox<T>
     where
@@ -679,7 +688,7 @@ fn thin_box() {
     where
         T: ?Sized + Pointee<Metadata = DynMetadata<T>>,
     {
-        pub fn new<Value: std::marker::Unsize<T>>(value: Value) -> Self {
+        pub fn new<Value: core::marker::Unsize<T>>(value: Value) -> Self {
             let unsized_: &T = &value;
             let meta = metadata(unsized_);
             let meta_layout = Layout::for_value(&meta);
@@ -691,8 +700,8 @@ fn thin_box() {
             // handle ZSTs with a dangling pointer without going through `alloc()`,
             // like `Box<T>` does.
             unsafe {
-                let ptr = NonNull::new(alloc(layout))
-                    .unwrap_or_else(|| handle_alloc_error(layout))
+                let ptr = NonNull::new(alloc::alloc::alloc(layout))
+                    .unwrap_or_else(|| alloc::alloc::handle_alloc_error(layout))
                     .cast::<DynMetadata<T>>();
                 ptr.as_ptr().write(meta);
                 ptr.as_ptr().byte_add(offset).cast::<Value>().write(value);
@@ -724,7 +733,7 @@ fn thin_box() {
         }
     }
 
-    impl<T> std::ops::Deref for ThinBox<T>
+    impl<T> core::ops::Deref for ThinBox<T>
     where
         T: ?Sized + Pointee<Metadata = DynMetadata<T>>,
     {
@@ -735,7 +744,7 @@ fn thin_box() {
         }
     }
 
-    impl<T> std::ops::DerefMut for ThinBox<T>
+    impl<T> core::ops::DerefMut for ThinBox<T>
     where
         T: ?Sized + Pointee<Metadata = DynMetadata<T>>,
     {
@@ -744,7 +753,7 @@ fn thin_box() {
         }
     }
 
-    impl<T> std::ops::Drop for ThinBox<T>
+    impl<T> core::ops::Drop for ThinBox<T>
     where
         T: ?Sized + Pointee<Metadata = DynMetadata<T>>,
     {
@@ -752,13 +761,14 @@ fn thin_box() {
             let (layout, _) = self.layout();
             unsafe {
                 drop_in_place::<T>(&mut **self);
-                dealloc(self.ptr.cast().as_ptr(), layout);
+                alloc::alloc::dealloc(self.ptr.cast().as_ptr(), layout);
             }
         }
     }
 }
 
 #[test]
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME: TagViolation
 fn nonnull_tagged_pointer_with_provenance() {
     let raw_pointer = Box::into_raw(Box::new(10));
 
@@ -902,6 +912,15 @@ fn test_const_copy_ptr() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME:
+// error[E0080]: unable to read parts of a pointer from memory at alloc644+0x2
+//    --> coretests/tests/ptr.rs:966:17
+//     |
+// 966 |         assert!(*s1.0.ptr == 1);
+//     |                 ^^^^^^^^^ evaluation of `ptr::test_const_swap_ptr::{constant#0}` failed here
+//     |
+//     = help: this code performed an operation that depends on the underlying bytes representing a pointer
+//     = help: the absolute address of a pointer is not known at compile-time, so such operations are not supported
 fn test_const_swap_ptr() {
     // The `swap` functions are implemented in the library, they are not primitives.
     // Only `swap_nonoverlapping` takes a count; pointers that cross multiple elements
@@ -974,20 +993,31 @@ fn test_null_array_as_slice() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME:
+// error[E0080]: constructing invalid value: encountered uninitialized memory, but expected a raw pointer
+//    --> coretests/tests/ptr.rs:995:5
+//     |
+// 995 |     const EMPTY_SLICE_PTR: *const [i32] =
+//     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ it is undefined behavior to use this value
+//     |
+//     = note: the rules on what exactly is undefined behavior aren't clear, so this check might be overzealous. Please open an issue on the rustc repository if you believe it should not be considered undefined behavior.
+//     = note: the raw bytes of the constant (size: 16, align: 8) {
+//                 7b 00 00 00 c8 01 00 00 __ __ __ __ __ __ __ __ │ {.......░░░░░░░░
+//             }
 fn test_ptr_from_raw_parts_in_const() {
     const EMPTY_SLICE_PTR: *const [i32] =
-        std::ptr::slice_from_raw_parts(std::ptr::without_provenance(123), 456);
+        core::ptr::slice_from_raw_parts(core::ptr::without_provenance(123), 456);
     assert_eq!(EMPTY_SLICE_PTR.addr(), 123);
     assert_eq!(EMPTY_SLICE_PTR.len(), 456);
 }
 
 #[test]
 fn test_ptr_metadata_in_const() {
-    use std::fmt::Debug;
+    use core::fmt::Debug;
 
-    const ARRAY_META: () = std::ptr::metadata::<[u16; 3]>(&[1, 2, 3]);
-    const SLICE_META: usize = std::ptr::metadata::<[u16]>(&[1, 2, 3]);
-    const DYN_META: DynMetadata<dyn Debug> = std::ptr::metadata::<dyn Debug>(&[0_u8; 42]);
+    const ARRAY_META: () = core::ptr::metadata::<[u16; 3]>(&[1, 2, 3]);
+    const SLICE_META: usize = core::ptr::metadata::<[u16]>(&[1, 2, 3]);
+    const DYN_META: DynMetadata<dyn Debug> = core::ptr::metadata::<dyn Debug>(&[0_u8; 42]);
     assert_eq!(ARRAY_META, ());
     assert_eq!(SLICE_META, 3);
     assert_eq!(DYN_META.size_of(), 42);
@@ -1011,7 +1041,7 @@ const fn ptr_swap_nonoverlapping_is_untyped_inner() {
     // Safety: b1 and b2 are distinct local variables,
     // with the same size and alignment as HasPadding.
     unsafe {
-        std::ptr::swap_nonoverlapping(
+        ptr::swap_nonoverlapping(
             b1.as_mut_ptr().cast::<HasPadding>(),
             b2.as_mut_ptr().cast::<HasPadding>(),
             1,

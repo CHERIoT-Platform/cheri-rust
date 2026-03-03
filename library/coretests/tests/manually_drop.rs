@@ -1,5 +1,6 @@
 #![allow(undropped_manually_drops)]
-
+extern crate alloc;
+use alloc::boxed::Box;
 use core::mem::ManuallyDrop;
 
 #[test]

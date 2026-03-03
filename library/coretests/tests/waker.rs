@@ -1,5 +1,5 @@
-use std::ptr;
-use std::task::{RawWaker, RawWakerVTable, Waker};
+use core::ptr;
+use core::task::{RawWaker, RawWakerVTable, Waker};
 
 #[test]
 fn test_waker_getters() {

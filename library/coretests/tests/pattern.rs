@@ -1,4 +1,4 @@
-use std::str::pattern::*;
+use core::str::pattern::*;
 
 // This macro makes it easier to write
 // tests that do a series of iterations

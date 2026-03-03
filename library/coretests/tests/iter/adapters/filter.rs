@@ -1,5 +1,7 @@
+extern crate alloc;
+use alloc::rc::Rc;
+use alloc::vec::Vec;
 use core::iter::*;
-use std::rc::Rc;
 
 #[test]
 fn test_iterator_filter_count() {
@@ -54,7 +56,7 @@ fn test_double_ended_filter() {
 
 #[test]
 fn test_next_chunk_does_not_leak() {
-    let drop_witness: [_; 5] = std::array::from_fn(|_| Rc::new(()));
+    let drop_witness: [_; 5] = core::array::from_fn(|_| Rc::new(()));
 
     let v = (0..5).map(|i| drop_witness[i].clone()).collect::<Vec<_>>();
     let _ = v.into_iter().filter(|_| false).next_chunk::<1>();

@@ -11,6 +11,11 @@
 //! `adapters::flat_map::test_double_ended_flat_map`, which use `try_fold` and
 //! `next_back`, but test their own adapter.
 
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::vec;
+use alloc::vec::Vec;
+
 #[test]
 fn test_iterator_rev_nth_back() {
     let v: &[_] = &[0, 1, 2, 3, 4];

@@ -244,7 +244,7 @@ fn test_reverse_on_zip() {
     }
 
     let rev_vec_iter = vec_1.iter().rev();
-    let rev_repeat_iter = std::iter::repeat(0).take(20).rev();
+    let rev_repeat_iter = core::iter::repeat(0).take(20).rev();
 
     // Manual reversed zip
     let rev_zipped_iter = rev_vec_iter.zip(rev_repeat_iter);

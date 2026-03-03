@@ -1,3 +1,5 @@
+extern crate alloc;
+use alloc::format;
 use core::num::bignum::Big32x40;
 use core::num::bignum::tests::Big8x3 as Big;
 

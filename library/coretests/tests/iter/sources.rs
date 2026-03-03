@@ -1,4 +1,12 @@
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::iter::*;
+
+#[cfg(feature = "partial_test")]
+use test::print::{print, print_args, println};
 
 use super::*;
 
@@ -171,7 +179,7 @@ fn test_repeat_n_drop() {
 
 #[test]
 fn test_repeat_n_soundness() {
-    let x = std::iter::repeat_n(String::from("use after free"), 0);
+    let x = core::iter::repeat_n(String::from("use after free"), 0);
     println!("{x:?}");
 
     pub struct PanicOnClone;
@@ -184,10 +192,10 @@ fn test_repeat_n_soundness() {
 
     // `repeat_n` should drop the element immediately if `count` is zero.
     // `Clone` should then not try to clone the element.
-    let x = std::iter::repeat_n(PanicOnClone, 0);
+    let x = core::iter::repeat_n(PanicOnClone, 0);
     let _ = x.clone();
 
-    let mut y = std::iter::repeat_n(Box::new(0), 1);
+    let mut y = core::iter::repeat_n(Box::new(0), 1);
     let x = y.next().unwrap();
     let _z = y;
     assert_eq!(0, *x);

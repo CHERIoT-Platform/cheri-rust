@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::iter::*;
 
 use super::*;
@@ -350,7 +353,7 @@ fn test_issue_82282() {
 
 #[test]
 fn test_issue_82291() {
-    use std::cell::Cell;
+    use core::cell::Cell;
 
     let mut v1 = [()];
     let v2 = [()];

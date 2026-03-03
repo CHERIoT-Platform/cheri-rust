@@ -1,3 +1,5 @@
+extern crate alloc;
+use alloc::format;
 use core::bstr::ByteStr;
 
 #[test]

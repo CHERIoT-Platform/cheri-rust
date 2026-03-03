@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::string::String;
 use core::clone::CloneToUninit;
 use core::ffi::CStr;
 use core::mem::MaybeUninit;
@@ -127,7 +130,7 @@ fn test_const_clone() {
     const {
         let bool: bool = Default::default();
         let char: char = Default::default();
-        let ascii_char: std::ascii::Char = Default::default();
+        let ascii_char: core::ascii::Char = Default::default();
         let usize: usize = Default::default();
         let u8: u8 = Default::default();
         let u16: u16 = Default::default();
@@ -146,7 +149,7 @@ fn test_const_clone() {
 
         let bool_clone: bool = bool.clone();
         let char_clone: char = char.clone();
-        let ascii_char_clone: std::ascii::Char = ascii_char.clone();
+        let ascii_char_clone: core::ascii::Char = ascii_char.clone();
 
         let usize_clone: usize = usize.clone();
         let u8_clone: u8 = u8.clone();

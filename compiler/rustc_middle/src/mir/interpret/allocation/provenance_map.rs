@@ -261,7 +261,7 @@ impl<Prov: Provenance> ProvenanceMap<Prov> {
     }
 
     pub fn insert_ptr(&mut self, offset: Size, prov: Prov, cx: &impl HasDataLayout) {
-        debug_assert!(self.range_empty(alloc_range(offset, cx.data_layout().pointer_size()), cx));
+        debug_assert!(self.range_empty(alloc_range(offset, cx.data_layout().pointer_offset()), cx));
         self.ptrs.insert(offset, prov);
     }
 

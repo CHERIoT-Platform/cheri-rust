@@ -5,6 +5,7 @@ use crate::num::{ldexp_f32, ldexp_f64};
 // FIXME(f16_f128): enable on all targets once possible.
 #[test]
 #[cfg(target_has_reliable_f16)]
+#[cfg(not(target_abi = "cheriot"))] // isel
 fn test_f16_integer_decode() {
     assert_eq!(3.14159265359f16.integer_decode(), (1608, -9, 1));
     assert_eq!((-8573.5918555f16).integer_decode(), (1072, 3, -1));

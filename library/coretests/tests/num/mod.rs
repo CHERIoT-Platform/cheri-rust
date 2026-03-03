@@ -1,41 +1,104 @@
+#[cfg(any(
+    not(feature = "partial_test"),
+    any(feature = "test_num", feature = "test_num_int", feature = "test_num_uint",)
+))]
 use core::fmt::Debug;
-use core::num::{IntErrorKind, ParseIntError, TryFromIntError, can_not_overflow};
+#[cfg(any(
+    not(feature = "partial_test"),
+    any(
+        feature = "test_num",
+        feature = "test_num_int",
+        feature = "test_num_uint",
+        feature = "test_num_rest"
+    )
+))]
+use core::num::IntErrorKind;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
+use core::num::ParseIntError;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
+use core::num::{TryFromIntError, can_not_overflow};
+#[cfg(any(
+    not(feature = "partial_test"),
+    any(feature = "test_num_int", feature = "test_num_uint")
+))]
 use core::ops::{Add, Div, Mul, Rem, Sub};
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 use core::str::FromStr;
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_int"))]
 #[macro_use]
 mod int_macros;
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_int"))]
 mod i128;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_int"))]
 mod i16;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_int"))]
 mod i32;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_int"))]
 mod i64;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_int"))]
 mod i8;
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_uint"))]
 #[macro_use]
 mod uint_macros;
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_uint"))]
 mod u128;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_uint"))]
 mod u16;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_uint"))]
 mod u32;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_uint"))]
 mod u64;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_uint"))]
 mod u8;
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_rest"))]
 mod bignum;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_rest"))]
 mod const_from;
+#[cfg(all(
+    not(target_abi = "cheriot"),
+    any(not(feature = "partial_test"), any(feature = "test_num_rest"))
+))]
 mod dec2flt;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_rest"))]
 mod float_iter_sum_identity;
+#[cfg(all(
+    not(target_abi = "cheriot"),
+    any(not(feature = "partial_test"), any(feature = "test_num_rest"))
+))] // FIXME: num methods
 mod flt2dec;
+#[cfg(all(
+    not(target_abi = "cheriot"),
+    any(not(feature = "partial_test"), any(feature = "test_num_rest"))
+))]
 mod ieee754;
+#[cfg(all(
+    not(target_abi = "cheriot"),
+    any(not(feature = "partial_test"), any(feature = "test_num_rest"))
+))]
 mod int_log;
+#[cfg(all(
+    not(target_abi = "cheriot"),
+    any(not(feature = "partial_test"), any(feature = "test_num_rest"))
+))]
 mod int_sqrt;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_rest"))]
 mod midpoint;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_rest"))]
 mod nan;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_rest"))]
 mod niche_types;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_rest"))]
 mod ops;
+#[cfg(any(not(feature = "partial_test"), feature = "test_num_rest"))]
 mod wrapping;
 
 /// Adds the attribute to all items in the block.
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 macro_rules! cfg_block {
     ($(#[$attr:meta]{$($it:item)*})*) => {$($(
         #[$attr]
@@ -45,6 +108,7 @@ macro_rules! cfg_block {
 
 /// Groups items that assume the pointer width is either 16/32/64, and has to be altered if
 /// support for larger/smaller pointer widths are added in the future.
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 macro_rules! assume_usize_width {
     {$($it:item)*} => {#[cfg(not(any(
         target_pointer_width = "16", target_pointer_width = "32", target_pointer_width = "64")))]
@@ -56,16 +120,19 @@ macro_rules! assume_usize_width {
 
 /// Return `a * 2^b`.
 #[cfg(target_has_reliable_f16)]
+#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
 fn ldexp_f16(a: f16, b: i32) -> f16 {
     ldexp_f64(a as f64, b) as f16
 }
 
 /// Return `a * 2^b`.
+#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
 fn ldexp_f32(a: f32, b: i32) -> f32 {
     ldexp_f64(a as f64, b) as f32
 }
 
 /// Return `a * 2^b`.
+#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
 fn ldexp_f64(a: f64, b: i32) -> f64 {
     unsafe extern "C" {
         fn ldexp(x: f64, n: i32) -> f64;
@@ -76,6 +143,10 @@ fn ldexp_f64(a: f64, b: i32) -> f64 {
 }
 
 /// Helper function for testing numeric operations
+#[cfg(any(
+    not(feature = "partial_test"),
+    any(feature = "test_num_int", feature = "test_num_uint")
+))]
 pub fn test_num<T>(ten: T, two: T)
 where
     T: PartialEq
@@ -95,6 +166,7 @@ where
 }
 
 /// Helper function for asserting number parsing returns a specific error
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn test_parse<T>(num_str: &str, expected: Result<T, IntErrorKind>)
 where
     T: FromStr<Err = ParseIntError>,
@@ -104,6 +176,7 @@ where
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn from_str_issue7588() {
     let u: Option<u8> = u8::from_str_radix("1000", 10).ok();
     assert_eq!(u, None);
@@ -113,12 +186,14 @@ fn from_str_issue7588() {
 
 #[test]
 #[should_panic = "radix must lie in the range `[2, 36]`"]
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn from_ascii_radix_panic() {
     let radix = 1;
     let _parsed = u64::from_str_radix("12345ABCD", radix);
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn test_int_from_str_overflow() {
     test_parse::<i8>("127", Ok(127));
     test_parse::<i8>("128", Err(IntErrorKind::PosOverflow));
@@ -146,10 +221,11 @@ fn test_int_from_str_overflow() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn test_can_not_overflow() {
     fn can_overflow<T>(radix: u32, input: &str) -> bool
     where
-        T: std::convert::TryFrom<i8>,
+        T: core::convert::TryFrom<i8>,
     {
         !can_not_overflow::<T>(radix, T::try_from(-1_i8).is_ok(), input.as_bytes())
     }
@@ -164,12 +240,13 @@ fn test_can_not_overflow() {
     // Negative tests:
 
     // Not currently in std lib (issue: #27728)
+    #[cfg(not(target_abi = "cheriot"))] // FIXME: __library_export_libcalls___udivti3
     fn format_radix<T>(mut x: T, radix: T) -> String
     where
-        T: std::ops::Rem<Output = T>,
-        T: std::ops::Div<Output = T>,
-        T: std::cmp::PartialEq,
-        T: std::default::Default,
+        T: core::ops::Rem<Output = T>,
+        T: core::ops::Div<Output = T>,
+        T: core::cmp::PartialEq,
+        T: core::default::Default,
         T: Copy,
         T: Default,
         u32: TryFrom<T>,
@@ -180,7 +257,7 @@ fn test_can_not_overflow() {
             let m = x % radix;
             x = x / radix;
             result.push(
-                std::char::from_digit(m.try_into().ok().unwrap(), radix.try_into().ok().unwrap())
+                core::char::from_digit(m.try_into().ok().unwrap(), radix.try_into().ok().unwrap())
                     .unwrap(),
             );
             if x == T::default() {
@@ -190,6 +267,7 @@ fn test_can_not_overflow() {
         result.into_iter().rev().collect()
     }
 
+    #[cfg(not(target_abi = "cheriot"))] // FIXME: __library_export_libcalls___udivti3
     macro_rules! check {
         ($($t:ty)*) => ($(
         for base in 2..=36 {
@@ -203,8 +281,10 @@ fn test_can_not_overflow() {
         )*)
     }
 
+    #[cfg(not(target_abi = "cheriot"))] // FIXME: __library_export_libcalls___udivti3
     check! { i8 i16 i32 i64 i128 isize usize u8 u16 u32 u64 }
 
+    #[cfg(not(target_abi = "cheriot"))] // FIXME: __library_export_libcalls___udivti3
     // Check u128 separately:
     for base in 2..=36 {
         let num = <u128>::MAX;
@@ -215,12 +295,14 @@ fn test_can_not_overflow() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn test_leading_plus() {
     test_parse::<u8>("+127", Ok(127));
     test_parse::<i64>("+9223372036854775807", Ok(9223372036854775807));
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn test_invalid() {
     test_parse::<i8>("--129", Err(IntErrorKind::InvalidDigit));
     test_parse::<i8>("++129", Err(IntErrorKind::InvalidDigit));
@@ -233,11 +315,13 @@ fn test_invalid() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn test_empty() {
     test_parse::<u8>("", Err(IntErrorKind::Empty));
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn test_infallible_try_from_int_error() {
     let func = |x: i8| -> Result<i32, TryFromIntError> { Ok(x.try_into()?) };
 
@@ -254,6 +338,7 @@ const _TEST_CONST_PARSE: () = {
     }
 };
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 macro_rules! test_impl_from {
     ($fn_name:ident, bool, $target: ty) => {
         #[test]
@@ -278,59 +363,100 @@ macro_rules! test_impl_from {
 }
 
 // Unsigned -> Unsigned
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u8u16, u8, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u8u32, u8, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u8u64, u8, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u8usize, u8, usize }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u16u32, u16, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u16u64, u16, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u32u64, u32, u64 }
 
 // Signed -> Signed
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i8i16, i8, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i8i32, i8, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i8i64, i8, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i8isize, i8, isize }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i16i32, i16, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i16i64, i16, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i32i64, i32, i64 }
 
 // Unsigned -> Signed
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u8i16, u8, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u8i32, u8, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u8i64, u8, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u16i32, u16, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u16i64, u16, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u32i64, u32, i64 }
 
 // Bool -> Integer
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_boolu8, bool, u8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_boolu16, bool, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_boolu32, bool, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_boolu64, bool, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_boolu128, bool, u128 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_booli8, bool, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_booli16, bool, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_booli32, bool, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_booli64, bool, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_booli128, bool, i128 }
 
 // Signed -> Float
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i8f32, i8, f32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i8f64, i8, f64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i16f32, i16, f32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i16f64, i16, f64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_i32f64, i32, f64 }
 
 // Unsigned -> Float
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u8f32, u8, f32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u8f64, u8, f64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u16f32, u16, f32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u16f64, u16, f64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_from! { test_u32f64, u32, f64 }
 
 // Float -> Float
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 fn test_f32f64() {
     let max: f64 = f32::MAX.into();
     assert_eq!(max as f32, f32::MAX);
@@ -371,6 +497,7 @@ fn test_f32f64() {
 }
 
 /// Conversions where the full width of $source can be represented as $target
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 macro_rules! test_impl_try_from_always_ok {
     ($fn_name:ident, $source:ty, $target: ty) => {
         #[test]
@@ -385,59 +512,102 @@ macro_rules! test_impl_try_from_always_ok {
     };
 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u8u8, u8, u8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u8u16, u8, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u8u32, u8, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u8u64, u8, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u8u128, u8, u128 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u8i16, u8, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u8i32, u8, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u8i64, u8, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u8i128, u8, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u16u16, u16, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u16u32, u16, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u16u64, u16, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u16u128, u16, u128 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u16i32, u16, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u16i64, u16, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u16i128, u16, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u32u32, u32, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u32u64, u32, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u32u128, u32, u128 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u32i64, u32, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u32i128, u32, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u64u64, u64, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u64u128, u64, u128 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u64i128, u64, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_u128u128, u128, u128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i8i8, i8, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i8i16, i8, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i8i32, i8, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i8i64, i8, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i8i128, i8, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i16i16, i16, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i16i32, i16, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i16i64, i16, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i16i128, i16, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i32i32, i32, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i32i64, i32, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i32i128, i32, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i64i64, i64, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i64i128, i64, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_i128i128, i128, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_usizeusize, usize, usize }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_always_ok! { test_try_isizeisize, isize, isize }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 assume_usize_width! {
     test_impl_try_from_always_ok! { test_try_u8usize, u8, usize }
     test_impl_try_from_always_ok! { test_try_u8isize, u8, isize }
@@ -484,6 +654,7 @@ assume_usize_width! {
 }
 
 /// Conversions where max of $source can be represented as $target,
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 macro_rules! test_impl_try_from_signed_to_unsigned_upper_ok {
     ($fn_name:ident, $source:ty, $target:ty) => {
         #[test]
@@ -500,26 +671,42 @@ macro_rules! test_impl_try_from_signed_to_unsigned_upper_ok {
     };
 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i8u8, i8, u8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i8u16, i8, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i8u32, i8, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i8u64, i8, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i8u128, i8, u128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i16u16, i16, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i16u32, i16, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i16u64, i16, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i16u128, i16, u128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i32u32, i32, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i32u64, i32, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i32u128, i32, u128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i64u64, i64, u64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i64u128, i64, u128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i128u128, i128, u128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 assume_usize_width! {
     test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i8usize, i8, usize }
     test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i16usize, i16, usize }
@@ -549,6 +736,7 @@ assume_usize_width! {
 
 /// Conversions where max of $source can not be represented as $target,
 /// but min can.
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 macro_rules! test_impl_try_from_unsigned_to_signed_upper_err {
     ($fn_name:ident, $source:ty, $target:ty) => {
         #[test]
@@ -563,26 +751,42 @@ macro_rules! test_impl_try_from_unsigned_to_signed_upper_err {
     };
 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u8i8, u8, i8 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u16i8, u16, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u16i16, u16, i16 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u32i8, u32, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u32i16, u32, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u32i32, u32, i32 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u64i8, u64, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u64i16, u64, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u64i32, u64, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u64i64, u64, i64 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u128i8, u128, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u128i16, u128, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u128i32, u128, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u128i64, u128, i64 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u128i128, u128, i128 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 assume_usize_width! {
     test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u64isize, u64, isize }
     test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u128isize, u128, isize }
@@ -610,6 +814,7 @@ assume_usize_width! {
 }
 
 /// Conversions where min/max of $source can not be represented as $target.
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 macro_rules! test_impl_try_from_same_sign_err {
     ($fn_name:ident, $source:ty, $target:ty) => {
         #[test]
@@ -636,35 +841,57 @@ macro_rules! test_impl_try_from_same_sign_err {
     };
 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u16u8, u16, u8 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u32u8, u32, u8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u32u16, u32, u16 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u64u8, u64, u8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u64u16, u64, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u64u32, u64, u32 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u128u8, u128, u8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u128u16, u128, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u128u32, u128, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_u128u64, u128, u64 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i16i8, i16, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_isizei8, isize, i8 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i32i8, i32, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i32i16, i32, i16 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i64i8, i64, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i64i16, i64, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i64i32, i64, i32 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i128i8, i128, i8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i128i16, i128, i16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i128i32, i128, i32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_same_sign_err! { test_try_i128i64, i128, i64 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 assume_usize_width! {
     test_impl_try_from_same_sign_err! { test_try_usizeu8, usize, u8 }
     test_impl_try_from_same_sign_err! { test_try_u128usize, u128, usize }
@@ -699,6 +926,7 @@ assume_usize_width! {
 
 /// Conversions where neither the min nor the max of $source can be represented by
 /// $target, but max/min of the target can be represented by the source.
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 macro_rules! test_impl_try_from_signed_to_unsigned_err {
     ($fn_name:ident, $source:ty, $target:ty) => {
         #[test]
@@ -723,20 +951,31 @@ macro_rules! test_impl_try_from_signed_to_unsigned_err {
     };
 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i16u8, i16, u8 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i32u8, i32, u8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i32u16, i32, u16 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i64u8, i64, u8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i64u16, i64, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i64u32, i64, u32 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i128u8, i128, u8 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i128u16, i128, u16 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i128u32, i128, u32 }
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 test_impl_try_from_signed_to_unsigned_err! { test_try_i128u64, i128, u64 }
 
+#[cfg(any(not(feature = "partial_test"), feature = "test_num"))]
 assume_usize_width! {
     test_impl_try_from_signed_to_unsigned_err! { test_try_isizeu8, isize, u8 }
     test_impl_try_from_signed_to_unsigned_err! { test_try_i128usize, i128, usize }

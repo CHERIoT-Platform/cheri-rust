@@ -1,5 +1,8 @@
-use std::str::FromStr;
-use std::{char, str};
+extern crate alloc;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use core::str::FromStr;
+use core::{char, str};
 
 #[test]
 fn test_convert() {

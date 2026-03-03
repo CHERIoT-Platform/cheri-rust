@@ -1,7 +1,15 @@
 use core::cell::Cell;
 use core::mem;
 use core::ops::DerefMut;
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec;
+use alloc::vec::Vec;
 use core::option::*;
+
+#[cfg(feature = "partial_test")]
+use test::print::{print, print_args, println};
 
 #[test]
 fn test_get_ptr() {
@@ -27,8 +35,8 @@ fn test_get_str() {
 
 #[test]
 fn test_get_resource() {
+    use alloc::rc::Rc;
     use core::cell::RefCell;
-    use std::rc::Rc;
 
     struct R {
         i: Rc<RefCell<isize>>,
@@ -501,7 +509,7 @@ fn test_unwrap_drop() {
         x: &'a Cell<isize>,
     }
 
-    impl<'a> std::ops::Drop for Dtor<'a> {
+    impl<'a> core::ops::Drop for Dtor<'a> {
         fn drop(&mut self) {
             self.x.set(self.x.get() - 1);
         }

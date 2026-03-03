@@ -1,10 +1,13 @@
+extern crate alloc;
+use alloc::string::String;
+use alloc::{format, vec};
+use core::mem::MaybeUninit;
 use core::num::flt2dec::{
     DecodableFloat, Decoded, FullDecoded, MAX_SIG_DIGITS, Sign, decode, round_up, to_exact_exp_str,
     to_exact_fixed_str, to_shortest_exp_str, to_shortest_str,
 };
 use core::num::fmt::{Formatted, Part};
-use std::mem::MaybeUninit;
-use std::{fmt, str};
+use core::{fmt, str};
 
 use crate::num::{ldexp_f32, ldexp_f64};
 

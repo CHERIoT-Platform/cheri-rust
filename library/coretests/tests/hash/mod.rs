@@ -1,8 +1,12 @@
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::string::String;
+use core::ptr;
+
 mod sip;
 
-use std::hash::{BuildHasher, Hash, Hasher};
-use std::ptr;
-use std::rc::Rc;
+use core::hash::{Hash, Hasher};
 
 #[derive(Default)]
 struct MyHasher {
@@ -165,16 +169,17 @@ fn test_indirect_hasher() {
 }
 
 #[test]
+#[cfg(not(feature = "partial_test"))] // FIXME
 fn test_build_hasher_dyn_compatible() {
-    use std::hash::{DefaultHasher, RandomState};
-
+    use std::hash::{BuildHasher, DefaultHasher, RandomState};
     let _: &dyn BuildHasher<Hasher = DefaultHasher> = &RandomState::new();
 }
 
+#[cfg(not(feature = "partial_test"))] // FIXME
 // just tests by whether or not this compiles
 fn _build_hasher_default_impl_all_auto_traits<T>() {
     use std::panic::{RefUnwindSafe, UnwindSafe};
     fn all_auto_traits<T: Send + Sync + Unpin + UnwindSafe + RefUnwindSafe>() {}
 
-    all_auto_traits::<std::hash::BuildHasherDefault<T>>();
+    all_auto_traits::<core::hash::BuildHasherDefault<T>>();
 }

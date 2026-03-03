@@ -9,6 +9,7 @@ fn round_down_imprecise(f: f32) -> u32 {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME: num methods
 fn checked_ilog() {
     assert_eq!(999u32.checked_ilog(10), Some(2));
     assert_eq!(1000u32.checked_ilog(10), Some(3));
@@ -28,10 +29,12 @@ fn checked_ilog() {
     assert_eq!(0i16.checked_ilog(4), None);
 
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in i16::MIN..=0 {
         assert_eq!(i.checked_ilog(4), None, "checking {i}");
     }
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in 1..=i16::MAX {
         assert_eq!(
             i.checked_ilog(13),
@@ -40,6 +43,7 @@ fn checked_ilog() {
         );
     }
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in 1..=u16::MAX {
         assert_eq!(
             i.checked_ilog(13),
@@ -51,6 +55,7 @@ fn checked_ilog() {
 
 #[test]
 #[cfg_attr(miri, ignore)] // FIXME test is broken on Miri: https://github.com/rust-lang/rust/issues/137591
+#[cfg(not(target_abi = "cheriot"))] // num methods
 fn checked_ilog2() {
     assert_eq!(5u32.checked_ilog2(), Some(2));
     assert_eq!(0u64.checked_ilog2(), None);
@@ -74,6 +79,7 @@ fn checked_ilog2() {
         );
     }
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in 1..=u16::MAX {
         assert_eq!(
             i.checked_ilog2(),
@@ -92,10 +98,12 @@ fn checked_ilog2() {
         );
     }
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in i16::MIN..=0 {
         assert_eq!(i.checked_ilog2(), None, "checking {i}");
     }
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in 1..=i16::MAX {
         assert_eq!(
             i.checked_ilog2(),
@@ -106,6 +114,7 @@ fn checked_ilog2() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // num methods
 fn checked_ilog10() {
     assert_eq!(0u8.checked_ilog10(), None);
     assert_eq!(0u16.checked_ilog10(), None);
@@ -113,10 +122,12 @@ fn checked_ilog10() {
     assert_eq!(0i16.checked_ilog10(), None);
 
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in i16::MIN..=0 {
         assert_eq!(i.checked_ilog10(), None, "checking {i}");
     }
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in 1..=i16::MAX {
         assert_eq!(
             i.checked_ilog10(),
@@ -125,6 +136,7 @@ fn checked_ilog10() {
         );
     }
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in 1..=u16::MAX {
         assert_eq!(
             i.checked_ilog10(),
@@ -133,6 +145,7 @@ fn checked_ilog10() {
         );
     }
     #[cfg(not(miri))] // Miri is too slow
+    #[cfg(not(target_abi = "cheriot"))]
     for i in 1..=100_000u32 {
         assert_eq!(
             i.checked_ilog10(),

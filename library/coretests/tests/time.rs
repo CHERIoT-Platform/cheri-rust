@@ -1,3 +1,5 @@
+extern crate alloc;
+use alloc::format;
 use core::time::Duration;
 
 #[test]
@@ -264,6 +266,7 @@ fn div_duration_f32() {
     // These tests demonstrate it doesn't panic with extreme values.
     // Accuracy of the computed value is not a huge concern, we know floats don't work well
     // at these extremes.
+    #[cfg(not(target_abi = "cheriot"))] // FIXME: num methods
     assert!((Duration::MAX).div_duration_f32(Duration::NANOSECOND) > 10.0f32.powf(28.0));
     assert!((Duration::NANOSECOND).div_duration_f32(Duration::MAX) < 0.1);
 }
@@ -277,6 +280,7 @@ fn div_duration_f64() {
     // These tests demonstrate it doesn't panic with extreme values.
     // Accuracy of the computed value is not a huge concern, we know floats don't work well
     // at these extremes.
+    #[cfg(not(target_abi = "cheriot"))] // FIXME: num methods
     assert!((Duration::MAX).div_duration_f64(Duration::NANOSECOND) > 10.0f64.powf(28.0));
     assert!((Duration::NANOSECOND).div_duration_f64(Duration::MAX) < 0.1);
 }

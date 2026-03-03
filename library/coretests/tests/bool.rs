@@ -1,3 +1,5 @@
+extern crate alloc;
+use alloc::string::ToString;
 use core::cmp::Ordering::{Equal, Greater, Less};
 use core::ops::{BitAnd, BitOr, BitXor};
 

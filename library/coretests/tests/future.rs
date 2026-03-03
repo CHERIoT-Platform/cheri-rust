@@ -123,5 +123,5 @@ fn _pending_impl_all_auto_traits<T>() {
     use std::panic::{RefUnwindSafe, UnwindSafe};
     fn all_auto_traits<T: Send + Sync + Unpin + UnwindSafe + RefUnwindSafe>() {}
 
-    all_auto_traits::<std::future::Pending<T>>();
+    all_auto_traits::<core::future::Pending<T>>();
 }

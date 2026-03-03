@@ -1,6 +1,8 @@
 #![allow(deprecated)]
-
+extern crate alloc;
+use alloc::vec::Vec;
 use core::hash::{Hash, Hasher, SipHasher, SipHasher13};
+use core::mem::size_of;
 use core::slice;
 
 // Hash just the bytes of the slice, without length prefix

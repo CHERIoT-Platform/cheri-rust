@@ -38,6 +38,9 @@ fn pin_const() {
 
 #[allow(unused)]
 mod pin_coerce_unsized {
+    extern crate alloc;
+    use alloc::boxed::Box;
+    use alloc::string::String;
     use core::cell::{Cell, RefCell, UnsafeCell};
     use core::pin::Pin;
     use core::ptr::NonNull;

@@ -1,6 +1,13 @@
+extern crate alloc;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
 use core::cell::{Cell, LazyCell, OnceCell};
 use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering::SeqCst;
+
+#[cfg(feature = "partial_test")]
+use test::print::{print, print_args, println};
 
 #[test]
 fn once_cell() {
@@ -154,7 +161,7 @@ fn reentrant_init() {
         dangling_ref.set(Some(r));
         Box::new(62)
     });
-    eprintln!("use after free: {:?}", dangling_ref.get().unwrap());
+    println!("use after free: {:?}", dangling_ref.get().unwrap());
 }
 
 #[test]

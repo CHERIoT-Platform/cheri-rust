@@ -1,3 +1,5 @@
+extern crate alloc;
+use alloc::vec::Vec;
 use core::iter::*;
 use core::num::NonZero;
 

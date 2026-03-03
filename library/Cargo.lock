@@ -57,6 +57,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "cheri_test"
+version = "0.0.0"
+
+[[package]]
 name = "compiler_builtins"
 version = "0.1.160"
 dependencies = [
@@ -72,6 +76,7 @@ version = "0.0.0"
 name = "coretests"
 version = "0.0.0"
 dependencies = [
+ "cheri_test",
  "rand",
  "rand_xorshift",
 ]

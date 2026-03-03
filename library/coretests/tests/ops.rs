@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::format;
+
 mod control_flow;
 mod from_residual;
 

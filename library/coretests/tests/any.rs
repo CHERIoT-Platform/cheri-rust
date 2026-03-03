@@ -1,3 +1,5 @@
+extern crate alloc;
+use alloc::boxed::Box;
 use core::any::*;
 
 #[derive(PartialEq, Debug)]
@@ -139,11 +141,11 @@ fn dyn_type_name() {
 
     assert_eq!(
         "dyn core::ops::function::Fn(i32, i32) -> i32",
-        std::any::type_name::<dyn Fn(i32, i32) -> i32>()
+        core::any::type_name::<dyn Fn(i32, i32) -> i32>()
     );
     assert_eq!(
         "dyn coretests::any::dyn_type_name::Foo<Bar = i32> \
         + core::marker::Send + core::marker::Sync",
-        std::any::type_name::<dyn Foo<Bar = i32> + Send + Sync>()
+        core::any::type_name::<dyn Foo<Bar = i32> + Send + Sync>()
     );
 }

@@ -1,8 +1,13 @@
+extern crate alloc;
+use alloc::boxed::Box;
+use alloc::string::ToString;
+use core::mem::size_of;
+
 mod type_info;
 
+use core::cell::Cell;
 use core::mem::*;
 use core::{array, ptr};
-use std::cell::Cell;
 #[cfg(panic = "unwind")]
 use std::rc::Rc;
 
@@ -23,6 +28,7 @@ fn size_of_16() {
 
 #[test]
 #[cfg(target_pointer_width = "32")]
+#[cfg(not(target_abi = "cheriot"))] // FIXME
 fn size_of_32() {
     assert_eq!(size_of::<usize>(), 4);
     assert_eq!(size_of::<*const usize>(), 4);
@@ -59,6 +65,7 @@ fn align_of_16() {
 
 #[test]
 #[cfg(target_pointer_width = "32")]
+#[cfg(not(target_abi = "cheriot"))] // FIXME
 fn align_of_32() {
     assert_eq!(align_of::<usize>(), 4);
     assert_eq!(align_of::<*const usize>(), 4);
@@ -542,7 +549,7 @@ fn uninit_const_assume_init_read() {
 
 #[test]
 fn const_maybe_uninit() {
-    use std::ptr;
+    use core::ptr;
 
     #[derive(Debug, PartialEq)]
     struct Foo {

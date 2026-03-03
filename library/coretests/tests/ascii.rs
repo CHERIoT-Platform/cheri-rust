@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use core::char::from_u32;
 
 #[test]
@@ -379,10 +382,10 @@ fn test_is_ascii_align_size_thoroughly() {
     }
 
     // Miri is too slow
-    let iter = if cfg!(miri) { 0..20 } else { 0..100 };
+    let iter = if cfg!(any(miri, target_abi = "cheriot")) { 0..20 } else { 0..100 };
 
     for i in iter {
-        #[cfg(not(miri))]
+        #[cfg(not(any(miri, target_abi = "cheriot")))]
         let cases = &[
             b"a".repeat(i),
             b"\0".repeat(i),
@@ -393,7 +396,7 @@ fn test_is_ascii_align_size_thoroughly() {
             repeat_concat(0x80u8, b'a', i),
         ];
 
-        #[cfg(miri)]
+        #[cfg(any(miri, target_abi = "cheriot"))]
         let cases = &[b"a".repeat(i), b"\x80".repeat(i), repeat_concat(b'a', 0x80u8, i)];
 
         for case in cases {

@@ -34,14 +34,14 @@ fn unsize_coercion() {
 #[test]
 fn rust_2024_expr() {
     // Check that we accept a Rust 2024 $expr.
-    std::pin::pin!(const { 1 });
+    core::pin::pin!(const { 1 });
 }
 
 #[test]
 fn temp_lifetime() {
     // Check that temporary lifetimes work as in Rust 2021.
     // Regression test for https://github.com/rust-lang/rust/issues/138596
-    match std::pin::pin!(foo(&mut 0)) {
+    match core::pin::pin!(foo(&mut 0)) {
         _ => {}
     }
     async fn foo(_: &mut usize) {}

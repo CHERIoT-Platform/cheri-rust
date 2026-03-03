@@ -1,6 +1,12 @@
-mod debug_struct {
-    use std::fmt;
+extern crate alloc;
+use alloc::collections::{BTreeMap, BTreeSet};
 
+use crate::fmt::format;
+
+mod debug_struct {
+    use core::fmt;
+
+    use crate::fmt::format;
     #[test]
     fn test_empty() {
         struct Foo;
@@ -191,7 +197,9 @@ mod debug_struct {
 }
 
 mod debug_tuple {
-    use std::fmt;
+    use core::fmt;
+
+    use crate::fmt::format;
 
     #[test]
     fn test_empty() {
@@ -353,7 +361,10 @@ mod debug_tuple {
 }
 
 mod debug_map {
-    use std::fmt;
+    use core::fmt;
+    use core::fmt::Write;
+
+    use crate::fmt::{String, format};
 
     #[test]
     fn test_empty() {
@@ -480,9 +491,6 @@ mod debug_map {
 
     #[test]
     fn test_entry_err() {
-        // Ensure errors in a map entry don't trigger panics (#65231)
-        use std::fmt::Write;
-
         struct ErrorFmt;
 
         impl fmt::Debug for ErrorFmt {
@@ -659,7 +667,9 @@ mod debug_map {
 }
 
 mod debug_set {
-    use std::fmt;
+    use core::fmt;
+
+    use crate::fmt::format;
 
     #[test]
     fn test_empty() {
@@ -821,7 +831,9 @@ mod debug_set {
 }
 
 mod debug_list {
-    use std::fmt;
+    use core::fmt;
+
+    use crate::fmt::format;
 
     #[test]
     fn test_empty() {
@@ -984,7 +996,6 @@ mod debug_list {
 
 #[test]
 fn test_formatting_parameters_are_forwarded() {
-    use std::collections::{BTreeMap, BTreeSet};
     #[derive(Debug)]
     #[allow(dead_code)]
     struct Foo {

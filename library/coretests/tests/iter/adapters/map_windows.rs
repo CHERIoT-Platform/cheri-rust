@@ -1,5 +1,9 @@
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::SeqCst;
+extern crate alloc;
+use alloc::borrow::ToOwned;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::sync::atomic::AtomicUsize;
+use core::sync::atomic::Ordering::SeqCst;
 
 #[cfg(not(panic = "abort"))]
 mod drop_checks {
@@ -167,13 +171,13 @@ fn output_n2() {
 
 #[test]
 fn test_case_from_pr_82413_comment() {
-    for () in std::iter::repeat("0".to_owned()).map_windows(|_: &[_; 3]| {}).take(4) {}
+    for () in core::iter::repeat("0".to_owned()).map_windows(|_: &[_; 3]| {}).take(4) {}
 }
 
 #[test]
 #[should_panic = "array in `Iterator::map_windows` must contain more than 0 elements"]
 fn check_zero_window() {
-    let _ = std::iter::repeat(0).map_windows(|_: &[_; 0]| ());
+    let _ = core::iter::repeat(0).map_windows(|_: &[_; 0]| ());
 }
 
 #[test]
@@ -181,14 +185,14 @@ fn test_zero_sized_type() {
     #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     struct Data;
     let data: Vec<_> =
-        std::iter::repeat(Data).take(10).map_windows(|arr: &[Data; 5]| *arr).collect();
+        core::iter::repeat(Data).take(10).map_windows(|arr: &[Data; 5]| *arr).collect();
     assert_eq!(data, [[Data; 5]; 6]);
 }
 
 #[test]
 #[should_panic = "array size of `Iterator::map_windows` is too large"]
 fn test_too_large_array_size() {
-    let _ = std::iter::repeat(()).map_windows(|arr: &[(); usize::MAX]| *arr);
+    let _ = core::iter::repeat(()).map_windows(|arr: &[(); usize::MAX]| *arr);
 }
 
 #[test]

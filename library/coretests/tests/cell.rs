@@ -1,3 +1,7 @@
+extern crate alloc;
+use alloc::borrow::ToOwned;
+use alloc::format;
+use alloc::string::ToString;
 use core::cell::*;
 use core::mem::forget;
 

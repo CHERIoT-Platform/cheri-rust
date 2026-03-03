@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::format;
+use alloc::string::ToString;
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
 #[test]

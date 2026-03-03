@@ -1,3 +1,6 @@
+extern crate alloc;
+use alloc::format;
+use alloc::string::String;
 use core::ascii::Char;
 use core::fmt::Write;
 

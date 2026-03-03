@@ -1,5 +1,8 @@
+extern crate alloc;
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::num::NonZero;
-use core::sync::atomic::{AtomicUsize, Ordering};
 use core::{array, assert_eq};
 
 #[test]
@@ -258,6 +261,7 @@ fn iterator_drops() {
 
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
+#[cfg(not(feature = "partial_test"))] // FIXME
 fn array_default_impl_avoids_leaks_on_panic() {
     use core::sync::atomic::AtomicUsize;
     use core::sync::atomic::Ordering::Relaxed;
@@ -312,7 +316,9 @@ fn array_map() {
 
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
+#[cfg(not(feature = "partial_test"))] // FIXME
 fn array_map_drop_safety() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
     static DROPPED: AtomicUsize = AtomicUsize::new(0);
     struct DropCounter;
     impl Drop for DropCounter {
@@ -387,6 +393,7 @@ fn array_try_from_fn() {
 #[cfg(not(panic = "abort"))]
 #[test]
 fn array_try_from_fn_drops_inserted_elements_on_err() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
     static DROP_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     struct CountDrop;
@@ -411,6 +418,7 @@ fn array_try_from_fn_drops_inserted_elements_on_err() {
 #[cfg(not(panic = "abort"))]
 #[test]
 fn array_try_from_fn_drops_inserted_elements_on_panic() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
     static DROP_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     struct CountDrop;
@@ -513,7 +521,7 @@ fn array_rsplit_array_mut_out_of_bounds() {
 
 #[test]
 fn array_intoiter_advance_by() {
-    use std::cell::Cell;
+    use core::cell::Cell;
     struct DropCounter<'a>(usize, &'a Cell<usize>);
     impl Drop for DropCounter<'_> {
         fn drop(&mut self) {
@@ -523,7 +531,7 @@ fn array_intoiter_advance_by() {
     }
 
     let counter = Cell::new(0);
-    let a: [_; 100] = std::array::from_fn(|i| DropCounter(i, &counter));
+    let a: [_; 100] = array::from_fn(|i| DropCounter(i, &counter));
     let mut it = IntoIterator::into_iter(a);
 
     let r = it.advance_by(1);
@@ -566,7 +574,7 @@ fn array_intoiter_advance_by() {
 
 #[test]
 fn array_intoiter_advance_back_by() {
-    use std::cell::Cell;
+    use core::cell::Cell;
     struct DropCounter<'a>(usize, &'a Cell<usize>);
     impl Drop for DropCounter<'_> {
         fn drop(&mut self) {
@@ -576,7 +584,7 @@ fn array_intoiter_advance_back_by() {
     }
 
     let counter = Cell::new(0);
-    let a: [_; 100] = std::array::from_fn(|i| DropCounter(i, &counter));
+    let a: [_; 100] = array::from_fn(|i| DropCounter(i, &counter));
     let mut it = IntoIterator::into_iter(a);
 
     let r = it.advance_back_by(1);
@@ -646,7 +654,7 @@ fn array_mixed_equality_integers() {
 
 #[test]
 fn array_mixed_equality_nans() {
-    let array3: [f32; 3] = [1.0, std::f32::NAN, 3.0];
+    let array3: [f32; 3] = [1.0, core::f32::NAN, 3.0];
 
     let slice3: &[f32] = &{ array3 };
     assert!(!(array3 == slice3));
@@ -696,6 +704,7 @@ fn array_into_iter_rfold() {
 #[cfg(not(panic = "abort"))]
 #[test]
 fn array_map_drops_unmapped_elements_on_panic() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
     struct DropCounter<'a>(usize, &'a AtomicUsize);
     impl Drop for DropCounter<'_> {
         fn drop(&mut self) {
@@ -733,10 +742,10 @@ fn const_array_ops() {
     const fn maybe_doubler(x: usize) -> Option<usize> {
         x.checked_mul(2)
     }
-    assert_eq!(const { std::array::from_fn::<_, 5, _>(doubler) }, [0, 2, 4, 6, 8]);
+    assert_eq!(const { array::from_fn::<_, 5, _>(doubler) }, [0, 2, 4, 6, 8]);
     assert_eq!(const { [5, 6, 1, 2].map(doubler) }, [10, 12, 2, 4]);
     assert_eq!(const { [1, usize::MAX, 2, 8].try_map(maybe_doubler) }, None);
-    assert_eq!(const { std::array::try_from_fn::<_, 5, _>(maybe_doubler) }, Some([0, 2, 4, 6, 8]));
+    assert_eq!(const { array::try_from_fn::<_, 5, _>(maybe_doubler) }, Some([0, 2, 4, 6, 8]));
     #[derive(Debug, PartialEq)]
     struct Zst;
     assert_eq!([(); 10].try_map(|()| Some(Zst)), Some([const { Zst }; 10]));

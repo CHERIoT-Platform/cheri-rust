@@ -1,5 +1,8 @@
-use std::any::{Any, TypeId};
-use std::mem::type_info::{Type, TypeKind};
+// FIXME: invalid `TypeId` value: the hash does not match the type id metadata
+#![cfg(not(target_abi = "cheriot"))]
+
+use core::any::{Any, TypeId};
+use core::mem::type_info::{Type, TypeKind};
 
 #[test]
 fn test_arrays() {

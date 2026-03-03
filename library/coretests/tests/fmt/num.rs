@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use crate::fmt::format;
 
 #[test]
 fn test_format_int_zero() {
@@ -23,6 +23,7 @@ fn test_format_int_zero() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // libcalls
 fn test_format_int_one() {
     // Formatting integers should select the right implementation based off
     // the type of the argument. Also, hex/octal/binary should be defined
@@ -217,6 +218,7 @@ fn test_format_int_limits() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // libcalls
 fn test_format_int_exp_limits() {
     assert_eq!(format!("{:e}", i8::MIN), "-1.28e2");
     assert_eq!(format!("{:e}", i8::MAX), "1.27e2");
@@ -237,6 +239,7 @@ fn test_format_int_exp_limits() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // libcalls
 fn test_format_int_exp_precision() {
     //test that float and integer match
     let big_int: u32 = 314_159_265;

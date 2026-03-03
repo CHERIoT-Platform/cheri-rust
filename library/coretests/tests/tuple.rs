@@ -1,4 +1,6 @@
-use std::cmp::Ordering::{Equal, Greater, Less};
+extern crate alloc;
+use alloc::format;
+use core::cmp::Ordering::{Equal, Greater, Less};
 
 #[test]
 fn test_clone() {

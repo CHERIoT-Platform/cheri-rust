@@ -1,5 +1,8 @@
 use core::num::flt2dec::estimator::*;
 
+#[cfg(feature = "partial_test")]
+use test::print::{print, print_args, println};
+
 use crate::num::ldexp_f64;
 
 #[test]

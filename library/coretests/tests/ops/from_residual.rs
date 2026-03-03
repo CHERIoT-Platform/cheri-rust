@@ -2,7 +2,6 @@
 //! cc https://github.com/rust-lang/rust/issues/99940,
 //! This does NOT test that issue in general; Option and ControlFlow's FromResidual
 //! impls in core were changed to not be affected by that issue.
-
 use core::ops::{ControlFlow, FromResidual};
 
 struct Local;

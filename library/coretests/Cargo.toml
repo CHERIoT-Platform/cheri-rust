@@ -18,14 +18,88 @@ doc = false
 name = "coretests"
 path = "tests/lib.rs"
 
-[[bench]]
-name = "corebenches"
-path = "benches/lib.rs"
-test = true
+# [[bench]]
+# name = "corebenches"
+# path = "benches/lib.rs"
+# test = true
 
 [dev-dependencies]
 rand = { version = "0.9.0", default-features = false }
 rand_xorshift = { version = "0.4.0", default-features = false }
+
+[target.'cfg(target_abi = "cheriot")'.dev-dependencies]
+test = { package = "cheri_test", path = "../../cheri/library/cheri_test"}
+
+[features]
+partial_test = []
+test_alloc = []
+test_any = []
+test_array = []
+test_ascii = []
+test_ascii_char = []
+test_asserting = []
+test_async_iter = []
+test_atomic = []
+test_bool = []
+test_bstr = []
+test_cell = []
+test_char = []
+test_clone = []
+test_cmp = []
+test_const_ptr = []
+test_convert = []
+test_ffi = []
+test_floats = []
+test_fmt = []
+test_fmt_builders = []
+test_fmt_float = []
+test_fmt_num = []
+test_future = []
+test_hash = []
+test_hint = []
+test_index = []
+test_intrinsics = []
+test_io = []
+test_iter = []
+test_iter_adapters = []
+test_iter_range = []
+test_iter_sources = []
+test_iter_traits = []
+test_lazy = []
+test_macros = []
+test_manually_drop = []
+test_mem = []
+test_net = []
+test_nonzero = []
+test_num = []
+test_num_int = []
+test_num_uint = []
+test_num_rest = []
+test_ops = []
+test_option = []
+test_panic = []
+test_pattern = []
+test_pin = []
+test_pin_macro = []
+test_ptr = []
+test_result = []
+test_simd = []
+test_slice = []
+test_str = []
+test_str_lossy = []
+test_task = []
+test_time = []
+test_tuple = []
+test_unicode = []
+test_waker = []
+test_wtf8 = []
+
+# warnings from tests/macros
+blah = []
+foo = []
+
+std = []
+
 
 [lints.rust.unexpected_cfgs]
 level = "warn"

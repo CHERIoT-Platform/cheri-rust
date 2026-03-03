@@ -1,3 +1,8 @@
+extern crate alloc;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use alloc::{format, vec};
+use core::mem::size_of;
 use core::num::{IntErrorKind, NonZero};
 use core::option::Option::None;
 
@@ -46,7 +51,7 @@ fn test_match_option_vec() {
 
 #[test]
 fn test_match_option_rc() {
-    use std::rc::Rc;
+    use alloc::rc::Rc;
 
     let five = Rc::new(5);
     match Some(five) {
@@ -57,7 +62,7 @@ fn test_match_option_rc() {
 
 #[test]
 fn test_match_option_arc() {
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     let five = Arc::new(5);
     match Some(five) {

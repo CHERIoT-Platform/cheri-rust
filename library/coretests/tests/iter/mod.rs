@@ -15,17 +15,35 @@
 //! if a test in `traits` uses a specific adapter, then it should be moved to
 //! that adapter's test file in `adapters`.
 
+extern crate alloc;
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter"))]
+use alloc::vec::Vec;
+
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter_adapters"))]
 mod adapters;
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter_range"))]
 mod range;
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter_sources"))]
 mod sources;
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter_traits"))]
 mod traits;
 
-use core::cell::Cell;
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter_sources"))]
+use core::cell::Cell; // iter, adapters, range, traits
+#[cfg(any(
+    not(feature = "partial_test"),
+    any(feature = "test_iter", feature = "test_iter_range", feature = "test_iter_sources")
+))]
 use core::iter::*;
 
-pub fn is_trusted_len<I: TrustedLen>(_: I) {}
+#[cfg(any(
+    not(feature = "partial_test"),
+    any(feature = "test_iter_range", feature = "test_iter_sources")
+))]
+pub fn is_trusted_len<I: TrustedLen>(_: I) {} // iter, adapters
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter"))]
 fn test_multi_iter() {
     let xs = [1, 2, 3, 4];
     let ys = [4, 3, 2, 1];
@@ -34,6 +52,7 @@ fn test_multi_iter() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter"))]
 fn test_counter_from_iter() {
     let it = (0..).step_by(5).take(10);
     let xs: Vec<isize> = FromIterator::from_iter(it);
@@ -41,6 +60,7 @@ fn test_counter_from_iter() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter"))]
 fn test_functor_laws() {
     // identity:
     fn identity<T>(x: T) -> T {
@@ -62,6 +82,7 @@ fn test_functor_laws() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter"))]
 fn test_monad_laws_left_identity() {
     fn f(x: usize) -> impl Iterator<Item = usize> {
         (0..10).map(move |y| x * y)
@@ -70,11 +91,13 @@ fn test_monad_laws_left_identity() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter"))]
 fn test_monad_laws_right_identity() {
     assert_eq!((0..10).flat_map(|x| once(x)).sum::<usize>(), (0..10).sum());
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter"))]
 fn test_monad_laws_associativity() {
     fn f(x: usize) -> impl Iterator<Item = usize> {
         0..x
@@ -89,6 +112,7 @@ fn test_monad_laws_associativity() {
 }
 
 #[test]
+#[cfg(any(not(feature = "partial_test"), feature = "test_iter"))]
 pub fn extend_for_unit() {
     let mut x = 0;
     {

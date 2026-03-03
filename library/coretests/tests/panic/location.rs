@@ -1,3 +1,5 @@
+extern crate alloc;
+use alloc::format;
 use core::panic::Location;
 
 // Note: Some of the following tests depend on the source location,
@@ -37,7 +39,7 @@ fn location_const_file() {
 fn location_const_line() {
     const CALLER: &Location<'static> = Location::caller();
     const LINE: u32 = CALLER.line();
-    assert_eq!(LINE, 38);
+    assert_eq!(LINE, 40);
 }
 
 #[test]
@@ -59,7 +61,7 @@ fn location_file_lifetime<'x>() {
 fn location_debug() {
     let f = format!("{:?}", Location::caller());
     assert!(f.contains(&format!("{:?}", file!())));
-    assert!(f.contains("60"));
+    assert!(f.contains("62"));
     assert!(f.contains("29"));
 }
 

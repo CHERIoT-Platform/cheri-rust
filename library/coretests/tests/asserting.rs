@@ -1,3 +1,5 @@
+extern crate alloc;
+use alloc::format;
 use core::asserting::{Capture, TryCaptureGeneric, TryCapturePrintable, Wrapper};
 
 macro_rules! test {

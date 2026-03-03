@@ -1,3 +1,7 @@
+extern crate alloc;
+use alloc::format;
+use alloc::string::ToString;
+
 #[test]
 fn test_nan() {
     let x = "NaN".to_string();
