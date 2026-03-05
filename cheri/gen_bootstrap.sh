@@ -47,7 +47,8 @@ fi
 if [ -e "$FILE" ]; then
   echo "$FILE already exists!"
   exit 1
-else
+fi
+
 cat > "$FILE" <<- EOF
 
 # See bootstrap.example.toml for documentation of available options
@@ -65,11 +66,25 @@ $CODEGEN_BACKENDS
 #debug = true
 #debuginfo-level = 2
 std-features = ["compiler-builtins-mem"]
+EOF
 
+if [ -n "${CUSTOM_CMAKE_FLAGS}" ]; then
+cat >> "${FILE}" <<- EOF
 [llvm]
 targets = "all"
 experimental-targets = ""
 download-ci-llvm = false
 build-config = {$CUSTOM_CMAKE_FLAGS}
+EOF
+elif [ -n "${LLVM_CONFIG_BIN-}" ]; then
+cat >> "${FILE}" <<- EOF
+[llvm]
+download-ci-llvm = false
+
+[target.$("${LLVM_CONFIG_BIN}" --host-target)]
+llvm-config = "${LLVM_CONFIG_BIN}"
+
+[target.riscv32cheriot-unknown-cheriotrtos]
+llvm-config = "${LLVM_CONFIG_BIN}"
 EOF
 fi
