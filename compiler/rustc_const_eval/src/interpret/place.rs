@@ -900,13 +900,11 @@ where
         let src_has_padding = match src.layout().backend_repr {
             BackendRepr::Scalar(_) => false,
             BackendRepr::ScalarPair(left, right)
-                if matches!(src.layout().ty.kind(), ty::Ref(..) | ty::RawPtr(..)) =>
+                if matches!(src.layout().ty.kind(), ty::Ref(..) | ty::RawPtr(..))
+                    && (self.data_layout().pointer_size() == self.data_layout().pointer_offset()) =>
             {
-                // Wide pointers never have padding, so we can avoid calling `size()`.
+                // On platforms with integral pointers wide pointers never have padding, so we can avoid calling `size()`.
                 debug_assert_eq!(
-                    
-                   
-                
                     left.in_memory_size(self) + right.in_memory_size(self),
                     src.layout().size
                 );
