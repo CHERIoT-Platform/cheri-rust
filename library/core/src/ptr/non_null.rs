@@ -99,8 +99,9 @@ impl<T: Sized> NonNull<T> {
     #[must_use]
     #[inline]
     pub const fn without_provenance(addr: NonZero<usize>) -> Self {
+        let pointer: *const T = crate::ptr::without_provenance(addr.get());
         // SAFETY: we know `addr` is non-zero and all nonzero integers are valid raw pointers.
-        unsafe { transmute(addr) }
+        unsafe { transmute(pointer) }
     }
 
     /// Creates a new `NonNull` that is dangling, but well-aligned.
