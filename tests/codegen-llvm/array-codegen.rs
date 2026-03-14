@@ -9,7 +9,7 @@ pub fn array_load(a: &[u8; 4]) -> [u8; 4] {
     // CHECK-NOT: alloca
     // CHECK: %[[ALLOCA:.+]] = alloca [4 x i8], align 1
     // CHECK-NOT: alloca
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %[[ALLOCA]], ptr[[ADDRSPACE]] align 1 %a, {{.+}} 4, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %[[ALLOCA]], ptr[[ADDRSPACE]] align 1 %a, {{.+}} 4, i1 false)
     // CHECK: %[[TEMP:.+]] = load i32, ptr[[ADDRSPACE]] %[[ALLOCA]], align 1
     // CHECK: ret i32 %[[TEMP]]
     *a
@@ -24,8 +24,8 @@ pub fn array_store(a: [u8; 4], p: &mut [u8; 4]) {
     // CHECK: %a = alloca [4 x i8]
     // CHECK-NOT: alloca
     // store i32 %0, ptr[[ADDRSPACE]] %[[TEMP]]
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %a, ptr[[ADDRSPACE]] [[TEMPALIGN]] %[[TEMP]], {{.+}} 4, i1 false)
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %p, ptr[[ADDRSPACE]] align 1 %a, {{.+}} 4, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %a, ptr[[ADDRSPACE]] [[TEMPALIGN]] %[[TEMP]], {{.+}} 4, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %p, ptr[[ADDRSPACE]] align 1 %a, {{.+}} 4, i1 false)
     *p = a;
 }
 
@@ -35,8 +35,8 @@ pub fn array_copy(a: &[u8; 4], p: &mut [u8; 4]) {
     // CHECK-NOT: alloca
     // CHECK: %[[LOCAL:.+]] = alloca [4 x i8], align 1
     // CHECK-NOT: alloca
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %[[LOCAL]], ptr[[ADDRSPACE]] align 1 %a, {{.+}} 4, i1 false)
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %p, ptr[[ADDRSPACE]] align 1 %[[LOCAL]], {{.+}} 4, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %[[LOCAL]], ptr[[ADDRSPACE]] align 1 %a, {{.+}} 4, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %p, ptr[[ADDRSPACE]] align 1 %[[LOCAL]], {{.+}} 4, i1 false)
     *p = *a;
 }
 
@@ -46,8 +46,8 @@ pub fn array_copy_1_element(a: &[u8; 1], p: &mut [u8; 1]) {
     // CHECK-NOT: alloca
     // CHECK: %[[LOCAL:.+]] = alloca [1 x i8], align 1
     // CHECK-NOT: alloca
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %[[LOCAL]], ptr[[ADDRSPACE]] align 1 %a, {{.+}} 1, i1 false)
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %p, ptr[[ADDRSPACE]] align 1 %[[LOCAL]], {{.+}} 1, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %[[LOCAL]], ptr[[ADDRSPACE]] align 1 %a, {{.+}} 1, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %p, ptr[[ADDRSPACE]] align 1 %[[LOCAL]], {{.+}} 1, i1 false)
     *p = *a;
 }
 
@@ -57,7 +57,7 @@ pub fn array_copy_2_elements(a: &[u8; 2], p: &mut [u8; 2]) {
     // CHECK-NOT: alloca
     // CHECK: %[[LOCAL:.+]] = alloca [2 x i8], align 1
     // CHECK-NOT: alloca
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %[[LOCAL]], ptr[[ADDRSPACE]] align 1 %a, {{.+}} 2, i1 false)
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %p, ptr[[ADDRSPACE]] align 1 %[[LOCAL]], {{.+}} 2, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %[[LOCAL]], ptr[[ADDRSPACE]] align 1 %a, {{.+}} 2, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 1 %p, ptr[[ADDRSPACE]] align 1 %[[LOCAL]], {{.+}} 2, i1 false)
     *p = *a;
 }

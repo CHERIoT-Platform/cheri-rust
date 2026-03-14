@@ -33,27 +33,27 @@ pub fn vector_align() -> usize {
 // CHECK-LABEL: @build_array_s
 #[no_mangle]
 pub fn build_array_s(x: [f32; 4]) -> S<4> {
-    // CHECK: call void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
     Simd(x)
 }
 
 // CHECK-LABEL: @build_array_transmute_s
 #[no_mangle]
 pub fn build_array_transmute_s(x: [f32; 4]) -> S<4> {
-    // CHECK: call void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
     unsafe { core::mem::transmute(x) }
 }
 
 // CHECK-LABEL: @build_array_t
 #[no_mangle]
 pub fn build_array_t(x: [f32; 4]) -> T {
-    // CHECK: call void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
     Simd(x)
 }
 
 // CHECK-LABEL: @build_array_transmute_t
 #[no_mangle]
 pub fn build_array_transmute_t(x: [f32; 4]) -> T {
-    // CHECK: call void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}({{.*}} align [[VECTOR_ALIGN]] {{.*}} align [[ARRAY_ALIGN]] {{.*}}, [[USIZE]] 16, i1 false)
     unsafe { core::mem::transmute(x) }
 }

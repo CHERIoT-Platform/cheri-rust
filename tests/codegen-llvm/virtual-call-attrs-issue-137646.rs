@@ -15,7 +15,7 @@ pub trait Trait {
 #[no_mangle]
 pub fn foo(trait_: &dyn Trait) {
     // CHECK-LABEL: @foo(
-    // CHECK: call void
+    // CHECK: call[[ADDRSPACE]] void
     // CHECK-NOT: readonly
     trait_.m((1, 1, 1));
 }

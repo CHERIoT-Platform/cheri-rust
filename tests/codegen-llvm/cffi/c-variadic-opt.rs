@@ -13,7 +13,7 @@ extern "C" {
 // when the "spoofed" `VaList` is not used.
 #[no_mangle]
 pub unsafe extern "C" fn c_variadic_no_use(fmt: *const i8, mut ap: ...) -> i32 {
-    // CHECK: call void @llvm.va_start
+    // CHECK: call[[ADDRSPACE]] void @llvm.va_start
     vprintf(fmt, ap)
-    // CHECK: call void @llvm.va_end
+    // CHECK: call[[ADDRSPACE]] void @llvm.va_end
 }

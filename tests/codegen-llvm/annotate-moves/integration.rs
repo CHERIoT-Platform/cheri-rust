@@ -21,8 +21,8 @@ struct ExplicitCopy {
 impl Clone for ExplicitCopy {
     // CHECK-LABEL: <integration::ExplicitCopy as core::clone::Clone>::clone
     fn clone(&self) -> Self {
-        // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#EXPLICIT_COPY_LOC:]]
-        // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#EXPLICIT_RETURN_LOC:]]
+        // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#EXPLICIT_COPY_LOC:]]
+        // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#EXPLICIT_RETURN_LOC:]]
         Self { data: self.data }
     }
 }
@@ -35,8 +35,8 @@ struct NonCopyStruct {
 impl Clone for NonCopyStruct {
     // CHECK-LABEL: <integration::NonCopyStruct as core::clone::Clone>::clone
     fn clone(&self) -> Self {
-        // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#CLONE_COPY_LOC:]]
-        // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#CLONE_RETURN_LOC:]]
+        // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#CLONE_COPY_LOC:]]
+        // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#CLONE_RETURN_LOC:]]
         NonCopyStruct { data: self.data }
     }
 }
@@ -45,7 +45,7 @@ impl Clone for NonCopyStruct {
 pub fn test_pure_assignment_move() {
     let arr: LargeArray = [42; 20];
     // Arrays are initialized with a loop
-    // CHECK-NOT: call void @llvm.memcpy{{.*}}, !dbg ![[#]]
+    // CHECK-NOT: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#]]
     let _moved = arr;
 }
 
@@ -53,9 +53,9 @@ pub fn test_pure_assignment_move() {
 pub fn test_pure_assignment_copy() {
     let s = ExplicitCopy { data: [42; 20] };
     // Arrays are initialized with a loop
-    // CHECK-NOT: call void @llvm.memcpy{{.*}}, !dbg ![[#]]
+    // CHECK-NOT: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#]]
     let _copied = s;
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#ASSIGN_COPY2_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#ASSIGN_COPY2_LOC:]]
     let _copied_2 = s;
 }
 
@@ -70,7 +70,7 @@ struct InitializeStruct {
 pub fn test_init_struct() {
     let mut s = InitializeStruct::default();
 
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#INIT_STRUCT_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#INIT_STRUCT_LOC:]]
     s = InitializeStruct {
         field1: String::from("Hello"),
         field2: String::from("from"),
@@ -83,7 +83,7 @@ pub fn test_tuple_of_scalars() {
     // Tuple of scalars (even if large) may use scalar-pair repr, so may not be annotated
     let t: (u64, u64, u64, u64) = (1, 2, 3, 4); // 32 bytes
     // Copied with explicit stores
-    // CHECK-NOT: call void @llvm.memcpy{{.*}}, !dbg ![[#]]
+    // CHECK-NOT: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#]]
     let _moved = t;
 }
 
@@ -92,7 +92,7 @@ pub fn test_tuple_of_structs() {
     let s1 = NonCopyStruct { data: [1; 20] };
     let s2 = NonCopyStruct { data: [2; 20] };
     let tuple = (s1, s2); // Large tuple containing structs (320 bytes)
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#TUPLE_MOVE_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#TUPLE_MOVE_LOC:]]
     let _moved = tuple;
 }
 
@@ -100,7 +100,7 @@ pub fn test_tuple_of_structs() {
 pub fn test_tuple_mixed() {
     let s = NonCopyStruct { data: [1; 20] };
     let tuple = (42u64, s); // Mixed tuple (168 bytes: 8 for u64 + 160 for struct)
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#MIXED_TUPLE_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#MIXED_TUPLE_LOC:]]
     let _moved = tuple;
 }
 
@@ -108,9 +108,9 @@ pub fn test_tuple_mixed() {
 pub fn test_explicit_copy_assignment() {
     let c1 = ExplicitCopy { data: [1; 20] };
     // Initialized with loop
-    // CHECK-NOT: call void @llvm.memcpy{{.*}}, !dbg ![[#]]
+    // CHECK-NOT: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#]]
     let c2 = c1;
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#COPY2_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#COPY2_LOC:]]
     let _c3 = c1; // Can still use c1 (it was copied)
     let _ = c2;
 }
@@ -119,23 +119,23 @@ pub fn test_explicit_copy_assignment() {
 pub fn test_array_move() {
     let arr: [String; 20] = core::array::from_fn(|i| i.to_string());
 
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#ARRAY_MOVE_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#ARRAY_MOVE_LOC:]]
     let _moved = arr;
 }
 
 // CHECK-LABEL: integration::test_array_in_struct_field
 pub fn test_array_in_struct_field() {
     let s = NonCopyStruct { data: [1; 20] };
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#FIELD_MOVE_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#FIELD_MOVE_LOC:]]
     let data = s.data; // Move array field out of struct
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#FIELD_MOVE2_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#FIELD_MOVE2_LOC:]]
     let _moved = data;
 }
 
 // CHECK-LABEL: integration::test_clone_noncopy
 pub fn test_clone_noncopy() {
     let s = NonCopyStruct { data: [1; 20] };
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#CALL_CLONE_NONCOPY_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#CALL_CLONE_NONCOPY_LOC:]]
     let _cloned = s.clone(); // The copy happens inside the clone() impl above
 }
 
@@ -143,13 +143,13 @@ pub fn test_clone_noncopy() {
 pub fn test_clone_explicit_copy() {
     let c = ExplicitCopy { data: [1; 20] };
     // Derived Clone on Copy type - the copy happens inside the generated clone impl
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#CALL_CLONE_COPY_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#CALL_CLONE_COPY_LOC:]]
     let _cloned = c.clone();
 }
 
 // CHECK-LABEL: integration::test_copy_ref
 pub fn test_copy_ref(x: &ExplicitCopy) {
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#LOCAL_COPY_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#LOCAL_COPY_LOC:]]
     let _local = *x;
 }
 

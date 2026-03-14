@@ -32,10 +32,10 @@ struct CloneOnly {
 // CHECK-LABEL: define {{.*}}@clone_only(
 #[no_mangle]
 pub fn clone_only(v: &CloneOnly) -> CloneOnly {
-    // CHECK-NOT: call {{.*}}clone
+    // CHECK-NOT: call[[ADDRSPACE]] {{.*}}clone
     // CHECK-NOT: store i8
     // CHECK-NOT: store i32
-    // CHECK: call void @llvm.memcpy
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy
     // CHECK-NEXT: ret void
     v.clone()
 }

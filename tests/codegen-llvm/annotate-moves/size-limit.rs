@@ -13,7 +13,7 @@ impl Clone for Struct99 {
     // CHECK-LABEL: <size_limit::Struct99 as core::clone::Clone>::clone
     fn clone(&self) -> Self {
         // Should NOT be annotated since 99 < 100
-        // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#SZ99_COPY_LOC:]]
+        // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#SZ99_COPY_LOC:]]
         Struct99 { data: self.data }
     }
 }
@@ -41,8 +41,8 @@ const _: () = { assert!(size_of::<Struct100>() == 100) };
 impl Clone for Struct100 {
     // CHECK-LABEL: <size_limit::Struct100 as core::clone::Clone>::clone
     fn clone(&self) -> Self {
-        // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#SZ100_COPY_LOC:]]
-        // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#SZ100_RETURN_LOC:]]
+        // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#SZ100_COPY_LOC:]]
+        // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#SZ100_RETURN_LOC:]]
         Struct100 { data: self.data }
     }
 }
@@ -56,7 +56,7 @@ pub fn test_100_copy() {
 // CHECK-LABEL: size_limit::test_100_move
 pub fn test_100_move() {
     let sz100 = Struct100 { data: [42; 100] };
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#SZ100_MOVE_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#SZ100_MOVE_LOC:]]
     let _moved = sz100;
 }
 
@@ -69,8 +69,8 @@ const _: () = { assert!(size_of::<Struct101>() == 101) };
 impl Clone for Struct101 {
     // CHECK-LABEL: <size_limit::Struct101 as core::clone::Clone>::clone
     fn clone(&self) -> Self {
-        // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#SZ101_COPY_LOC:]]
-        // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#SZ101_RETURN_LOC:]]
+        // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#SZ101_COPY_LOC:]]
+        // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#SZ101_RETURN_LOC:]]
         Struct101 { data: self.data }
     }
 }
@@ -84,7 +84,7 @@ pub fn test_101_copy() {
 // CHECK-LABEL: size_limit::test_101_move
 pub fn test_101_move() {
     let sz101 = Struct101 { data: [42; 101] };
-    // CHECK: call void @llvm.memcpy{{.*}}, !dbg ![[#SZ101_MOVE_LOC:]]
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy{{.*}}, !dbg ![[#SZ101_MOVE_LOC:]]
     let _moved = sz101;
 }
 

@@ -8,7 +8,7 @@ type T = [u8; 256];
 
 #[no_mangle]
 pub fn f(a: T, b: fn(_: T, _: T)) {
-    // CHECK: call void @llvm.memcpy.{{.*}}(ptr[[ADDRSPACE]] align 1 %{{.*}}, ptr[[ADDRSPACE]] align 1 %{{.*}}, {{.*}} 256, i1 false)
-    // CHECK-NOT: call void @llvm.memcpy.{{.*}}(ptr[[ADDRSPACE]] align 1 %{{.*}}, ptr[[ADDRSPACE]] align 1 %{{.*}}, {{.*}} 256, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.*}}(ptr[[ADDRSPACE]] align 1 %{{.*}}, ptr[[ADDRSPACE]] align 1 %{{.*}}, {{.*}} 256, i1 false)
+    // CHECK-NOT: call[[ADDRSPACE]] void @llvm.memcpy.{{.*}}(ptr[[ADDRSPACE]] align 1 %{{.*}}, ptr[[ADDRSPACE]] align 1 %{{.*}}, {{.*}} 256, i1 false)
     b(a, a)
 }

@@ -256,27 +256,27 @@ pub fn f64_as_f128(a: f64) -> f128 {
 // CHECK-LABEL: i8 @f128_as_u8(
 #[no_mangle]
 pub fn f128_as_u8(a: f128) -> u8 {
-    // CHECK: call i8 @llvm.fptoui.sat.i8.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i8 @llvm.fptoui.sat.i8.f128(fp128 %{{.+}})
     a as u8
 }
 
 #[no_mangle]
 pub fn f128_as_u16(a: f128) -> u16 {
-    // CHECK: call i16 @llvm.fptoui.sat.i16.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i16 @llvm.fptoui.sat.i16.f128(fp128 %{{.+}})
     a as u16
 }
 
 // CHECK-LABEL: i32 @f128_as_u32(
 #[no_mangle]
 pub fn f128_as_u32(a: f128) -> u32 {
-    // CHECK: call i32 @llvm.fptoui.sat.i32.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i32 @llvm.fptoui.sat.i32.f128(fp128 %{{.+}})
     a as u32
 }
 
 // CHECK-LABEL: i64 @f128_as_u64(
 #[no_mangle]
 pub fn f128_as_u64(a: f128) -> u64 {
-    // CHECK: call i64 @llvm.fptoui.sat.i64.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i64 @llvm.fptoui.sat.i64.f128(fp128 %{{.+}})
     a as u64
 }
 
@@ -287,34 +287,34 @@ pub fn f128_as_u64(a: f128) -> u64 {
 // emscripten-LABEL: void @f128_as_u128({{.*}}sret([16 x i8])
 #[no_mangle]
 pub fn f128_as_u128(a: f128) -> u128 {
-    // CHECK: call i128 @llvm.fptoui.sat.i128.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i128 @llvm.fptoui.sat.i128.f128(fp128 %{{.+}})
     a as u128
 }
 
 // CHECK-LABEL: i8 @f128_as_i8(
 #[no_mangle]
 pub fn f128_as_i8(a: f128) -> i8 {
-    // CHECK: call i8 @llvm.fptosi.sat.i8.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i8 @llvm.fptosi.sat.i8.f128(fp128 %{{.+}})
     a as i8
 }
 
 // CHECK-LABEL: i16 @f128_as_i16(
 #[no_mangle]
 pub fn f128_as_i16(a: f128) -> i16 {
-    // CHECK: call i16 @llvm.fptosi.sat.i16.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i16 @llvm.fptosi.sat.i16.f128(fp128 %{{.+}})
     a as i16
 }
 // CHECK-LABEL: i32 @f128_as_i32(
 #[no_mangle]
 pub fn f128_as_i32(a: f128) -> i32 {
-    // CHECK: call i32 @llvm.fptosi.sat.i32.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i32 @llvm.fptosi.sat.i32.f128(fp128 %{{.+}})
     a as i32
 }
 
 // CHECK-LABEL: i64 @f128_as_i64(
 #[no_mangle]
 pub fn f128_as_i64(a: f128) -> i64 {
-    // CHECK: call i64 @llvm.fptosi.sat.i64.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i64 @llvm.fptosi.sat.i64.f128(fp128 %{{.+}})
     a as i64
 }
 
@@ -325,7 +325,7 @@ pub fn f128_as_i64(a: f128) -> i64 {
 // emscripten-LABEL: void @f128_as_i128({{.*}}sret([16 x i8])
 #[no_mangle]
 pub fn f128_as_i128(a: f128) -> i128 {
-    // CHECK: call i128 @llvm.fptosi.sat.i128.f128(fp128 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] i128 @llvm.fptosi.sat.i128.f128(fp128 %{{.+}})
     a as i128
 }
 

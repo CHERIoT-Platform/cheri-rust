@@ -32,7 +32,7 @@ pub const fn fully_uninit() -> MaybeUninit<[u8; 10]> {
 #[no_mangle]
 pub const fn partially_uninit() -> PartiallyUninit {
     const X: PartiallyUninit = PartiallyUninit { x: 0xdeadbeef, y: MaybeUninit::uninit() };
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 4 %_0, ptr[[ADDRSPACE]] align 4 {{.*}}[[PARTIALLY_UNINIT]]{{.*}}, i{{(32|64)}} 16, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 4 %_0, ptr[[ADDRSPACE]] align 4 {{.*}}[[PARTIALLY_UNINIT]]{{.*}}, i{{(32|64)}} 16, i1 false)
     X
 }
 
@@ -40,7 +40,7 @@ pub const fn partially_uninit() -> PartiallyUninit {
 #[no_mangle]
 pub const fn uninit_padding_huge() -> [(u32, u8); 4096] {
     const X: [(u32, u8); 4096] = [(123, 45); 4096];
-    // CHECK: call void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 4 %_0, ptr[[ADDRSPACE]] align 4 {{.*}}[[UNINIT_PADDING_HUGE]]{{.*}}, i{{(32|64)}} 32768, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.+}}(ptr[[ADDRSPACE]] align 4 %_0, ptr[[ADDRSPACE]] align 4 {{.*}}[[UNINIT_PADDING_HUGE]]{{.*}}, i{{(32|64)}} 32768, i1 false)
     X
 }
 

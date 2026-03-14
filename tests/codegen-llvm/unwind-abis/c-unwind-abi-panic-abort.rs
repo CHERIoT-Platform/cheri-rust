@@ -15,9 +15,9 @@
 #[no_mangle]
 pub unsafe extern "C-unwind" fn rust_item_that_can_unwind() {
     // Handle both legacy and v0 symbol mangling.
-    // NONWASM: call void @{{.*core9panicking19panic_cannot_unwind}}
-    // WASMEXN: call void @{{.*core9panicking19panic_cannot_unwind}}
-    // WASM-NOT: call void @{{.*core9panicking19panic_cannot_unwind}}
+    // NONWASM: call[[ADDRSPACE]] void @{{.*core9panicking19panic_cannot_unwind}}
+    // WASMEXN: call[[ADDRSPACE]] void @{{.*core9panicking19panic_cannot_unwind}}
+    // WASM-NOT: call[[ADDRSPACE]] void @{{.*core9panicking19panic_cannot_unwind}}
     may_unwind();
 }
 

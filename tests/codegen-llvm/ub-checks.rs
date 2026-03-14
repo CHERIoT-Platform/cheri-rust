@@ -19,7 +19,7 @@ use core::ops::Range;
 #[no_mangle]
 pub unsafe fn slice_get_unchecked(x: &[i32], i: usize) -> &i32 {
     //    CHECK: icmp ult
-    // NOCHECKS: tail call void @llvm.assume
+    // NOCHECKS: tail call[[ADDRSPACE]] void @llvm.assume
     //    DEBUG: br i1
     //    DEBUG: call core::panicking::panic_nounwind
     //    DEBUG: unreachable

@@ -39,7 +39,7 @@ pub fn foo(x: bool) {
 
     let l2 = unsafe { *foo.as_mut_ptr() };
     if l2 == 2 {
-        // CHECK: call void @bar
+        // CHECK: call[[ADDRSPACE]] void @bar
         unsafe {
             bar();
         }

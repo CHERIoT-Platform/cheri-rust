@@ -9,10 +9,10 @@ use alloc::vec::Vec;
 // CHECK-LABEL: @should_reserve_once
 #[no_mangle]
 pub fn should_reserve_once(v: &mut Vec<u8>) {
-    // CHECK: tail call void @llvm.assume
+    // CHECK: tail call[[ADDRSPACE]] void @llvm.assume
     v.try_reserve(3).unwrap();
-    // CHECK-NOT: call {{.*}}reserve
-    // CHECK-NOT: call {{.*}}do_reserve_and_handle
-    // CHECK-NOT: call {{.*}}__rust_alloc(
+    // CHECK-NOT: call[[ADDRSPACE]] {{.*}}reserve
+    // CHECK-NOT: call[[ADDRSPACE]] {{.*}}do_reserve_and_handle
+    // CHECK-NOT: call[[ADDRSPACE]] {{.*}}__rust_alloc(
     v.extend([1, 2, 3]);
 }
