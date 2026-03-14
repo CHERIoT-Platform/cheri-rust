@@ -24,6 +24,6 @@ pub fn do_repeat<T: Copy, const N: usize>(x: T) -> Wrapper<T, N> {
 // CHECK-LABEL: @trigger_repeat_zst_elem
 #[no_mangle]
 pub fn trigger_repeat_zst_elem() -> Wrapper<(), 8> {
-    // CHECK: call void {{.+}}do_repeat{{.+}}()
+    // CHECK: call[[ADDRSPACE]] void {{.+}}do_repeat{{.+}}()
     do_repeat(())
 }

@@ -10,5 +10,5 @@ use alloc::vec::Vec;
 #[no_mangle]
 fn copy_to_vec(s: &[u64]) -> Vec<u64> {
     s.to_vec()
-    // CHECK: call void @llvm.memcpy
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy
 }

@@ -32,7 +32,7 @@ pub enum Enum64 {
 #[no_mangle]
 pub fn align64(i: i32) -> Align64 {
     // CHECK: %a64 = alloca [64 x i8], align 64
-    // CHECK: call void @llvm.memcpy.{{.*}}(ptr[[ADDRSPACE]] align 64 %{{.*}}, ptr[[ADDRSPACE]] align 64 %{{.*}}, i{{[0-9]+}} 64, i1 false)
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.*}}(ptr[[ADDRSPACE]] align 64 %{{.*}}, ptr[[ADDRSPACE]] align 64 %{{.*}}, i{{[0-9]+}} 64, i1 false)
     let a64 = Align64(i);
     a64
 }

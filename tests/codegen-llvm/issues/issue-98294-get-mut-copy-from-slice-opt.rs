@@ -9,7 +9,7 @@
 pub fn test(a: &mut [u8], offset: usize, bytes: &[u8]) {
     // CHECK-LABEL: @test(
     // CHECK-NOT: call
-    // CHECK: call void @llvm.memcpy
+    // CHECK: call[[ADDRSPACE]] void @llvm.memcpy
     // CHECK-NOT: call
     // CHECK: }
     if let Some(dst) = a.get_mut(offset..offset + bytes.len()) {

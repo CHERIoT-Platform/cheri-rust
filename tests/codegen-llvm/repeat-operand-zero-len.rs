@@ -24,6 +24,6 @@ pub fn do_repeat<T: Copy, const N: usize>(x: T) -> Wrapper<T, N> {
 // CHECK-LABEL: @trigger_repeat_zero_len
 #[no_mangle]
 pub fn trigger_repeat_zero_len() -> Wrapper<u32, 0> {
-    // CHECK: call void {{.+}}do_repeat{{.+}}(i32 noundef{{( signext)?}} 4)
+    // CHECK: call[[ADDRSPACE]] void {{.+}}do_repeat{{.+}}(i32 noundef{{( signext)?}} 4)
     do_repeat(4)
 }
