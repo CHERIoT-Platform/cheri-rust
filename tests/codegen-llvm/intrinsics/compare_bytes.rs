@@ -13,7 +13,7 @@ use core::intrinsics::compare_bytes;
 #[no_mangle]
 // CHECK-LABEL: @bytes_cmp(
 pub unsafe fn bytes_cmp(a: *const u8, b: *const u8, n: usize) -> i32 {
-    // INT32: %[[TEMP:.+]] = tail call i32 @memcmp(ptr[[ADDRSPACE]] %a, ptr[[ADDRSPACE]] %b, {{i32|i64}} %n)
+    // INT32: %[[TEMP:.+]] = tail call[[ADDRSPACE]] i32 @memcmp(ptr[[ADDRSPACE]] %a, ptr[[ADDRSPACE]] %b, {{i32|i64}} %n)
     // INT32-NOT: sext
     // INT32: ret i32 %[[TEMP]]
 
@@ -28,7 +28,7 @@ pub unsafe fn bytes_cmp(a: *const u8, b: *const u8, n: usize) -> i32 {
 #[no_mangle]
 // CHECK-LABEL: @bytes_eq(
 pub unsafe fn bytes_eq(a: *const u8, b: *const u8, n: usize) -> bool {
-    // CHECK: call {{.+}} @{{bcmp|memcmp}}(ptr[[ADDRSPACE]] %a, ptr[[ADDRSPACE]] %b, {{i16|i32|i64}} %n)
+    // CHECK: call[[ADDRSPACE]]{{.+}} @{{bcmp|memcmp}}(ptr[[ADDRSPACE]] %a, ptr[[ADDRSPACE]] %b, {{i16|i32|i64}} %n)
     // CHECK-NOT: sext
     // INT32: icmp eq i32
     // INT16: icmp eq i16

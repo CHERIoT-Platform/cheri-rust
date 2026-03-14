@@ -15,9 +15,9 @@ use alloc::string::String;
 // CHECK-LABEL: @check_no_escape_in_landingpad
 // CHECK: start:
 // CHECK-NEXT: ; call __rustc::__rust_no_alloc_shim_is_unstable_v2
-// CHECK-NEXT: tail call void @[[NO_ALLOC_SHIM:_R.+__rust_no_alloc_shim_is_unstable_v2]]()
+// CHECK-NEXT: tail call[[ADDRSPACE]] void @[[NO_ALLOC_SHIM:_R.+__rust_no_alloc_shim_is_unstable_v2]]()
 // CHECK-NEXT: ; call __rustc::__rust_no_alloc_shim_is_unstable_v2
-// CHECK-NEXT: tail call void @[[NO_ALLOC_SHIM]]()
+// CHECK-NEXT: tail call[[ADDRSPACE]] void @[[NO_ALLOC_SHIM]]()
 // CHECK-NEXT: ret void
 #[no_mangle]
 pub fn check_no_escape_in_landingpad(f: fn()) {
@@ -34,7 +34,7 @@ pub fn check_no_escape_in_landingpad(f: fn()) {
 // With inlining, the landing pad should be optimized out.
 // See https://github.com/rust-lang/rust/issues/87055
 // CHECK-LABEL: @check_eliminate_noop_drop
-// CHECK: call void %g()
+// CHECK: call[[ADDRSPACE]] void %g()
 // CHECK-NEXT: ret void
 #[no_mangle]
 pub fn check_eliminate_noop_drop(g: fn()) {

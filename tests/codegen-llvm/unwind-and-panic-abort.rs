@@ -15,9 +15,9 @@ extern "C-unwind" {
 // CHECK: Function Attrs:{{.*}}nounwind
 // CHECK-NEXT: define{{.*}}void @foo
 // Handle both legacy and v0 symbol mangling.
-// NONWASM: call void @{{.*core9panicking19panic_cannot_unwind}}
-// WASMEXN: call void @{{.*core9panicking19panic_cannot_unwind}}
-// WASM-NOT: call void @{{.*core9panicking19panic_cannot_unwind}}
+// NONWASM: call[[ADDRSPACE]] void @{{.*core9panicking19panic_cannot_unwind}}
+// WASMEXN: call[[ADDRSPACE]] void @{{.*core9panicking19panic_cannot_unwind}}
+// WASM-NOT: call[[ADDRSPACE]] void @{{.*core9panicking19panic_cannot_unwind}}
 #[no_mangle]
 pub unsafe extern "C" fn foo() {
     bar();

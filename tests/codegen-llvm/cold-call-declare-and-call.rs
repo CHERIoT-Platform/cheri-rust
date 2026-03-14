@@ -11,7 +11,7 @@
 // wasm marks the definition as `dso_local`, so allow that as optional.
 
 // NORMAL: define{{( dso_local)?}} preserve_mostcc void @this_should_never_happen(i16
-// NORMAL: call preserve_mostcc void @this_should_never_happen(i16
+// NORMAL: call preserve_mostcc[[ADDRSPACE]] void @this_should_never_happen(i16
 
 // See the comment in `Target::adjust_abi` for why this differs
 

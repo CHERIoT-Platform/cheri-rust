@@ -20,7 +20,7 @@ pub fn boolean(x: bool) -> bool {
 // CHECK-LABEL: @boolean_call
 #[no_mangle]
 pub fn boolean_call(x: bool, f: fn(bool) -> bool) -> bool {
-    // CHECK: call zeroext i1 %f(i1 zeroext %x)
+    // CHECK: call zeroext[[ADDRSPACE]] i1 %f(i1 zeroext %x)
     f(x)
 }
 
@@ -39,7 +39,7 @@ pub fn borrow_mut(x: &mut i32) -> &mut i32 {
 // CHECK-LABEL: @borrow_call
 #[no_mangle]
 pub fn borrow_call(x: &i32, f: fn(&i32) -> &i32) -> &i32 {
-    // CHECK: call align 4 ptr[[ADDRSPACE]] %f(ptr[[ADDRSPACE]] align 4 %x)
+    // CHECK: call align 4[[ADDRSPACE]] ptr[[ADDRSPACE]] %f(ptr[[ADDRSPACE]] align 4 %x)
     f(x)
 }
 
@@ -52,7 +52,7 @@ pub fn struct_(x: S) -> S {
 // CHECK-LABEL: @struct_call
 #[no_mangle]
 pub fn struct_call(x: S, f: fn(S) -> S) -> S {
-    // CHECK: call void %f(ptr[[ADDRSPACE]] sret([32 x i8]) align 4{{( %_0)?}}, ptr[[ADDRSPACE]] align 4 %{{.+}})
+    // CHECK: call[[ADDRSPACE]] void %f(ptr[[ADDRSPACE]] sret([32 x i8]) align 4{{( %_0)?}}, ptr[[ADDRSPACE]] align 4 %{{.+}})
     f(x)
 }
 
@@ -65,6 +65,6 @@ pub fn enum_(x: Option<u8>) -> Option<u8> {
 // CHECK-LABEL: @enum_call
 #[no_mangle]
 pub fn enum_call(x: Option<u8>, f: fn(Option<u8>) -> Option<u8>) -> Option<u8> {
-    // CHECK: call { i1, i8 } %f(i1 zeroext %x.0, i8 %x.1)
+    // CHECK: call[[ADDRSPACE]] { i1, i8 } %f(i1 zeroext %x.0, i8 %x.1)
     f(x)
 }

@@ -17,7 +17,7 @@ pub fn rotate_left_by_one(slice: &mut [i32]) {
     // CHECK-NEXT: %[[DIM:.+]] = getelementptr
     // CHECK-NEXT: %[[LAST:.+]] = load
     // CHECK-NEXT: %[[FIRST:.+]] = shl
-    // CHECK-NEXT: call void @llvm.memmove
+    // CHECK-NEXT: call[[ADDRSPACE]] void @llvm.memmove
     // CHECK-NEXT: store i32 %[[LAST]], ptr[[ADDRSPACE]] %[[DIM:.+]]
     // CHECK-NOT: phi
     // CHECK-NOT: call

@@ -16,8 +16,8 @@ pub fn is_empty_1(xs: Iter<f32>) -> bool {
     // CHECK-LABEL: @is_empty_1(
     // CHECK-NEXT:  start:
     // old-NEXT:    [[A:%.*]] = icmp ne ptr[[ADDRSPACE]] {{%xs.0|%xs.1}}, null
-    // old-NEXT:    tail call void @llvm.assume(i1 [[A]])
-    // new-NEXT:    call void @llvm.assume(i1 true) [ "nonnull"(ptr {{%xs.0|%xs.1}}) ]
+    // old-NEXT:    tail call[[ADDRSPACE]] void @llvm.assume(i1 [[A]])
+    // new-NEXT:    call[[ADDRSPACE]] void @llvm.assume(i1 true) [ "nonnull"(ptr {{%xs.0|%xs.1}}) ]
     // The order between %xs.0 and %xs.1 on the next line doesn't matter
     // and different LLVM versions produce different order.
     // CHECK-NEXT:    [[B:%.*]] = icmp eq ptr[[ADDRSPACE]] {{%xs.0, %xs.1|%xs.1, %xs.0}}
@@ -30,8 +30,8 @@ pub fn is_empty_2(xs: Iter<f32>) -> bool {
     // CHECK-LABEL: @is_empty_2
     // CHECK-NEXT:  start:
     // old-NEXT:    [[C:%.*]] = icmp ne ptr[[ADDRSPACE]]  {{%xs.0|%xs.1}}, null
-    // old-NEXT:    tail call void @llvm.assume(i1 [[C]])
-    // new-NEXT:    call void @llvm.assume(i1 true) [ "nonnull"(ptr {{%xs.0|%xs.1}}) ]
+    // old-NEXT:    tail call[[ADDRSPACE]] void @llvm.assume(i1 [[C]])
+    // new-NEXT:    call[[ADDRSPACE]] void @llvm.assume(i1 true) [ "nonnull"(ptr {{%xs.0|%xs.1}}) ]
     // The order between %xs.0 and %xs.1 on the next line doesn't matter
     // and different LLVM versions produce different order.
     // CHECK-NEXT:    [[D:%.*]] = icmp eq ptr[[ADDRSPACE]] {{%xs.0, %xs.1|%xs.1, %xs.0}}

@@ -20,7 +20,7 @@ pub fn example() {
 }
 
 // CHECK-LABEL: @example
-// CHECK:   tail call void @bar(){{( #[0-9]+)?}}, !dbg [[DBG_ID:![0-9]+]]
+// CHECK:   tail call[[ADDRSPACE]] void @bar(){{( #[0-9]+)?}}, !dbg [[DBG_ID:![0-9]+]]
 // CHECK: [[DBG_ID]] = !DILocation(line: 8,
 // CHECK-SAME:                     inlinedAt: [[INLINE_ID:![0-9]+]])
 // CHECK: [[INLINE_ID]] = !DILocation(line: 19,

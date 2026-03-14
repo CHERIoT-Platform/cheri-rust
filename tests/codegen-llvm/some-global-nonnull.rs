@@ -5,7 +5,7 @@
 
 // CHECK-LABEL: @test
 // CHECK-NEXT: start:
-// CHECK-NEXT: tail call void @ext_fn0()
+// CHECK-NEXT: tail call[[ADDRSPACE]] void @ext_fn0()
 #[no_mangle]
 pub fn test() {
     test_inner(Some(inner0));
