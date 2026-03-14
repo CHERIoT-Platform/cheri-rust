@@ -51,4 +51,7 @@ pub fn _eprint(args: core::fmt::Arguments) {
     drop(str);
 }
 
-pub use {eprint, eprintln, print, println};
+pub use eprint;
+pub use eprintln;
+pub use print;
+pub use println;

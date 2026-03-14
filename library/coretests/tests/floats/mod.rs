@@ -302,7 +302,8 @@ macro_rules! assert_biteq_const {
 
 // Use the runtime version by default.
 // This way, they can be shadowed by the const versions.
-pub(crate) use {assert_approx_eq_rt as assert_approx_eq, assert_biteq_rt as assert_biteq};
+pub(crate) use assert_approx_eq_rt as assert_approx_eq;
+pub(crate) use assert_biteq_rt as assert_biteq;
 
 // Also make the const version available for re-exports.
 #[rustfmt::skip]

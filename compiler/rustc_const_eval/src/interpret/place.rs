@@ -890,7 +890,8 @@ where
             BackendRepr::Scalar(_) => false,
             BackendRepr::ScalarPair(left, right)
                 if matches!(src.layout().ty.kind(), ty::Ref(..) | ty::RawPtr(..))
-                    && (self.data_layout().pointer_size() == self.data_layout().pointer_offset()) =>
+                    && (self.data_layout().pointer_size()
+                        == self.data_layout().pointer_offset()) =>
             {
                 // On platforms with integral pointers wide pointers never have padding, so we can avoid calling `size()`.
                 debug_assert_eq!(
