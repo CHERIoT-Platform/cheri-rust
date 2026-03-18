@@ -17,7 +17,7 @@ x_test_task:
     - set -eo pipefail
     - apt-get update
     - apt-get install -y pkg-config clang ninja-build lld cmake ccache perl libssl-dev
-  gen_bootstrap_script: ./cheri/gen_bootstrap.sh && cat bootstrap.toml
+  gen_bootstrap_script: ./cheri/gen_bootstrap.py -v
   setup_env_script:
     - echo "CCACHE_REMOTE_STORAGE=http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/" >> $CIRRUS_ENV
     - echo "CCACHE_REMOTE_ONLY=1" >> $CIRRUS_ENV
@@ -40,7 +40,7 @@ build_core_task:
     - set -eo pipefail
     - apt-get update
     - apt-get install -y clang ninja-build lld cmake ccache perl
-  gen_bootstrap_script: ./cheri/gen_bootstrap.sh
+  gen_bootstrap_script: ./cheri/gen_bootstrap.py -v
   setup_env_script:
     - echo "CCACHE_REMOTE_STORAGE=http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/" >> $CIRRUS_ENV
     - echo "CCACHE_REMOTE_ONLY=1" >> $CIRRUS_ENV
@@ -73,7 +73,7 @@ run_cheri_tests_task:
     - eval $(opam env)
     - opam install sail --confirm-level=unsafe-yes
     - cd cheriot-sail && make csim && cp c_emulator/cheriot_sim /usr/local/bin
-  gen_bootstrap_script: ./cheri/gen_bootstrap.sh --build-clang
+  gen_bootstrap_script: ./cheri/gen_bootstrap.py --build-clang -v
   setup_env_script:
     - echo "CCACHE_REMOTE_STORAGE=http://${CIRRUS_HTTP_CACHE_HOST}/${CIRRUS_OS}/" >> $CIRRUS_ENV
     - echo "CCACHE_REMOTE_ONLY=1" >> $CIRRUS_ENV
