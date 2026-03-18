@@ -1,5 +1,6 @@
 // Test that `-Cprofile-generate` creates expected instrumentation artifacts in LLVM IR.
 
+//@ ignore-riscv32cheriot-unknown-cheriotrtos See CHERIoT-Platform/cheri-rust/issues/129
 //@ compile-flags: -Zno-profiler-runtime
 //@ compile-flags: -Cprofile-generate -Ccodegen-units=1
 
