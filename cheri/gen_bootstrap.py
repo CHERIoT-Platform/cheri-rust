@@ -24,7 +24,7 @@ import os
 
 
 # No support to _write_ TOML files in Python's stdlib, so we gotta roll our own small writer.
-def dict_to_toml_lines(obj: dict) -> list[str]:
+def dict_to_toml_lines(current_obj: list[str], obj: dict) -> list[str]:
 
     def value_to_toml(v) -> str:
         assert isinstance(v, str) or isinstance(v, bool)
@@ -46,8 +46,9 @@ def dict_to_toml_lines(obj: dict) -> list[str]:
             lines.append(f"{k} = [{', '.join([value_to_toml(i) for i in v])}]")
 
         elif isinstance(v, dict):
-            lines.append(f"\n[{k}]")
-            lines.extend(dict_to_toml_lines(v))
+            next_obj = current_obj + [k]
+            lines.append(f"\n[{'.'.join(next_obj)}]")
+            lines.extend(dict_to_toml_lines(next_obj, v))
 
         else:
             assert False, ("Unsupported TOML key-value pair: ", k, v, type(v))
@@ -56,7 +57,7 @@ def dict_to_toml_lines(obj: dict) -> list[str]:
 
 
 def to_toml(obj: dict) -> str:
-    return "\n".join(dict_to_toml_lines(obj))
+    return "\n".join(dict_to_toml_lines([], obj))
 
 
 # Small helper to avoid always doing "if self.verbose:".
