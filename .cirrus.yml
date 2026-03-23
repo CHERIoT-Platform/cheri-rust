@@ -9,40 +9,9 @@ gce_instance:
   disk: 60
   spot: true
 
-# -- PR tasks
-
-pr_check_commits_task:
-  skip: $CIRRUS_PR == ""
-  name: (PR) Check commits structure
-  alias: pr_check_commits
-  timeout_in: 240m
-  env:
-    GH_TOKEN: ""
-  dependencies_script:
-    - set -eo pipefail
-  # No need to clone.
-  clone_script: []
-  test_script: |
-    url=https://api.github.com/repos/CHERIoT-Platform/cheri-rust/pulls/$CIRRUS_PR
-    commits=$(curl -s -H "Accept: application/vnd.github+json" $url | jq '.commits')
-    if [[ $commits -ne 1 ]]; then
-      echo "Expected a single commit, found $commits"
-      echo "In order to facilitate cherry-picking commits into other branches,"
-      echo "please squash your commits into a single one."
-      exit 1;
-    fi
-
-# -- End PR tasks
-
 x_test_task:
   name: Run ./x test
   alias: x_test
-  # TODO(xdoardo): Figure out when it makes sense to have this dependency, or
-  #   how that dependency should actually work. Having this dependency would
-  #   pretty much mean making every PR that merges changes on `beta` to `main`
-  #   to have failing CI, which would be the reason why we want to make PRs and
-  #   not direct pushes in the first place.
-  # depends_on: (PR) Check commits structure
   timeout_in: 240m
   dependencies_script:
     - set -eo pipefail
