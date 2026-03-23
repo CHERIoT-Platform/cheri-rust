@@ -8,5 +8,5 @@ pub fn target_supports_std(target_tuple: &str) -> bool {
     !(target_tuple.contains("-none")
         || target_tuple.contains("nvptx")
         || target_tuple.contains("switch")
-        || target_tuple.contains("cheriotrtos"))
+        || (target_tuple.contains("cheriotrtos") && !target_tuple.contains("facade")))
 }
