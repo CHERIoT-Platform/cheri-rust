@@ -103,6 +103,7 @@ cfg_select! {
         pub use zkvm::fill_bytes;
     }
     any(
+        target_os = "cheriotrtos",
         all(target_family = "wasm", target_os = "unknown"),
         target_os = "xous",
         target_os = "vexos",
@@ -118,6 +119,7 @@ cfg_select! {
 #[cfg(not(any(
     target_os = "linux",
     target_os = "android",
+    target_os = "cheriotrtos",
     all(target_family = "wasm", target_os = "unknown"),
     all(target_os = "wasi", not(target_env = "p1")),
     target_os = "xous",

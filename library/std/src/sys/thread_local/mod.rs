@@ -25,6 +25,7 @@
 
 cfg_select! {
     any(
+        target_os = "cheriotrtos",
         all(target_family = "wasm", not(target_feature = "atomics")),
         target_os = "uefi",
         target_os = "zkvm",
@@ -93,6 +94,7 @@ pub(crate) mod guard {
             pub(crate) use windows::enable;
         }
         any(
+            target_os = "cheriotrtos",
             all(target_family = "wasm", not(
                 all(target_os = "wasi", target_env = "p1", target_feature = "atomics")
             )),

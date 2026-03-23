@@ -385,6 +385,7 @@ target | std | host | notes
 [`powerpc64le-unknown-freebsd`](platform-support/freebsd.md) | ✓ | ✓ | PPC64LE FreeBSD
 [`riscv32-wrs-vxworks`](platform-support/vxworks.md) | ✓ |  |
 `riscv32cheriot-unknown-cheriotrtos` | * |  | CHERIoT RISC-V (RV32E ISA)
+`riscv32cheriot-unknown-cheriotrtos.facade` | ? |   | Internal target for tests
 [`riscv32e-unknown-none-elf`](platform-support/riscv32e-unknown-none-elf.md) | * |  | Bare RISC-V (RV32E ISA)
 [`riscv32em-unknown-none-elf`](platform-support/riscv32e-unknown-none-elf.md) | * |  | Bare RISC-V (RV32EM ISA)
 [`riscv32emc-unknown-none-elf`](platform-support/riscv32e-unknown-none-elf.md) | * |  | Bare RISC-V (RV32EMC ISA)

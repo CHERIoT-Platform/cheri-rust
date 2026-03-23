@@ -69,6 +69,9 @@ unsafe fn realloc_fallback(
 }
 
 cfg_select! {
+    target_os = "cheriotrtos" => {
+        mod cheriotrtos;
+    }
     any(
         target_family = "unix",
         target_os = "wasi",
