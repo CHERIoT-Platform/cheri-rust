@@ -52,6 +52,7 @@ fn main() {
         "thumbv8m.base-nuttx-eabi",
         "thumbv8m.main-nuttx-eabi",
         "thumbv8m.main-nuttx-eabihf",
+        "riscv32cheriot-unknown-cheriotrtos.facade",
     ];
     let mut invalid_target_name_found = false;
     for target in &target_list {

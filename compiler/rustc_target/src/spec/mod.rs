@@ -1695,6 +1695,7 @@ supported_targets! {
     ("riscv32imafc-esp-espidf", riscv32imafc_esp_espidf),
 
     ("riscv32cheriot-unknown-cheriotrtos", riscv32cheriot_unknown_cheriotrtos),
+    ("riscv32cheriot-unknown-cheriotrtos.facade", riscv32cheriot_unknown_cheriotrtos_facade),
     ("riscv32e-unknown-none-elf", riscv32e_unknown_none_elf),
     ("riscv32em-unknown-none-elf", riscv32em_unknown_none_elf),
     ("riscv32emc-unknown-none-elf", riscv32emc_unknown_none_elf),
