@@ -134,6 +134,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 /// Version of `assert_matches` that ignores fancy runtime printing in const context and uses structural equality.
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 macro_rules! assert_eq_const_safe {
     ($t:ty: $left:expr, $right:expr) => {
         assert_eq_const_safe!($t: $left, $right, concat!(stringify!($left), " == ", stringify!($right)));
@@ -153,6 +154,7 @@ macro_rules! assert_eq_const_safe {
 }
 
 /// Creates a test for runtime and a test for constant-time.
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 macro_rules! test_runtime_and_compiletime {
     ($(
         $(#[$attr:meta])*
@@ -168,55 +170,120 @@ macro_rules! test_runtime_and_compiletime {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_alloc"))]
 mod alloc;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_any"))]
 mod any;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_array"))]
 mod array;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_ascii"))]
 mod ascii;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_ascii_char"))]
 mod ascii_char;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_asserting"))]
 mod asserting;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_async_iter"))]
 mod async_iter;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_atomic"))]
 mod atomic;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_bool"))]
 mod bool;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_bstr"))]
 mod bstr;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_cell"))]
 mod cell;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_char"))]
 mod char;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_clone"))]
 mod clone;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_cmp"))]
 mod cmp;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_const_ptr"))]
 mod const_ptr;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_convert"))]
 mod convert;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_ffi"))]
 mod ffi;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_fmt"))]
 mod fmt;
+#[cfg(all(target_abi = "cheriot", feature = "test_fmt_builders"))]
+#[path = "fmt/builders.rs"]
+mod fmt_builders;
+#[cfg(all(target_abi = "cheriot", feature = "test_fmt_float"))]
+#[path = "fmt/float.rs"]
+mod fmt_float;
+#[cfg(all(target_abi = "cheriot", feature = "test_fmt_num"))]
+#[path = "fmt/num.rs"]
+mod fmt_num;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_future"))]
 mod future;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_hash"))]
 mod hash;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_hint"))]
 mod hint;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_index"))]
 mod index;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_intrinsics"))]
 mod intrinsics;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_io"))]
 mod io;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_iter"))]
 mod iter;
+#[cfg(all(target_abi = "cheriot", feature = "test_iter_adapters"))]
+#[path = "iter/adapters/mod.rs"]
+mod iter_adapters;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_lazy"))]
 mod lazy;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_macros"))]
 mod macros;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_manually_drop"))]
 mod manually_drop;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_mem"))]
 mod mem;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_net"))]
 mod net;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_nonzero"))]
 mod nonzero;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod num;
+#[cfg(all(target_abi = "cheriot", feature = "test_num_rest"))]
+#[path = "num/rest.rs"]
+mod num_rest;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_ops"))]
 mod ops;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_option"))]
 mod option;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_panic"))]
 mod panic;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_pattern"))]
 mod pattern;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_pin"))]
 mod pin;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_pin_macro"))]
 mod pin_macro;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_ptr"))]
 mod ptr;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_result"))]
 mod result;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_simd"))]
 mod simd;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_slice"))]
 mod slice;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str"))]
 mod str;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_lossy"))]
 mod str_lossy;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_task"))]
 mod task;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_time"))]
 mod time;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_tuple"))]
 mod tuple;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_unicode"))]
 mod unicode;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_waker"))]
 mod waker;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_wtf8"))]
 mod wtf8;
 
 /// Copied from `std::test_helpers::test_rng`, see that function for rationale.
