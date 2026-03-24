@@ -1,5 +1,8 @@
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod builders;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriott
 mod float;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod num;
 
 #[test]
