@@ -87,6 +87,9 @@ run_cheri_tests_task:
     --rustc=../../build/host/stage1/bin/rustc
     --xmake=/root/.local/bin/xmake
   run_examples_script: cd ./cheri/examples && . "$CARGO_HOME/env" && PATH="/root/.local/bin:$PATH" ./run_examples.sh
+  regen_bootstrap_script: ./cheri/gen_bootstrap.py --build-clang --optimize-for-size -v --force
+  build_rustc_facade_script: CC="clang" CXX="clang++" ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos.facade
+  run_coretests_script: PATH="/root/.local/bin:$PATH" ./cheri/ci/script/coretests.sh
 
 release_task:
   timeout_in: 120m
