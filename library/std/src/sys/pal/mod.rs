@@ -16,6 +16,10 @@ cfg_select! {
         mod solid;
         pub use self::solid::*;
     }
+    target_os = "cheriotrtos" => {
+        mod cheriotrtos;
+        pub use self::cheriotrtos::*;
+    }
     target_os = "hermit" => {
         mod hermit;
         pub use self::hermit::*;
