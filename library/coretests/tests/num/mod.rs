@@ -21,19 +21,33 @@ mod u32;
 mod u64;
 mod u8;
 
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod bignum;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod carryless_mul;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod const_from;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod dec2flt;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod float_iter_sum_identity;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod flt2dec;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod ieee754;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod int_log;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod int_sqrt;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod midpoint;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod nan;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod niche_types;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod ops;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod wrapping;
 
 /// Adds the attribute to all items in the block.

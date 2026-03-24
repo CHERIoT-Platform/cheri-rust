@@ -15,6 +15,7 @@
 //! if a test in `traits` uses a specific adapter, then it should be moved to
 //! that adapter's test file in `adapters`.
 
+#[cfg(not(target_abi = "cheriot"))]
 mod adapters;
 mod range;
 mod sources;
