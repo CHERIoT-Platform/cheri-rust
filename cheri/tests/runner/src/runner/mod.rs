@@ -191,7 +191,7 @@ impl App {
 
         println!("ran {} tests, {} failed and {} succeeded", total, fails, total - fails);
 
-        Ok(())
+        if fails != 0 { anyhow::bail!("Some test failed!") } else { Ok(()) }
     }
 
     fn xmake_run_config(&self, dir: &Path) -> anyhow::Result<()> {
