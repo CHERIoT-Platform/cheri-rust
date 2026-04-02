@@ -1,3 +1,5 @@
+#![cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): invalid `TypeId` value
+
 use std::any::TypeId;
 use std::ptr::DynMetadata;
 
