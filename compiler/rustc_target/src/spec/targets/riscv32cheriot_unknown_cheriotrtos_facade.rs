@@ -12,7 +12,7 @@ pub(crate) fn target() -> Target {
     // Testing infrastructure expects this.
     target.executables = true;
     // Avoid any confusion.
-    target.entry_name = "__rust_main".into();
+    target.entry_name = "rust_main".into();
 
     target
 }
