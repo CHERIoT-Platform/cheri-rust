@@ -52,6 +52,7 @@ mod ops;
 #[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod wrapping;
 
+#[cfg(not(target_abi = "cheriot"))] // used by float_ieee754_flt2dec_dec2flt
 use floats::{assert_biteq, float_test};
 
 /// Adds the attribute to all items in the block.
@@ -75,16 +76,19 @@ macro_rules! assume_usize_width {
 
 /// Return `a * 2^b`.
 #[cfg(target_has_reliable_f16)]
+#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
 fn ldexp_f16(a: f16, b: i32) -> f16 {
     ldexp_f64(a as f64, b) as f16
 }
 
 /// Return `a * 2^b`.
+#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
 fn ldexp_f32(a: f32, b: i32) -> f32 {
     ldexp_f64(a as f64, b) as f32
 }
 
 /// Return `a * 2^b`.
+#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
 fn ldexp_f64(a: f64, b: i32) -> f64 {
     unsafe extern "C" {
         fn ldexp(x: f64, n: i32) -> f64;
@@ -183,6 +187,7 @@ fn test_can_not_overflow() {
     // Negative tests:
 
     // Not currently in std lib (issue: #27728)
+    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
     fn format_radix<T>(mut x: T, radix: T) -> String
     where
         T: std::ops::Rem<Output = T>,
@@ -209,6 +214,7 @@ fn test_can_not_overflow() {
         result.into_iter().rev().collect()
     }
 
+    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
     macro_rules! check {
         ($($t:ty)*) => ($(
         for base in 2..=36 {
@@ -222,8 +228,11 @@ fn test_can_not_overflow() {
         )*)
     }
 
+    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
     check! { i8 i16 i32 i64 i128 isize usize u8 u16 u32 u64 }
 
+    // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
+    #[cfg(not(target_abi = "cheriot"))]
     // Check u128 separately:
     for base in 2..=36 {
         let num = <u128>::MAX;

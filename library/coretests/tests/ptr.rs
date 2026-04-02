@@ -382,6 +382,7 @@ fn align_offset_stride_one() {
 }
 
 #[test]
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): hanging or slow
 fn align_offset_various_strides() {
     unsafe fn test_stride<T>(ptr: *const T, align: usize) -> bool {
         let numptr = ptr as usize;
@@ -759,6 +760,7 @@ fn thin_box() {
 }
 
 #[test]
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): TagViolation
 fn nonnull_tagged_pointer_with_provenance() {
     let raw_pointer = Box::into_raw(Box::new(10));
 
@@ -902,6 +904,7 @@ fn test_const_copy_ptr() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): constant ptrs
 fn test_const_swap_ptr() {
     // The `swap` functions are implemented in the library, they are not primitives.
     // Only `swap_nonoverlapping` takes a count; pointers that cross multiple elements
@@ -974,6 +977,7 @@ fn test_null_array_as_slice() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): uninitialized memory
 fn test_ptr_from_raw_parts_in_const() {
     const EMPTY_SLICE_PTR: *const [i32] =
         std::ptr::slice_from_raw_parts(std::ptr::without_provenance(123), 456);

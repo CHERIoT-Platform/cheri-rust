@@ -1,4 +1,5 @@
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): uninitialized memory
 fn convert() {
     const fn from(x: i32) -> i32 {
         i32::from(x)

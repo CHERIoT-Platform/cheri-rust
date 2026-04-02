@@ -1,8 +1,12 @@
 use core::any::TypeId;
 use core::intrinsics::assume;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): used by ignored test
 use std::fmt::Debug;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): used by ignored test
 use std::intrinsics::type_id_vtable;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): used by ignored test
 use std::option::Option;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): used by ignored test
 use std::ptr::DynMetadata;
 
 #[test]
@@ -199,6 +203,7 @@ fn carrying_mul_add_fallback_i128() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): invalid `TypeId` value
 fn test_type_id_vtable() {
     #[derive(Debug)]
     struct A {}

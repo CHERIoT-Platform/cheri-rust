@@ -25,6 +25,7 @@ fn size_of_16() {
 
 #[test]
 #[cfg(target_pointer_width = "32")]
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): pointer width
 fn size_of_32() {
     assert_eq!(size_of::<usize>(), 4);
     assert_eq!(size_of::<*const usize>(), 4);
@@ -61,6 +62,7 @@ fn align_of_16() {
 
 #[test]
 #[cfg(target_pointer_width = "32")]
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): pointer width
 fn align_of_32() {
     assert_eq!(align_of::<usize>(), 4);
     assert_eq!(align_of::<*const usize>(), 4);

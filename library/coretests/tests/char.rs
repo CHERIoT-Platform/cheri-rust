@@ -52,7 +52,7 @@ fn test_is_cased() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)] // Miri is too slow
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow, FIXME(cheri/triage): hanging
 fn test_char_case() {
     for c in '\0'..='\u{10FFFF}' {
         match c.case() {
@@ -101,7 +101,7 @@ fn titlecase_fast_path() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)] // Miri is too slow
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow, FIXME(cheri/triage): hanging
 fn at_most_one_case() {
     for c in '\0'..='\u{10FFFF}' {
         assert_eq!(

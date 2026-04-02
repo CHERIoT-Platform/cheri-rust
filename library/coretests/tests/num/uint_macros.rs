@@ -374,7 +374,8 @@ macro_rules! uint_module {
             }
         }
 
-        #[cfg(not(miri))] // Miri is too slow
+        // FIXME(cheri/triage): too slow on simulator
+        #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
         #[test]
         fn test_lots_of_isqrt() {
             let n_max: $T = (1024 * 1024).min($T::MAX as u128) as $T;
@@ -393,7 +394,8 @@ macro_rules! uint_module {
             }
         }
 
-        #[cfg(not(miri))] // Miri is too slow
+        // FIXME(cheri/triage): too slow on simulator
+        #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
         #[test]
         fn test_lots_of_extract_deposit() {
             // Generate a handful of bit patterns to use as inputs

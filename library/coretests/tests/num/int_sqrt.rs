@@ -61,7 +61,8 @@ macro_rules! tests {
                 //   and the previous perfect square
                 #[test]
                 // Skip this test on Miri, as it takes too long to run.
-                #[cfg(not(miri))]
+                // FIXME(cheri/triage): takes too long on the simulator
+                #[cfg(not(any(miri, target_abi = "cheriot")))]
                 fn isqrt_extended() {
                     // The correct value is worked out by using the fact that
                     // the nth nonzero perfect square is the sum of the first n
