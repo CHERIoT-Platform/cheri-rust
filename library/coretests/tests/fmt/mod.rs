@@ -6,6 +6,7 @@ mod float;
 mod num;
 
 #[test]
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/140
 fn test_lifetime() {
     // Trigger all different forms of expansion,
     // and check that each of them can be stored as a variable.

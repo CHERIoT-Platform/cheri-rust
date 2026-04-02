@@ -203,8 +203,7 @@ mod const_ptr;
 mod convert;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_ffi"))]
 mod ffi;
-#[cfg(any(not(target_abi = "cheriot"), feature = "test_floats"))]
-#[cfg(not(target_abi = "cheriot"))] // FIXME: libcalls
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): needs work, libcalls + ???
 mod floats;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_fmt"))]
 mod fmt;

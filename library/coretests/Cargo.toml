@@ -18,10 +18,11 @@ doc = false
 name = "coretests"
 path = "tests/lib.rs"
 
-[[bench]]
-name = "corebenches"
-path = "benches/lib.rs"
-test = true
+# FIXME(cheri/triage): wants libtest
+# [[bench]]
+# name = "corebenches"
+# path = "benches/lib.rs"
+# test = true
 
 [dev-dependencies]
 rand = { version = "0.9.0", default-features = false }

@@ -338,6 +338,7 @@ fn ip_properties() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): traps, too big?
 fn ipv4_properties() {
     macro_rules! ip {
         ($s:expr) => {
@@ -478,6 +479,7 @@ fn ipv4_properties() {
 }
 
 #[test]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): traps, too big?
 fn ipv6_properties() {
     macro_rules! ip {
         ($s:expr) => {

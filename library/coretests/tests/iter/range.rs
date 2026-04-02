@@ -29,9 +29,9 @@ fn test_range() {
 
 #[test]
 fn test_char_range() {
-    // Miri is too slow
-    let from = if cfg!(miri) { char::from_u32(0xD800 - 10).unwrap() } else { '\0' };
-    let to = if cfg!(miri) { char::from_u32(0xDFFF + 10).unwrap() } else { char::MAX };
+    let is_slow_target = cfg!(miri) || cfg!(target_abi = "cheriot");
+    let from = if is_slow_target { char::from_u32(0xD800 - 10).unwrap() } else { '\0' };
+    let to = if is_slow_target { char::from_u32(0xDFFF + 10).unwrap() } else { char::MAX };
     assert!((from..=to).eq((from as u32..=to as u32).filter_map(char::from_u32)));
     assert!((from..=to).rev().eq((from as u32..=to as u32).filter_map(char::from_u32).rev()));
 
