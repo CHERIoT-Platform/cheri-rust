@@ -27,6 +27,9 @@ test = true
 rand = { version = "0.9.0", default-features = false }
 rand_xorshift = { version = "0.4.0", default-features = false }
 
+[target.'cfg(target_abi = "cheriot")'.dev-dependencies]
+test = { package = "cheri_test", path = "../../cheri/ci/library/cheri_test"}
+
 [lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = [
