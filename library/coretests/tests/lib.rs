@@ -1,3 +1,7 @@
+#![cfg_attr(target_abi = "cheriot", no_main)]
+#![cfg_attr(target_abi = "cheriot", feature(custom_test_frameworks))]
+#![cfg_attr(target_abi = "cheriot", test_runner(test::run_tests))]
+#![cfg_attr(target_abi = "cheriot", reexport_test_harness_main = "test_main")]
 // tidy-alphabetical-start
 #![cfg_attr(target_has_atomic = "128", feature(integer_atomics))]
 #![feature(array_ptr_get)]
@@ -297,4 +301,11 @@ pub(crate) fn test_rng() -> rand_xorshift::XorShiftRng {
     let seed_vec = hc64.to_le_bytes().into_iter().chain(0u8..8).collect::<Vec<u8>>();
     let seed: [u8; 16] = seed_vec.as_slice().try_into().unwrap();
     rand::SeedableRng::from_seed(seed)
+}
+
+#[cfg(target_abi = "cheriot")]
+#[unsafe(no_mangle)]
+pub extern "C" fn rust_main() -> i32 {
+    test_main();
+    return 0;
 }
