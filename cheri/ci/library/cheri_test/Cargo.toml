@@ -1,0 +1,10 @@
+[workspace]
+members = []
+
+[package]
+name = "cheri_test"
+version = "0.0.0"
+edition = "2024"
+description = "A minimal libtest implementation."
+
+[dependencies]
