@@ -2,7 +2,7 @@
 
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use colored::Colorize;
 
@@ -39,32 +39,26 @@ impl App {
             // but we'll work with it for now.
 
             if test_parent_path.as_os_str() == "." || test_parent_path.as_os_str() == ".." {
-                return String::new();
+                return PathBuf::new();
             }
 
-            let mut res = String::from(
-                test_parent_path
-                    .file_name()
-                    .expect("test file parent should have a valid file name")
-                    .to_string_lossy(),
-            );
-            for ancestor in test_parent_path.ancestors() {
-                let ancestor_str = ancestor.to_string_lossy();
-                if ancestor_str == ".." || ancestor_str == "." {
-                    break;
-                }
+            test_parent_path
+                .components()
+                .rev()
+                .map_while(|x| {
+                    if matches!(x, Component::CurDir | Component::ParentDir) {
+                        return None;
+                    }
 
-                res = format!("{ancestor_str}/{res}");
-            }
-            res
+                    Some(x)
+                })
+                .collect::<PathBuf>()
         };
 
         let to_test_name = |test_path: &Path| {
             let mut res = lca(test_path);
-            if !res.is_empty() {
-                res.push('/');
-            }
-            res.push_str(test_stem);
+            res.push(test_stem);
+            let res = res.to_string_lossy();
             let res = res.replace(" ", "_");
             let res = res.replace("/", "_");
             res
