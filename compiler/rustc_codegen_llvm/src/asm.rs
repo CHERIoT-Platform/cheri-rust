@@ -726,6 +726,7 @@ fn reg_to_llvm(reg: InlineAsmRegOrRegClass, layout: Option<&TyAndLayout<'_>>) ->
                 unreachable!("clobber-only")
             }
             RiscV(RiscVInlineAsmRegClass::reg) => "r",
+            RiscV(RiscVInlineAsmRegClass::creg) => "C",
             RiscV(RiscVInlineAsmRegClass::freg) => "f",
             RiscV(RiscVInlineAsmRegClass::vreg) => unreachable!("clobber-only"),
             X86(X86InlineAsmRegClass::reg) => "r",
@@ -814,7 +815,9 @@ fn modifier_to_llvm(
             if modifier.is_none() { Some('x') } else { modifier }
         }
         PowerPC(_) => None,
-        RiscV(RiscVInlineAsmRegClass::reg) | RiscV(RiscVInlineAsmRegClass::freg) => None,
+        RiscV(RiscVInlineAsmRegClass::reg)
+        | RiscV(RiscVInlineAsmRegClass::creg)
+        | RiscV(RiscVInlineAsmRegClass::freg) => None,
         RiscV(RiscVInlineAsmRegClass::vreg) => unreachable!("clobber-only"),
         X86(X86InlineAsmRegClass::reg) | X86(X86InlineAsmRegClass::reg_abcd) => match modifier {
             None if arch == InlineAsmArch::X86_64 => Some('q'),
@@ -925,6 +928,7 @@ fn dummy_output_type<'ll>(cx: &CodegenCx<'ll, '_>, reg: InlineAsmRegClass) -> &'
             unreachable!("clobber-only")
         }
         RiscV(RiscVInlineAsmRegClass::reg) => cx.type_i32(),
+        RiscV(RiscVInlineAsmRegClass::creg) => cx.type_i64(),
         RiscV(RiscVInlineAsmRegClass::freg) => cx.type_f32(),
         RiscV(RiscVInlineAsmRegClass::vreg) => unreachable!("clobber-only"),
         X86(X86InlineAsmRegClass::reg) | X86(X86InlineAsmRegClass::reg_abcd) => cx.type_i32(),

@@ -1,5 +1,5 @@
 //@ add-minicore
-//@ revisions: riscv64 riscv32 riscv64-zfhmin riscv32-zfhmin riscv64-zfh riscv32-zfh
+//@ revisions: riscv64 riscv32 riscv64-zfhmin riscv32-zfhmin riscv64-zfh riscv32-zfh riscv32-cheriot
 //@ assembly-output: emit-asm
 
 //@[riscv64] compile-flags: --target riscv64imac-unknown-none-elf
@@ -26,6 +26,10 @@
 //@[riscv32-zfh] needs-llvm-components: riscv
 //@[riscv32-zfh] compile-flags: -C target-feature=+zfh
 //@[riscv32-zfh] filecheck-flags: --check-prefix zfhmin
+
+//@[riscv32-cheriot] compile-flags: --target riscv64cheriot-unknown-cheriotrtos
+//@[riscv32-cheriot] needs-llvm-components: riscv
+//@[riscv32-cheriot] filecheck-flags: --check-prefix cheriot
 
 //@ compile-flags: -C target-feature=+d
 //@ compile-flags: -Zmerge-functions=disabled
@@ -204,6 +208,7 @@ check_reg!(a0_f64 f64 "a0" "mv");
 // CHECK: #APP
 // CHECK: mv a0, a0
 // CHECK: #NO_APP
+#[cfg(not(target_family = "cheri"))]
 check_reg!(a0_ptr ptr "a0" "mv");
 
 // CHECK-LABEL: fa0_f16:
@@ -225,3 +230,10 @@ check_reg!(fa0_f32 f32 "fa0" "fmv.s");
 // CHECK: fmv.d fa0, fa0
 // CHECK: #NO_APP
 check_reg!(fa0_f64 f64 "fa0" "fmv.d");
+
+// cheriot-LABEL: ca0_ptr:
+// cheriot: #APP
+// cheriot: mv ca0, ca0
+// cheriot: #NO_APP
+#[cfg(target_family = "cheri")]
+check_reg!(ca0_ptr ptr "ca0", "mv");
