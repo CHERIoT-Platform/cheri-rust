@@ -77,7 +77,6 @@ fn location_eq() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): TagViolation (on opt 3, not on opt z)
 fn location_ord() {
     let mut locations = LOCATIONS.clone();
     locations.sort_by_key(|(_o, l)| **l);

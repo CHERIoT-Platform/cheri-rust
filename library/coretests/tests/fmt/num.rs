@@ -202,7 +202,6 @@ fn test_format_int_misc() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/141
 fn test_format_int_limits() {
     assert_eq!(format!("{}", i8::MIN), "-128");
     assert_eq!(format!("{}", i8::MAX), "127");

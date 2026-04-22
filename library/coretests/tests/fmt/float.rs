@@ -1,5 +1,4 @@
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/139
 fn test_format_f64() {
     assert_eq!("1", format!("{:.0}", 1.0f64));
     assert_eq!("9", format!("{:.0}", 9.4f64));
@@ -26,7 +25,6 @@ fn test_format_f64() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/139
 fn test_format_f64_rounds_ties_to_even() {
     assert_eq!("0", format!("{:.0}", 0.5f64));
     assert_eq!("2", format!("{:.0}", 1.5f64));
