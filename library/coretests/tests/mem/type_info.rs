@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-#![cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): invalid `TypeId` value
 use std::any::{Any, TypeId};
 use std::mem::offset_of;
 use std::mem::type_info::{Const, Generic, GenericType, Type, TypeKind};
