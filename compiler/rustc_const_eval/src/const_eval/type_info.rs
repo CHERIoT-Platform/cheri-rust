@@ -77,7 +77,7 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
         // Fill all fields of the `TypeInfo` struct.
         for (idx, field) in ty_struct.fields.iter_enumerated() {
             let field_dest = self.project_field(dest, idx)?;
-            let ptr_bit_width = || self.tcx.data_layout.pointer_size().bits();
+            let address_bit_width = || self.tcx.data_layout.pointer_offset().bits();
             match field.name {
                 sym::kind => {
                     let variant_index = match ty.kind() {
@@ -136,7 +136,9 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
                             let place = self.project_field(&variant_place, FieldIdx::ZERO)?;
                             self.write_int_type_info(
                                 place,
-                                int_ty.bit_width().unwrap_or_else(/* isize */ ptr_bit_width),
+                                int_ty
+                                    .bit_width()
+                                    .unwrap_or_else(/* isize */ address_bit_width),
                                 true,
                             )?;
                             variant
@@ -146,7 +148,9 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
                             let place = self.project_field(&variant_place, FieldIdx::ZERO)?;
                             self.write_int_type_info(
                                 place,
-                                uint_ty.bit_width().unwrap_or_else(/* usize */ ptr_bit_width),
+                                uint_ty
+                                    .bit_width()
+                                    .unwrap_or_else(/* usize */ address_bit_width),
                                 false,
                             )?;
                             variant
