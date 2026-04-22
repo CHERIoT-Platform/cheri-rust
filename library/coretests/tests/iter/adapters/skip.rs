@@ -19,7 +19,6 @@ fn test_iterator_skip() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): TagViolation (on opt 3, not on opt z)
 fn test_iterator_skip_doubleended() {
     let xs = [0, 1, 2, 3, 5, 13, 15, 16, 17, 19, 20, 30];
     let mut it = xs.iter().rev().skip(5);

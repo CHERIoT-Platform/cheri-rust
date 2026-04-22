@@ -128,7 +128,6 @@ fn test_iterator_chain_nth() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): TagViolation (on opt 3, not on opt z)
 fn test_iterator_chain_nth_back() {
     let xs = [0, 1, 2, 3, 4, 5];
     let ys = [30, 40, 50, 60];
