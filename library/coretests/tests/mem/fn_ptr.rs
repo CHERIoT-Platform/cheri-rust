@@ -1,5 +1,3 @@
-#![cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): invalid `TypeId` value
-
 use std::any::TypeId;
 use std::mem::type_info::{Abi, FnPtr, Type, TypeKind};
 
