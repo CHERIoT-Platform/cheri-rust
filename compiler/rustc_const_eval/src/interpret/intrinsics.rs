@@ -108,7 +108,8 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     ) -> InterpResult<'tcx, Ty<'tcx>> {
         // `TypeId` is a newtype around an array of pointers. All pointers must have the same
         // provenance, and that provenance represents the type.
-        let ptr_size = self.pointer_size().bytes_usize();
+        let ptr_in_memory_size = self.pointer_size().bytes_usize();
+        let ptr_data_size = self.data_layout().pointer_offset().bytes_usize();
         let arr = self.project_field(op, FieldIdx::ZERO)?;
 
         let mut ty_and_hash = None;
@@ -136,7 +137,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                 }
             };
             // Ensure the elem_hash matches the corresponding part of the full hash.
-            let hash_frag = &full_hash[(idx as usize) * ptr_size..][..ptr_size];
+            let hash_frag = &full_hash[(idx as usize) * ptr_in_memory_size..][..ptr_data_size];
             if read_target_uint(self.data_layout().endian, hash_frag).unwrap() != elem_hash.into() {
                 throw_ub_format!(
                     "invalid `TypeId` value: the hash does not match the type id metadata"
