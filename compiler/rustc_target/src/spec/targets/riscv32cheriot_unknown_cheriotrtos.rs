@@ -26,7 +26,7 @@ pub(crate) fn target() -> Target {
             llvm_abiname: LlvmAbi::CHERIoT,
             max_atomic_width: Some(64),
             atomic_cas: true,
-            features: "+32bit,+c,+e,+m,+xcheriot".into(),
+            features: "+32bit,+c,+e,+m,+xcheriot,+relax".into(),
             panic_strategy: PanicStrategy::Abort,
             relocation_model: RelocModel::Static,
             emit_debug_gdb_scripts: false,
