@@ -900,13 +900,12 @@ impl<'a> Arguments<'a> {
         // Outside const eval, the `bits & 1 == 1` check will fail, so the resulting usize will
         // never be used.
         let bits: usize = unsafe {
-            union X {
-                p: usize,
-                v: *const (),
+            // On CHERIoT we can force this into a `ptrtoint` by transmuting it into an u64 and
+            // casting it into a usize.
+            #[cfg(target_family = "cheriot")]
+            {
+                crate::mem::transmute::<_, u64>(self.args) as usize
             }
-
-            let x = X { v: self.args.as_ptr() as *mut () as *const () };
-            x.p
         };
 
         if bits & 1 == 1 {
