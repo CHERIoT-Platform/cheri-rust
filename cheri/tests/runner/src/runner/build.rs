@@ -169,8 +169,8 @@ compartment("test_runner")
     add_deps("freestanding", "string", "crt", "cxxrt", "atomic_fixed", "compartment_helpers", "debug", "softfloat")
     add_deps("message_queue", "locks", "event_group", "cheriot.allocator", "stdio", "strtol", "libcheriot")
 	add_files("runner.cc")
-	add_rcflags({{"--extern=cheriot", "-L./build/.objs/libcheriot/cheriot/cheriot/release/cheriot/release"}}, {{force = true}})
 	add_files("{}")
+	    add_rcflags({{"--extern=cheriot", "-L./build/.objs/libcheriot/cheriot/cheriot/release/cheriot/riscv32cheriot-unknown-cheriotrtos/release" }}, {{force = true}})
 
 
 firmware("test")
