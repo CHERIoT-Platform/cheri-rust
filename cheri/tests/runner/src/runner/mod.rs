@@ -219,7 +219,7 @@ impl App {
             &[
                 "--emit=llvm-ir",
                 "--extern=cheriot",
-                "-L./build/.objs/libcheriot/cheriot/cheriot/release/cheriot/release",
+                "-L./build/.objs/libcheriot/cheriot/cheriot/release/cheriot/riscv32cheriot-unknown-cheriotrtos/release",
             ],
         )
     }
