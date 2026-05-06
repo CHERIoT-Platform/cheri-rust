@@ -29,7 +29,7 @@ fn round_pointer_up_to_alignment<'ll>(
     align: Align,
 ) -> &'ll Value {
     let ptr = bx.inbounds_ptradd(addr, bx.const_i32(align.bytes() as i32 - 1));
-    let pointer_width = bx.tcx().data_layout().pointer_offset().bits();
+    let pointer_width = bx.tcx().data_layout().address_size().bits();
     let mask = align.bytes().wrapping_neg() & (u64::MAX >> (64 - pointer_width));
     bx.call_intrinsic(
         "llvm.ptrmask",

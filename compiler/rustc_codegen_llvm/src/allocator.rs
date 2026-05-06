@@ -22,7 +22,7 @@ pub(crate) unsafe fn codegen(
     module_name: &str,
     methods: &[AllocatorMethod],
 ) {
-    let usize = match tcx.data_layout.pointer_offset().bits() {
+    let usize = match tcx.data_layout.address_size().bits() {
         16 => cx.type_i16(),
         32 => cx.type_i32(),
         64 => cx.type_i64(),

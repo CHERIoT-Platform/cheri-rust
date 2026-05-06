@@ -141,7 +141,7 @@ impl ConstValue {
                 // The reference itself is stored behind an indirection.
                 // Load the reference, and then load the actual slice contents.
                 let a = tcx.global_alloc(alloc_id).unwrap_memory().inner();
-                let ptr_size = tcx.data_layout.pointer_offset();
+                let ptr_size = tcx.data_layout.address_size();
                 if a.size() < offset + 2 * ptr_size {
                     // (partially) dangling reference
                     return None;

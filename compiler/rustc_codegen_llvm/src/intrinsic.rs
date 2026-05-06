@@ -2080,10 +2080,10 @@ fn generic_simd_intrinsic<'ll, 'tcx>(
         ($ty: expr, $diag: expr) => {
             match $ty {
                 ty::Int(i) => {
-                    i.bit_width().unwrap_or_else(|| bx.data_layout().pointer_offset().bits())
+                    i.bit_width().unwrap_or_else(|| bx.data_layout().address_size().bits())
                 }
                 ty::Uint(i) => {
-                    i.bit_width().unwrap_or_else(|| bx.data_layout().pointer_offset().bits())
+                    i.bit_width().unwrap_or_else(|| bx.data_layout().address_size().bits())
                 }
                 _ => {
                     return_error!($diag);
@@ -3055,12 +3055,12 @@ fn generic_simd_intrinsic<'ll, 'tcx>(
                     args[0].immediate()
                 } else {
                     let bitwidth = match in_elem.kind() {
-                        ty::Int(i) => i
-                            .bit_width()
-                            .unwrap_or_else(|| bx.data_layout().pointer_offset().bits()),
-                        ty::Uint(i) => i
-                            .bit_width()
-                            .unwrap_or_else(|| bx.data_layout().pointer_offset().bits()),
+                        ty::Int(i) => {
+                            i.bit_width().unwrap_or_else(|| bx.data_layout().address_size().bits())
+                        }
+                        ty::Uint(i) => {
+                            i.bit_width().unwrap_or_else(|| bx.data_layout().address_size().bits())
+                        }
                         _ => return_error!(InvalidMonomorphization::UnsupportedSymbol {
                             span,
                             name,
@@ -3247,11 +3247,11 @@ fn generic_simd_intrinsic<'ll, 'tcx>(
             // disallowed before here, so this unwrap is safe.
             ty::Int(i) => (
                 Style::Int(Signed),
-                i.normalize(bx.tcx().data_layout.pointer_offset().bits() as _).bit_width().unwrap(),
+                i.normalize(bx.tcx().data_layout.address_size().bits() as _).bit_width().unwrap(),
             ),
             ty::Uint(u) => (
                 Style::Int(Unsigned),
-                u.normalize(bx.tcx().data_layout.pointer_offset().bits() as _).bit_width().unwrap(),
+                u.normalize(bx.tcx().data_layout.address_size().bits() as _).bit_width().unwrap(),
             ),
             ty::Float(f) => (Style::Float, f.bit_width()),
             _ => (Style::Unsupported, 0),
@@ -3259,11 +3259,11 @@ fn generic_simd_intrinsic<'ll, 'tcx>(
         let (out_style, out_width) = match out_elem.kind() {
             ty::Int(i) => (
                 Style::Int(Signed),
-                i.normalize(bx.tcx().data_layout.pointer_offset().bits() as _).bit_width().unwrap(),
+                i.normalize(bx.tcx().data_layout.address_size().bits() as _).bit_width().unwrap(),
             ),
             ty::Uint(u) => (
                 Style::Int(Unsigned),
-                u.normalize(bx.tcx().data_layout.pointer_offset().bits() as _).bit_width().unwrap(),
+                u.normalize(bx.tcx().data_layout.address_size().bits() as _).bit_width().unwrap(),
             ),
             ty::Float(f) => (Style::Float, f.bit_width()),
             _ => (Style::Unsupported, 0),

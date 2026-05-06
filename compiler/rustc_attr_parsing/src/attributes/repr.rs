@@ -273,7 +273,7 @@ fn parse_alignment(node: &LitKind, cx: &AcceptContext<'_, '_>) -> Result<Align, 
         .parse_data_layout()
         .map_err(|_| String::from("Failed to parse DataLayout"))
         .unwrap();
-    let max = data_layout.pointer_offset().signed_int_max() as u64;
+    let max = data_layout.address_size().signed_int_max() as u64;
     if align.bytes() > max {
         return Err(format!(
             "alignment larger than `isize::MAX` bytes ({max} for the current target)"

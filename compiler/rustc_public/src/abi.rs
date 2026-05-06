@@ -333,7 +333,7 @@ impl Primitive {
             /*FIXME(xdoardo): change this monstrusity to simply get the relevant info from MachineInfo */
             Primitive::Pointer(p) => Size::from_bits(
                 crate::compiler_interface::with(|cx| {
-                    cx.cx.borrow().tcx.data_layout.pointer_offset_in(rustc_abi::AddressSpace(p.0))
+                    cx.cx.borrow().tcx.data_layout.address_size_in(rustc_abi::AddressSpace(p.0))
                 })
                 .bits() as _,
             ),

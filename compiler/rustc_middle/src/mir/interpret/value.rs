@@ -112,7 +112,7 @@ impl<Prov> Scalar<Prov> {
         Scalar::Ptr {
             ptr,
             in_memory_size: u8::try_from(dl.pointer_size().bytes()).unwrap(),
-            capacity: u8::try_from(dl.pointer_offset().bytes()).unwrap(),
+            capacity: u8::try_from(dl.address_size().bytes()).unwrap(),
         }
     }
 
@@ -122,15 +122,14 @@ impl<Prov> Scalar<Prov> {
         match ptr.into_raw_parts() {
             (Some(prov), offset) => Scalar::from_pointer(Pointer::new(prov, offset), cx),
             (None, offset) => Scalar::Int(
-                ScalarInt::try_from_uint(offset.bytes(), cx.data_layout().pointer_offset())
-                    .unwrap(),
+                ScalarInt::try_from_uint(offset.bytes(), cx.data_layout().address_size()).unwrap(),
             ),
         }
     }
 
     #[inline]
     pub fn null_ptr(cx: &impl HasDataLayout) -> Self {
-        Scalar::Int(ScalarInt::null(cx.data_layout().pointer_offset()))
+        Scalar::Int(ScalarInt::null(cx.data_layout().address_size()))
     }
 
     #[inline]
@@ -178,7 +177,7 @@ impl<Prov> Scalar<Prov> {
 
     #[inline]
     pub fn from_target_usize(i: u64, cx: &impl HasDataLayout) -> Self {
-        Self::from_uint(i, cx.data_layout().pointer_offset())
+        Self::from_uint(i, cx.data_layout().address_size())
     }
 
     #[inline]
@@ -216,7 +215,7 @@ impl<Prov> Scalar<Prov> {
 
     #[inline]
     pub fn from_target_isize(i: i64, cx: &impl HasDataLayout) -> Self {
-        Self::from_int(i, cx.data_layout().pointer_offset())
+        Self::from_int(i, cx.data_layout().address_size())
     }
 
     #[inline]
@@ -315,7 +314,7 @@ impl<Prov> Scalar<Prov> {
 impl<'tcx, Prov: Provenance> Scalar<Prov> {
     pub fn to_pointer(self, cx: &impl HasDataLayout) -> InterpResult<'tcx, Pointer<Option<Prov>>> {
         match self
-            .to_bits_or_ptr_internal(cx.data_layout().pointer_offset())
+            .to_bits_or_ptr_internal(cx.data_layout().address_size())
             .map_err(|s| err_ub!(ScalarSizeMismatch(s)))?
         {
             Right(ptr) => interp_ok(ptr.into()),
@@ -443,7 +442,7 @@ impl<'tcx, Prov: Provenance> Scalar<Prov> {
     /// Converts the scalar to produce a machine-pointer-sized unsigned integer.
     /// Fails if the scalar is a pointer.
     pub fn to_target_usize(self, cx: &impl HasDataLayout) -> InterpResult<'tcx, u64> {
-        let b = self.to_uint(cx.data_layout().pointer_offset())?;
+        let b = self.to_uint(cx.data_layout().address_size())?;
         interp_ok(u64::try_from(b).unwrap())
     }
 
@@ -483,7 +482,7 @@ impl<'tcx, Prov: Provenance> Scalar<Prov> {
     /// Converts the scalar to produce a machine-pointer-sized signed integer.
     /// Fails if the scalar is a pointer.
     pub fn to_target_isize(self, cx: &impl HasDataLayout) -> InterpResult<'tcx, i64> {
-        let b = self.to_int(cx.data_layout().pointer_offset())?;
+        let b = self.to_int(cx.data_layout().address_size())?;
         interp_ok(i64::try_from(b).unwrap())
     }
 
