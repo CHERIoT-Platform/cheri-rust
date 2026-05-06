@@ -263,7 +263,7 @@ pub struct PointerSpec {
     /// must be less than or equal to the pointer size. If not specified, the default index size is
     /// equal to the pointer size. The index size also specifies the width of addresses in this
     /// address space.
-    pointer_offset: Size,
+    address_size: Size,
     /// Pointers into this address space contain extra metadata
     /// FIXME(workingjubilee): Consider adequately reflecting this in the compiler?
     _is_fat: bool,
@@ -333,7 +333,7 @@ impl Default for TargetDataLayout {
             default_address_space_pointer_spec: PointerSpec {
                 pointer_size: Size::from_bits(64),
                 pointer_align: align(64),
-                pointer_offset: Size::from_bits(64),
+                address_size: Size::from_bits(64),
                 _is_fat: false,
             },
             address_space_info: vec![],
@@ -496,7 +496,7 @@ impl TargetDataLayout {
                     let info = PointerSpec {
                         pointer_size: parse_size(s, "p-")?,
                         pointer_align: parse_align_str(a, "p-")?,
-                        pointer_offset: parse_size(i, "p-")?,
+                        address_size: parse_size(i, "p-")?,
                         _is_fat,
                     };
 
@@ -540,7 +540,7 @@ impl TargetDataLayout {
                     let pointer_size = parse_size(s, "p-")?;
                     let pointer_align = parse_align_seq(a, "p-")?;
                     let info = PointerSpec {
-                        pointer_offset: pointer_size,
+                        address_size: pointer_size,
                         pointer_size,
                         pointer_align,
                         _is_fat,
@@ -651,7 +651,7 @@ impl TargetDataLayout {
     #[inline]
     pub fn ptr_sized_integer(&self) -> Integer {
         use Integer::*;
-        match self.pointer_offset().bits() {
+        match self.address_size().bits() {
             16 => I16,
             32 => I32,
             64 => I64,
@@ -662,7 +662,7 @@ impl TargetDataLayout {
     #[inline]
     pub fn ptr_sized_integer_in(&self, address_space: AddressSpace) -> Integer {
         use Integer::*;
-        match self.pointer_offset_in(address_space).bits() {
+        match self.address_size_in(address_space).bits() {
             16 => I16,
             32 => I32,
             64 => I64,
@@ -708,19 +708,19 @@ impl TargetDataLayout {
 
     /// Get the pointer index in the default data address space.
     #[inline]
-    pub fn pointer_offset(&self) -> Size {
-        self.default_address_space_pointer_spec.pointer_offset
+    pub fn address_size(&self) -> Size {
+        self.default_address_space_pointer_spec.address_size
     }
 
     /// Get the pointer index in a specific address space.
     #[inline]
-    pub fn pointer_offset_in(&self, c: AddressSpace) -> Size {
+    pub fn address_size_in(&self, c: AddressSpace) -> Size {
         if c == self.default_address_space {
-            return self.default_address_space_pointer_spec.pointer_offset;
+            return self.default_address_space_pointer_spec.address_size;
         }
 
         if let Some(e) = self.address_space_info.iter().find(|(a, _)| a == &c) {
-            e.1.pointer_offset
+            e.1.address_size
         } else {
             panic!("Use of unknown address space {c:?}");
         }
@@ -1453,7 +1453,7 @@ impl Primitive {
         match self {
             Int(i, _) => i.size(),
             Float(f) => f.size(),
-            Pointer(a) => dl.pointer_offset_in(a),
+            Pointer(a) => dl.address_size_in(a),
         }
     }
 

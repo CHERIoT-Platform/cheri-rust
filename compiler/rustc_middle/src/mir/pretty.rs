@@ -1712,7 +1712,7 @@ pub fn write_allocation_bytes<'tcx, Prov: Provenance, Extra, Bytes: AllocBytes>(
     let mut line_start = Size::ZERO;
 
     let ptr_size = tcx.data_layout.pointer_size();
-    let ptr_capacity = tcx.data_layout().pointer_offset();
+    let ptr_capacity = tcx.data_layout().address_size();
 
     let mut ascii = String::new();
 

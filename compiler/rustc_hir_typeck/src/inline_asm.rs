@@ -68,7 +68,7 @@ impl<'a, 'tcx> InlineAsmCtxt<'a, 'tcx> {
         span: Span,
         ty: Ty<'tcx>,
     ) -> Result<InlineAsmType, NonAsmTypeReason<'tcx>> {
-        let asm_ty_isize = match self.tcx().data_layout.pointer_offset().bits() {
+        let asm_ty_isize = match self.tcx().data_layout.address_size().bits() {
             16 => InlineAsmType::I16,
             32 => InlineAsmType::I32,
             64 => InlineAsmType::I64,
@@ -141,7 +141,7 @@ impl<'a, 'tcx> InlineAsmCtxt<'a, 'tcx> {
                         Ok(InlineAsmType::VecI128(size))
                     }
                     ty::Int(IntTy::Isize) | ty::Uint(UintTy::Usize) => {
-                        Ok(match self.tcx().data_layout.pointer_offset().bits() {
+                        Ok(match self.tcx().data_layout.address_size().bits() {
                             16 => InlineAsmType::VecI16(size),
                             32 => InlineAsmType::VecI32(size),
                             64 => InlineAsmType::VecI64(size),
