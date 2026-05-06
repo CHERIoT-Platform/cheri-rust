@@ -501,7 +501,7 @@ pub(super) fn codegen_tag_value<'tcx, V>(
                 };
 
                 let niche_capacity = if niche_layout.ty.is_any_ptr() {
-                    cx.data_layout().pointer_offset()
+                    cx.data_layout().address_size()
                 } else {
                     niche_layout.size
                 };

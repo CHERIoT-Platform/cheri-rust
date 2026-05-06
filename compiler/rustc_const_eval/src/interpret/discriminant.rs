@@ -98,7 +98,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
         // Read tag and sanity-check `tag_layout`.
         let tag_val = self.read_immediate(&self.project_field(op, tag_field)?)?;
         let desired_size = if tag_val.layout.ty.is_ref() || tag_val.layout.ty.is_raw_ptr() {
-            self.tcx.data_layout.pointer_offset()
+            self.tcx.data_layout.address_size()
         } else {
             tag_val.layout.size
         };

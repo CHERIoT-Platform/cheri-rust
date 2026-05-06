@@ -292,7 +292,7 @@ pub(crate) fn default_configuration(sess: &Session) -> Cfg {
     }
 
     ins_sym!(sym::target_os, sess.target.os.desc_symbol());
-    ins_sym!(sym::target_pointer_width, sym::integer(layout.pointer_offset().bits()));
+    ins_sym!(sym::target_pointer_width, sym::integer(layout.address_size().bits()));
 
     if sess.opts.unstable_opts.has_thread_local.unwrap_or(sess.target.has_thread_local) {
         ins_none!(sym::target_thread_local);

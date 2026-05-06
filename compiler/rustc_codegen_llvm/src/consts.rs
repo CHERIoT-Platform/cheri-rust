@@ -45,7 +45,7 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
     let dl = cx.data_layout();
     let pointer_size = dl.pointer_size();
     let pointer_size_bytes = pointer_size.bytes() as usize;
-    let pointer_capacity = dl.pointer_offset();
+    let pointer_capacity = dl.address_size();
     let pointer_capacity_bytes = pointer_capacity.bytes() as usize;
 
     // Note: this function may call `inspect_with_uninit_and_ptr_outside_interpreter`, so `range`
