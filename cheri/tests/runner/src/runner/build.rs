@@ -38,7 +38,10 @@ impl App {
             // This is definitely not the right way to compute the LCA of test_path w.r.t. the cwd,
             // but we'll work with it for now.
 
-            if test_parent_path.as_os_str() == "." || test_parent_path.as_os_str() == ".." {
+            if test_parent_path.as_os_str().is_empty()
+                || test_parent_path.as_os_str() == "."
+                || test_parent_path.as_os_str() == ".."
+            {
                 return PathBuf::new();
             }
 
