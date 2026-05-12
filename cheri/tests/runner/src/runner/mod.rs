@@ -174,16 +174,16 @@ impl App {
                     let mut stdout = stdout.split_off(prefix + start_needle.len());
                     if let Some(suffix) = stdout.rfind(good_end_needle) {
                         _ = stdout.split_off(suffix);
+                    }
 
-                        if stdout.is_empty() {
-                            infoln!(self, "");
-                        } else {
-                            println!("-- begin stdout from test {name}");
-                            print!("{stdout}");
-                            println!(
-                                "\n-- end stdout from test {name} (run with more verbosity to see the entire output)"
-                            );
-                        }
+                    if stdout.is_empty() {
+                        infoln!(self, "");
+                    } else {
+                        println!("-- begin stdout from test {name}");
+                        print!("{stdout}");
+                        println!(
+                            "\n-- end stdout from test {name} (run with more verbosity to see the entire output)"
+                        );
                     }
                 }
             }
