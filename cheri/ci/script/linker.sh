@@ -63,7 +63,8 @@ fi
 
 # if we need to run xmake config
 if [[ ! -d ".xmake" || ! -d "build" ]]; then
-    xmake config --sdk="../../../build/host/llvm"
+    CHERIOT_LLVM_PROJECT_PATH=${CHERIOT_SYSROOT_DIR:-"../../../build/host/llvm/"}
+    xmake config --sdk="$CHERIOT_LLVM_PROJECT_PATH"
 fi
 
 xmake build -r
