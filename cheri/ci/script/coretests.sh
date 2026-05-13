@@ -70,6 +70,7 @@ features=(
 total_sum=0
 ignored_sum=0
 pass_sum=0
+fail_sum=0
 
 for feature in "${features[@]}"; do
     echo "[RUN] coretests/$feature..."
@@ -81,26 +82,32 @@ for feature in "${features[@]}"; do
 
     if [[ $status -ne 0 ]]; then
         echo "Simulator exited with failure"
-        exit 1
     fi
 
-    # e.g. [OK] total=6 ignored=0 pass=6
-    results=$(echo "$output" | grep "^\[OK\] ")
+    # e.g. [OK] total=6 ignored=0 pass=6 fail=0
+    results=$(echo "$output" | grep -E "^\[(OK|FAIL)\] ")
 
     # The simulator can exit with success under certain error conditions
     if [[ -z "$results" ]]; then
-        echo "Simulator exited prematurely"
+        echo "Simulator exited prematurely, unrecoverable"
         exit 1
     fi
 
     total=$(echo "$results" | sed 's/.*total=\([0-9]*\).*/\1/')
     ignored=$(echo "$results" | sed 's/.*ignored=\([0-9]*\).*/\1/')
     pass=$(echo "$results" | sed 's/.*pass=\([0-9]*\).*/\1/')
+    fail=$(echo "$results" | sed 's/.*fail=\([0-9]*\).*/\1/')
 
     total_sum=$((total_sum + total))
     ignored_sum=$((ignored_sum + ignored))
     pass_sum=$((pass_sum + pass))
+    fail_sum=$((fail_sum + fail))
 
 done
 
-echo "[ALL OK] total=$total_sum ignored=$ignored_sum pass=$pass_sum"
+if [ "$fail_sum" -gt 0 ]; then
+    echo "[FAIL] total=$total_sum ignored=$ignored_sum pass=$pass_sum fail=$fail_sum"
+    exit 1
+fi
+
+echo "[OK] total=$total_sum ignored=$ignored_sum pass=$pass_sum fail=$fail_sum"
