@@ -1,0 +1,116 @@
+name: CI (CHERIoT)
+
+on:
+  push:
+    branches:
+      - "beta"
+  pull_request:
+    branches:
+      - "**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: cirun-gcp-aarch64--${{ github.run_id }}
+    timeout-minutes: 240
+    env:
+      CC: "clang"
+      CXX: "clang++"
+    steps:
+      - name: Install dependencies
+        run: |
+          set -eo pipefail
+          sudo apt update
+          sudo apt install -y pkg-config clang ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git
+
+        # after apt install git
+      - uses: actions/checkout@v5
+        name: Checkout
+        with:
+          fetch-depth: 2
+          # TODO: src/ci/scripts/checkout-submodules.sh should be faster
+          submodules: recursive
+
+      - name: Configure bootstrap
+        run: cp cheri/bootstrap/ci.toml bootstrap.toml
+
+      - name: Build LLVM
+        run: ./x build llvm --ci=false
+
+      - name: Build rustfmt
+        run: ./x build rustfmt --ci=false
+
+      - name: Run `x test tidy` (host)
+        run: ./x test tidy --ci=false
+
+      - name: Run `x check` (host)
+        run: ./x check --ci=false
+
+      - name: Run `x test` (host)
+        run: ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make --skip tidy --ci=false
+
+      - name: Build rustc, core (CHERIoT)
+        run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos --ci=false
+
+      - name: Run `x test tests/codegen-llvm` (CHERIoT)
+        run: ./x test tests/codegen-llvm --target=riscv32cheriot-unknown-cheriotrtos --skip src/tools/linkchecker --ci=false
+
+      - name: Install xmake
+        run: |
+          curl -fsSL https://xmake.io/shget.text | bash
+          echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Check xmake
+        run: xmake --version
+
+      - name: Install Rust (upstream stable)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
+          . "$HOME/.cargo/env" && echo "PATH=$PATH" >> $GITHUB_ENV
+
+      - name: Check rust
+        run: cargo --version
+
+      - name: Build Sail simulator
+        run: |
+          git clone --recurse-submodules --depth=1 https://github.com/CHERIoT-Platform/cheriot-sail
+          opam init --reinit --bypass-check --disable-sandboxing --disable-shell-hook
+          eval $(opam env)
+          opam install sail --confirm-level=unsafe-yes
+          cd cheriot-sail && make csim && sudo cp c_emulator/cheriot_sim /usr/local/bin
+
+      - name: Check sail sim
+        run: cheriot_sim
+
+      - name: Build test runner (host)
+        working-directory: ./cheri/tests/runner
+        run: cargo build --release
+
+      - name: Run internal tests (CHERIoT)
+        working-directory: ./cheri/tests
+        run: ./runner/target/release/cheriot-runner -vvvvv . --sysroot=../../build/host/llvm --rustc=../../build/host/stage1/bin/rustc
+
+      - name: Run examples (CHERIoT)
+        working-directory: ./cheri/examples
+        run: ./run_examples.sh
+
+      - name: Reconfigure bootstrap for facade
+        run: cp cheri/bootstrap/facade.toml bootstrap.toml
+
+      - name: Build rustc, std (CHERIoT/facade)
+        run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos.facade --ci=false
+
+      - name: Run coretests (CHERIoT/facade)
+        run: ./cheri/ci/script/coretests.sh
+
+      - name: Check disk
+        if: always()
+        run: df -h
+
+      - name: Check env
+        if: always()
+        run: env

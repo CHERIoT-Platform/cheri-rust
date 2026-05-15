@@ -1,0 +1,18 @@
+change-id = "ignore"
+
+[build]
+rustfmt = "./build/host/stage1/bin/rustfmt"
+description = "cheri-rust"
+
+[rust]
+channel = "dev"
+std-features = ["compiler-builtins-mem"]
+
+[llvm]
+download-ci-llvm = false
+targets = "all"
+experimental-targets = ""
+assertions = true
+
+[llvm.build-config]
+LLVM_ENABLE_PROJECTS = "clang;lld"
