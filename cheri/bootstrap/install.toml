@@ -1,0 +1,31 @@
+change-id = "ignore"
+
+[install]
+prefix="/cheriot-tools"
+sysconfdir="/cheriot-tools/etc"
+
+
+[llvm]
+targets = "all"
+experimental-targets = ""
+download-ci-llvm = false
+build-config = {CMAKE_C_COMPILER="clang", CMAKE_CXX_COMPILER="clang++"}
+
+[build]
+docs = false
+target = ["riscv32cheriot-unknown-cheriotrtos"]
+tools = ["cargo", "rustfmt"]
+
+[dist]
+src-tarball = false
+compression-formats = ["gz"]
+
+[rust]
+channel = "dev"
+debug-logging = true
+debug-assertions = true
+debuginfo-level = "line-tables-only"
+std-features = ["compiler-builtins-mem"]
+strip = true
+dist-src = false
+optimize = "z"

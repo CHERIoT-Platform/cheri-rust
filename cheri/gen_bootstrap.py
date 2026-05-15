@@ -94,10 +94,10 @@ class Generator:
         self.use_llvm_config = isinstance(args.llvm_config_bin, str)
         self.llvm_config_bin = args.llvm_config_bin
         self.enable_optimize_for_size = args.optimize_for_size
-        self.in_ci = os.getenv("CIRRUS_TASK_ID") is not None
+        self.in_ci = os.getenv("GITHUB_SHA") is not None
         if self.in_ci:
-            self.ci_branch = os.getenv("CIRRUS_BASE_BRANCH") or os.getenv(
-                "CIRRUS_BRANCH"
+            self.ci_branch = os.getenv("GITHUB_BASE_REF") or os.getenv(
+                "GITHUB_REF_NAME"
             )
 
         try:
