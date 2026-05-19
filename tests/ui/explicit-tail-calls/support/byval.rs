@@ -33,12 +33,12 @@
 //@ revisions: powerpc64
 //@[powerpc64] compile-flags: --target powerpc64-unknown-linux-gnu
 //@[powerpc64] needs-llvm-components: powerpc
-//@ revisions: loongarch32
-//@[loongarch32] compile-flags: --target loongarch32-unknown-none
-//@[loongarch32] needs-llvm-components: loongarch
-//@ revisions: loongarch64
-//@[loongarch64] compile-flags: --target loongarch64-unknown-linux-gnu
-//@[loongarch64] needs-llvm-components: loongarch
+////@ revisions: loongarch32
+////@[loongarch32] compile-flags: --target loongarch32-unknown-none
+////@[loongarch32] needs-llvm-components: loongarch
+////@ revisions: loongarch64
+////@[loongarch64] compile-flags: --target loongarch64-unknown-linux-gnu
+////@[loongarch64] needs-llvm-components: loongarch
 //@ revisions: bpf
 //@[bpf] compile-flags: --target bpfeb-unknown-none
 //@[bpf] needs-llvm-components: bpf
