@@ -2058,10 +2058,10 @@ fn generic_simd_intrinsic<'ll, 'tcx>(
         ($ty: expr, $diag: expr) => {
             match $ty {
                 ty::Int(i) => {
-                    i.bit_width().unwrap_or_else(|| bx.data_layout().pointer_size().bits())
+                    i.bit_width().unwrap_or_else(|| bx.data_layout().pointer_offset().bits())
                 }
                 ty::Uint(i) => {
-                    i.bit_width().unwrap_or_else(|| bx.data_layout().pointer_size().bits())
+                    i.bit_width().unwrap_or_else(|| bx.data_layout().pointer_offset().bits())
                 }
                 _ => {
                     return_error!($diag);
@@ -3033,12 +3033,12 @@ fn generic_simd_intrinsic<'ll, 'tcx>(
                     args[0].immediate()
                 } else {
                     let bitwidth = match in_elem.kind() {
-                        ty::Int(i) => {
-                            i.bit_width().unwrap_or_else(|| bx.data_layout().pointer_size().bits())
-                        }
-                        ty::Uint(i) => {
-                            i.bit_width().unwrap_or_else(|| bx.data_layout().pointer_size().bits())
-                        }
+                        ty::Int(i) => i
+                            .bit_width()
+                            .unwrap_or_else(|| bx.data_layout().pointer_offset().bits()),
+                        ty::Uint(i) => i
+                            .bit_width()
+                            .unwrap_or_else(|| bx.data_layout().pointer_offset().bits()),
                         _ => return_error!(InvalidMonomorphization::UnsupportedSymbol {
                             span,
                             name,
