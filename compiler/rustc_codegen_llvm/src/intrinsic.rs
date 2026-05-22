@@ -899,11 +899,8 @@ impl<'ll, 'tcx> IntrinsicCallBuilderMethods<'tcx> for Builder<'_, 'll, 'tcx> {
                         let ty = self.type_ix(32);
                         let val = self.const_int(ty, 0);
 
-                        let type_params: &[&'ll Type] = if llvm_version < (23, 0, 0) {
-                            &[]
-                        } else {
-                            &[self.type_ptr()]
-                        };
+                        // FIXME(xdoardo): See https://github.com/CHERIoT-Platform/cheri-rust/issues/161
+                        let type_params: &[&'ll Type] = &[self.type_ptr()];
 
                         self.call_intrinsic("llvm.returnaddress", type_params, &[val])
                     }
