@@ -80,7 +80,20 @@ where
             // This is equivalent to `self.end_or_len.addr`, but that's not
             // available in `const`. `self.end_or_len` doesn't have provenance,
             // so transmuting is fine.
-            let len = unsafe { transmute::<*mut T, usize>(self.end_or_len) };
+            let len = unsafe {
+                #[cfg(not(target_family = "cheri"))]
+                {
+                    transmute::<*mut T, usize>(self.end_or_len)
+                }
+
+                #[cfg(target_family = "cheri")]
+                {
+                    #[cfg(target_family = "cheriot")]
+                    {
+                        transmute::<_, u64>(self.end_or_len) as usize
+                    }
+                }
+            };
             // SAFETY:
             // The caller guarantees that this is never called more than N times
             // (see `Drain::new`), hence this cannot underflow.
@@ -111,7 +124,18 @@ impl<T: [const] Destruct, F> const Drop for Drain<'_, '_, T, F> {
                 // available in `const`. `self.end_or_len` doesn't have provenance,
                 // so transmuting is fine.
                 unsafe {
-                    transmute::<*mut T, usize>(self.end_or_len)
+                    #[cfg(not(target_family = "cheri"))]
+                    {
+                        transmute::<*mut T, usize>(self.end_or_len)
+                    }
+
+                    #[cfg(target_family = "cheri")]
+                    {
+                        #[cfg(target_family = "cheriot")]
+                        {
+                            transmute::<_, u64>(self.end_or_len) as usize
+                        }
+                    }
                 },
             )
         } else {

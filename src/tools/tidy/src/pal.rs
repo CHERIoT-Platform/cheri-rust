@@ -51,6 +51,9 @@ const EXCEPTION_PATHS: &[&str] = &[
     // Some workarounds to make fmt::Arguments compile to CHERI-like platforms require unsafe and
     // platform-specific code.
     "library/core/src/fmt/mod.rs",
+    // Some workarounds to make array::Drain::call_mut compile to CHERI-like platforms require unsafe and
+    // platform-specific code.
+    "library/core/src/array/drain.rs",
     // The `VaList` implementation must have platform specific code.
     // The Windows implementation of a `va_list` is always a character
     // pointer regardless of the target architecture. As a result,
