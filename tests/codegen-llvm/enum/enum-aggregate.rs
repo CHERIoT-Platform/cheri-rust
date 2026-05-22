@@ -128,7 +128,7 @@ fn make_fully_uninhabited_result(v: u32, n: Never) -> Result<(u32, Never), (Neve
 enum Never {}
 
 #[repr(transparent)]
-struct NewtypeIndex(std::pat::pattern_type!(u32 is 0..=0xFFFFFF00));
+struct NewtypeIndex(core::pattern_type!(u32 is 0..=0xFFFFFF00));
 
 #[no_mangle]
 pub fn make_none_newtype_index() -> Option<NewtypeIndex> {
