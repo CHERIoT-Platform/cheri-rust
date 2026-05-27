@@ -141,12 +141,10 @@ fn test_format_int_one() {
     assert_eq!(format!("{:b}", -1i8), "11111111");
     assert_eq!(format!("{:b}", -1i16), "1111111111111111");
     assert_eq!(format!("{:b}", -1i32), "11111111111111111111111111111111");
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/141
     assert_eq!(
         format!("{:b}", -1i64),
         "1111111111111111111111111111111111111111111111111111111111111111"
     );
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/141
     assert_eq!(
         format!("{:b}", -1i128),
         "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
@@ -156,21 +154,18 @@ fn test_format_int_one() {
     assert_eq!(format!("{:x}", -1i16), "ffff");
     assert_eq!(format!("{:x}", -1i32), "ffffffff");
     assert_eq!(format!("{:x}", -1i64), "ffffffffffffffff");
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/141
     assert_eq!(format!("{:x}", -1i128), "ffffffffffffffffffffffffffffffff");
     assert_eq!(format!("{:X}", -1isize), "FF".repeat(size_of::<isize>()));
     assert_eq!(format!("{:X}", -1i8), "FF");
     assert_eq!(format!("{:X}", -1i16), "FFFF");
     assert_eq!(format!("{:X}", -1i32), "FFFFFFFF");
     assert_eq!(format!("{:X}", -1i64), "FFFFFFFFFFFFFFFF");
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/141
     assert_eq!(format!("{:X}", -1i128), "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
     // octal test for isize omitted
     assert_eq!(format!("{:o}", -1i8), "377");
     assert_eq!(format!("{:o}", -1i16), "177777");
     assert_eq!(format!("{:o}", -1i32), "37777777777");
     assert_eq!(format!("{:o}", -1i64), "1777777777777777777777");
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/141
     assert_eq!(format!("{:o}", -1i128), "3777777777777777777777777777777777777777777");
     assert_eq!(format!("{:e}", -1isize), "-1e0");
     assert_eq!(format!("{:e}", -1i8), "-1e0");
