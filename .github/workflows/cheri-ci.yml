@@ -25,7 +25,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt update
-          sudo apt install -y pkg-config clang ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git
+          sudo apt install -y pkg-config clang ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git zlib1g-dev
 
         # after apt install git
       - uses: actions/checkout@v5
@@ -75,13 +75,21 @@ jobs:
       - name: Check rust
         run: cargo --version
 
+      - name: Install Sail
+        run: |
+          wget https://github.com/rems-project/sail/releases/download/0.20.1/sail-Linux-aarch64.tar.gz
+          tar xfv sail-Linux-aarch64.tar.gz
+          echo "PATH=$PATH:$(pwd)/sail/bin" >> $GITHUB_ENV
+
       - name: Build Sail simulator
         run: |
           git clone --recurse-submodules --depth=1 https://github.com/CHERIoT-Platform/cheriot-sail
           opam init --reinit --bypass-check --disable-sandboxing --disable-shell-hook
           eval $(opam env)
-          opam install sail --confirm-level=unsafe-yes
-          cd cheriot-sail && make csim && sudo cp c_emulator/cheriot_sim /usr/local/bin
+          cd cheriot-sail && make csim -j$(nproc) && sudo cp c_emulator/cheriot_sim /usr/local/bin
+        env:
+          CC: "cc"
+          CXX: "cpp"
 
       - name: Check sail sim
         run: cheriot_sim
