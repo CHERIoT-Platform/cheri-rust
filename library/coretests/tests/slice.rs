@@ -2420,7 +2420,6 @@ fn test_get_disjoint_mut_empty() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): TagViolation
 fn test_get_disjoint_mut_single_first() {
     let mut v = vec![1, 2, 3, 4, 5];
     let [a] = v.get_disjoint_mut([0]).unwrap();
