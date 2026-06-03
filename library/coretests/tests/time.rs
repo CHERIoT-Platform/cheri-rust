@@ -303,7 +303,6 @@ fn correct_sum() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): TagViolation with optimize_for_size
 fn debug_formatting_extreme_values() {
     assert_eq!(
         format!("{:?}", Duration::new(u64::MAX, 123_456_789)),
