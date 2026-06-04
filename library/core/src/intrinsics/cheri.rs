@@ -5,6 +5,7 @@
 // trait is introduced.
 //
 // For now, we use *const ().
+use crate::marker::PointeeSized;
 
 /// Retrieve the address of the capability.
 #[inline]
@@ -22,7 +23,7 @@ pub unsafe fn cheri_address_increment(ptr: *const (), offset: usize) -> *const (
 #[inline]
 #[rustc_intrinsic]
 #[rustc_nounwind]
-pub unsafe fn cheri_address_set(ptr: *const (), addr: usize) -> *const ();
+pub unsafe fn cheri_address_set<T: PointeeSized>(ptr: *const T, addr: usize) -> *const T;
 
 /// Retrieve the base of the capability.
 #[inline]
