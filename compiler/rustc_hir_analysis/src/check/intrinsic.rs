@@ -832,10 +832,10 @@ pub(crate) fn check_intrinsic_type(
             Ty::new_imm_ptr(tcx, tcx.types.unit),
         ),
         sym::cheri_address_set => (
+            1,
             0,
-            0,
-            vec![Ty::new_imm_ptr(tcx, tcx.types.unit), tcx.types.usize],
-            Ty::new_imm_ptr(tcx, tcx.types.unit),
+            vec![Ty::new_imm_ptr(tcx, param(0)), tcx.types.usize],
+            Ty::new_imm_ptr(tcx, param(0)),
         ),
         sym::cheri_base_get => (0, 0, vec![Ty::new_imm_ptr(tcx, tcx.types.unit)], tcx.types.usize),
         sym::cheri_bounds_set => (
