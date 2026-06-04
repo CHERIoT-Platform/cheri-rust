@@ -198,17 +198,30 @@ impl<T: PointeeSized> *mut T {
     /// `self` to the given address, and therefore has all the same capabilities and restrictions.
     ///
     /// This is a [Strict Provenance][crate::ptr#strict-provenance] API.
+    ///
+    /// # Safety
+    ///
+    /// On CHERI platforms just changing the address of a pointer might result in the capability's tag being cleared.
     #[must_use]
     #[inline]
     #[stable(feature = "strict_provenance", since = "1.84.0")]
     pub fn with_addr(self, addr: usize) -> Self {
-        // This should probably be an intrinsic to avoid doing any sort of arithmetic, but
-        // meanwhile, we can implement it with `wrapping_offset`, which preserves the pointer's
-        // provenance.
-        let self_addr = self.addr() as isize;
-        let dest_addr = addr as isize;
-        let offset = dest_addr.wrapping_sub(self_addr);
-        self.wrapping_byte_offset(offset)
+        #[cfg(target_family = "cheri")]
+        // SAFETY: the `cheri_address_set` intrinsic has no prerequisites to be called.
+        unsafe {
+            crate::intrinsics::cheri::cheri_address_set(self, addr) as *mut _
+        }
+
+        #[cfg(not(target_family = "cheri"))]
+        {
+            // This should probably be an intrinsic to avoid doing any sort of arithmetic, but
+            // meanwhile, we can implement it with `wrapping_offset`, which preserves the pointer's
+            // provenance.
+            let self_addr = self.addr() as isize;
+            let dest_addr = addr as isize;
+            let offset = dest_addr.wrapping_sub(self_addr);
+            self.wrapping_byte_offset(offset)
+        }
     }
 
     /// Creates a new pointer by mapping `self`'s address to a new one, preserving the original
