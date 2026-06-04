@@ -760,7 +760,6 @@ fn thin_box() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): TagViolation
 fn nonnull_tagged_pointer_with_provenance() {
     let raw_pointer = Box::into_raw(Box::new(10));
 
