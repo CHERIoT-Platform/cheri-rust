@@ -1,2 +1,2 @@
-This is a branch created to poke CI and try to figure out workaround for it not running.
+This is a branch created to poke CI and try to figure out a workaround for it not running.
 Do not merge these changes into the cheri-rust repository!
