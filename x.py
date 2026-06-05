@@ -4,6 +4,8 @@
 
 # This file is only a "symlink" to bootstrap.py, all logic should go there.
 
+DELIBERATELY BROKEN TO STOP REAL CI RUNS
+
 # Parts of `bootstrap.py` use the `multiprocessing` module, so this entry point
 # must use the normal `if __name__ == '__main__':` convention to avoid problems.
 if __name__ == "__main__":
