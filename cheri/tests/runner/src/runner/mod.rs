@@ -161,16 +161,23 @@ impl App {
 
                 let stderr = String::from_utf8(output.stderr)?;
 
-                traceln!(self, "--- begin stdout from test runner --");
+                traceln!(self, format!("--- begin stdout from test runner ({name}) --"));
                 traceln!(self, stdout);
-                traceln!(self, "--- end stdout from test runner --");
-                traceln!(self, "--- begin stderr from test runner --");
+                traceln!(self, format!("--- end stdout from test runner ({name}) --"));
+                traceln!(self, format!("--- begin stderr from test runner ({name}) --"));
                 traceln!(self, stderr);
-                traceln!(self, "--- end stderr from test runner --");
+                traceln!(self, format!("--- end stderr from test runner ({name}) --"));
+
+                // In trace mode the full stdout (including the panic message) have already been
+                // printed.
+                let in_trace = matches!(
+                    self.verbosity.log_level(),
+                    Some(level) if level >= clap_verbosity_flag::log::Level::Trace
+                );
 
                 let start_needle = "@rust-test-runner-sync-start\n";
                 let good_end_needle = "@rust-test-runner-sync-end";
-                if let Some(prefix) = stdout.find(start_needle) {
+                if !in_trace && let Some(prefix) = stdout.find(start_needle) {
                     let mut stdout = stdout.split_off(prefix + start_needle.len());
                     if let Some(suffix) = stdout.rfind(good_end_needle) {
                         _ = stdout.split_off(suffix);
