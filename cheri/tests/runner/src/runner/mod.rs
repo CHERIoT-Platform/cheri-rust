@@ -170,10 +170,10 @@ impl App {
 
                 // In trace mode the full stdout (including the panic message) have already been
                 // printed.
-                let in_trace = self
-                    .verbosity
-                    .log_level()
-                    .is_some_and(|v| v >= clap_verbosity_flag::log::Level::Trace);
+                let in_trace = matches!(
+                    self.verbosity.log_level(),
+                    Some(level) if level >= clap_verbosity_flag::log::Level::Trace
+                );
 
                 let start_needle = "@rust-test-runner-sync-start\n";
                 let good_end_needle = "@rust-test-runner-sync-end";
