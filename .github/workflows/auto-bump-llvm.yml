@@ -2,11 +2,11 @@ name: Autobump LLVM (CHERIoT)
 
 on:
   schedule:
-    # Create a PR to bump LLVM every Friday at 12 p.m.
+    # Create a PR to bump LLVM every Monday at 15:30.
     - cron: "30 15 * * 1"
       timezone: "Europe/London"
+  # Needed so we can run it manually
   workflow_dispatch:
-    # Needed so we can run it manually
 
 permissions:
   contents: write
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   bump_llvm:
-    runs-on: cirun-gcp-aarch64--${{ github.run_id }}
+    runs-on: ubuntu-slim
     timeout-minutes: 240
     steps:
       # Create a PK that will be used later to create the PR.
@@ -23,13 +23,6 @@ jobs:
         with:
           app-id: ${{ secrets.CHERI_PR_AUTOMATOR_APP_ID }}
           private-key: ${{ secrets.CHERI_PR_AUTOMATOR_APP_PK }}
-      - name: Install GH CLI
-        run: |
-          set -eo pipefail
-          sudo apt update
-          sudo apt install -y git
-          wget https://github.com/cli/cli/releases/download/v2.93.0/gh_2.93.0_linux_arm64.deb
-          sudo dpkg -i gh_2.93.0_linux_arm64.deb
       - name: Does GH CLI work?
         run: gh auth status
         env:
@@ -42,15 +35,13 @@ jobs:
         name: Checkout
         with:
           fetch-depth: 2
-          # TODO: src/ci/scripts/checkout-submodules.sh should be faster
-          submodules: recursive
       - name: Pull changes from LLVM
         run: |
           cd src/llvm-project
           echo "CURRENT_LLVM_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           git fetch
           echo "NEXT_LLVM_COMMIT=$(git rev-parse --short origin/HEAD)" >> $GITHUB_ENV
-          git checkout $NEXT_LLVM_COMMIT
+          git checkout $(git rev-parse --short origin/HEAD)
 
       - name: Create commit
         if: env.CURRENT_LLVM_COMMIT != env.NEXT_LLVM_COMMIT
