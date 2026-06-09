@@ -37,6 +37,7 @@ jobs:
           fetch-depth: 2
       - name: Pull changes from LLVM
         run: |
+          git submodule update --init --depth=1 src/llvm-project
           cd src/llvm-project
           echo "CURRENT_LLVM_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           git fetch
