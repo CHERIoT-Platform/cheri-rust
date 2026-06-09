@@ -37,9 +37,7 @@ jobs:
           fetch-depth: 2
       - name: Pull changes from LLVM
         run: |
-          echo $(pwd)
-          git submodule sync
-          git submodule update --init --depth=1 src/llvm-project
+          retry sh -c "git submodule deinit -f src/llvm-project && git submodule sync && git submodule update  --init --recursive --depth 1 src/llvm-project"
           cd src/llvm-project
           echo "CURRENT_LLVM_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           git fetch
