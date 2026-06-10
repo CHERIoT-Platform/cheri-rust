@@ -776,8 +776,6 @@ fn array_eq() {
 }
 
 #[test]
-// FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/181
-#[cfg(not(target_abi = "cheriot"))]
 fn const_array_ops() {
     const fn doubler(x: usize) -> usize {
         x * 2
