@@ -1,6 +1,7 @@
 change-id = "ignore"
 
 [build]
+ccache = "ccache"
 rustfmt = "./build/host/stage1/bin/rustfmt"
 description = "cheri-rust"
 

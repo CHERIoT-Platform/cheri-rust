@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     name: Run tests
-    runs-on: cirun-gcp-aarch64--${{ github.run_id }}
+    runs-on: warp-custom-gcp-aarch64-32cpu
     timeout-minutes: 240
     env:
       CC: "clang"
@@ -25,7 +25,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt update
-          sudo apt install -y pkg-config clang ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git zlib1g-dev
+          sudo apt install -y pkg-config clang ccache ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git zlib1g-dev
 
         # after apt install git
       - uses: actions/checkout@v5
@@ -34,6 +34,18 @@ jobs:
           fetch-depth: 2
           # TODO: src/ci/scripts/checkout-submodules.sh should be faster
           submodules: recursive
+
+      - name: Restore ccache
+        id: restore-ccache
+        uses: WarpBuilds/cache/restore@v1
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.arch }}-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-${{ runner.arch }}-${{ runner.os }}
+
+      - name: Clear ccache stats
+        run: ccache --zero-stats
 
       - name: Configure bootstrap
         run: cp cheri/bootstrap/ci.toml bootstrap.toml
@@ -114,6 +126,18 @@ jobs:
 
       - name: Run coretests (CHERIoT/facade)
         run: ./cheri/ci/script/coretests.sh
+
+      - name: Save ccache
+        if: always()
+        id: ccache-save
+        uses: WarpBuilds/cache/save@v1
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.arch }}-${{ runner.os }}-${{ github.run_id }}
+
+      - name: Check ccache stats
+        if: always()
+        run: ccache --show-stats
 
       - name: Check disk
         if: always()
