@@ -1,6 +1,7 @@
 change-id = "ignore"
 
 [build]
+ccache = "sccache"
 description = "cheri-rust"
 locked-deps = true
 
