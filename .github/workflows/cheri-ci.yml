@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     name: Run tests
-    runs-on: cirun-gcp-aarch64--${{ github.run_id }}
+    runs-on: warp-custom-gcp-aarch64-32cpu
     timeout-minutes: 240
     env:
       CC: "clang"
