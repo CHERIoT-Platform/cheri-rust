@@ -37,6 +37,32 @@ jobs:
           # TODO: src/ci/scripts/checkout-submodules.sh should be faster
           submodules: recursive
 
+      - name: Install sccache
+        env:
+          # we keep to daemon alive so we can check the stats at the end
+          SCCACHE_IDLE_TIMEOUT: 14400
+          # version used upstream
+          URL: https://ci-mirrors.rust-lang.org/rustc/2025-02-24-sccache-v0.10.0-aarch64-unknown-linux-musl
+        run: |
+          curl -fo /usr/local/bin/sccache "$URL"
+          chmod +x /usr/local/bin/sccache
+          sccache --start-server
+
+      - name: Restore sccache cache
+        id: restore-sccache
+        uses: WarpBuilds/cache/restore@v1
+        with:
+          path: ~/.cache/sccache
+          # this should be empty
+          key: sccache-${{ runner.arch }}-${{github.ref}}-${{github.run_id}}
+          # but we might have one of these:
+          restore-keys: |
+            sccache-${{ runner.arch }}-${{github.ref}}
+            sccache-${{ runner.arch }}
+
+      - name: Clear sccache stats
+        run: sccache --zero-stats
+
       - name: Configure bootstrap
         run: cp cheri/bootstrap/ci.toml bootstrap.toml
 
@@ -114,6 +140,18 @@ jobs:
 
       - name: Run coretests (CHERIoT/facade)
         run: test-runner coretests
+
+      - name: Check sccache stats
+        if: always()
+        run: sccache --show-stats
+
+      - name: Save sccache cache
+        if: always()
+        id: sccache-save
+        uses: WarpBuilds/cache/save@v1
+        with:
+          path: ~/.cache/sccache
+          key: sccache-${{ runner.arch }}-${{github.ref}}-${{github.run_id}}
 
       - name: Check disk
         if: always()
