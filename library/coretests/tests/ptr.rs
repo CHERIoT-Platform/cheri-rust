@@ -903,7 +903,6 @@ fn test_const_copy_ptr() {
 }
 
 #[test]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/181
 fn test_const_swap_ptr() {
     // The `swap` functions are implemented in the library, they are not primitives.
     // Only `swap_nonoverlapping` takes a count; pointers that cross multiple elements
