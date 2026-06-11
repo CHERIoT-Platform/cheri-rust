@@ -600,12 +600,12 @@ fn test_nonzero_range() {
         nonzero_range!(NonZero<u16>(1..MAX)).step_by(1).size_hint(),
         (u16::MAX as usize - 1, Some(u16::MAX as usize - 1))
     );
-    #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+    #[cfg(any(target_address_width = "32", target_address_width = "64"))]
     assert_eq!(
         nonzero_range!(NonZero<u32>(1..MAX)).step_by(1).size_hint(),
         (u32::MAX as usize - 1, Some(u32::MAX as usize - 1))
     );
-    #[cfg(target_pointer_width = "64")]
+    #[cfg(target_address_width = "64")]
     assert_eq!(
         nonzero_range!(NonZero<u64>(1..MAX)).step_by(1).size_hint(),
         (u64::MAX as usize - 1, Some(u64::MAX as usize - 1))
@@ -625,12 +625,12 @@ fn test_nonzero_range() {
         nonzero_range!(NonZero<u16>(1..=MAX)).step_by(1).size_hint(),
         (u16::MAX as usize, Some(u16::MAX as usize))
     );
-    #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+    #[cfg(any(target_address_width = "32", target_address_width = "64"))]
     assert_eq!(
         nonzero_range!(NonZero<u32>(1..=MAX)).step_by(1).size_hint(),
         (u32::MAX as usize, Some(u32::MAX as usize))
     );
-    #[cfg(target_pointer_width = "64")]
+    #[cfg(target_address_width = "64")]
     assert_eq!(
         nonzero_range!(NonZero<u64>(1..=MAX)).step_by(1).size_hint(),
         (u64::MAX as usize, Some(u64::MAX as usize))

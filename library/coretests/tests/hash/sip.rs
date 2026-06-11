@@ -227,7 +227,7 @@ fn test_siphash_2_4() {
 }
 
 #[test]
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 fn test_hash_usize() {
     let val = 0xdeadbeef_deadbeef_u64;
     assert_ne!(hash(&(val as u64)), hash(&(val as usize)));
@@ -235,7 +235,7 @@ fn test_hash_usize() {
 }
 
 #[test]
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 fn test_hash_usize() {
     let val = 0xdeadbeef_deadbeef_u64;
     assert_eq!(hash(&(val as u64)), hash(&(val as usize)));
