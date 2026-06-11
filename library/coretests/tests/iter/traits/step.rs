@@ -19,7 +19,7 @@ fn test_steps_between() {
 
     assert_eq!(Step::steps_between(&20_u128, &200_u128), (180_usize, Some(180_usize)));
     assert_eq!(Step::steps_between(&-20_i128, &80_i128), (100_usize, Some(100_usize)));
-    if cfg!(target_pointer_width = "64") {
+    if cfg!(target_address_width = "64") {
         assert_eq!(
             Step::steps_between(&10_u128, &0x1_0000_0000_0000_0009_u128),
             (usize::MAX, Some(usize::MAX))

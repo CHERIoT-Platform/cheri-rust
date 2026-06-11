@@ -90,7 +90,7 @@ fn test_fmt_pointer() {
 
     let _ = format!("{rc:p}{arc:p}{b:p}");
 
-    if cfg!(target_pointer_width = "32") {
+    if cfg!(target_address_width = "32") {
         assert_eq!(format!("{:#p}", p), "0x00000000");
     } else {
         assert_eq!(format!("{:#p}", p), "0x0000000000000000");

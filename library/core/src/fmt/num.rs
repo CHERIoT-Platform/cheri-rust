@@ -593,7 +593,7 @@ impl_Debug! {
 
 // Include wasm32 in here since it doesn't reflect the native pointer size, and
 // often cares strongly about getting a smaller code size.
-#[cfg(any(target_pointer_width = "64", target_arch = "wasm32"))]
+#[cfg(any(target_address_width = "64", target_arch = "wasm32"))]
 #[doc(auto_cfg = false)]
 mod imp {
     use super::*;
@@ -601,7 +601,7 @@ mod imp {
     impl_Exp!(i8, u8, i16, u16, i32, u32, i64, u64, isize, usize; as u64 into exp_u64);
 }
 
-#[cfg(not(any(target_pointer_width = "64", target_arch = "wasm32")))]
+#[cfg(not(any(target_address_width = "64", target_arch = "wasm32")))]
 #[doc(auto_cfg = false)]
 mod imp {
     use super::*;

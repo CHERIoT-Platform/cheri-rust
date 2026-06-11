@@ -564,18 +564,18 @@ macro_rules! spec_int_ranges_r {
     )*)
 }
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 spec_int_ranges!(u8 u16 u32 u64 usize);
 // DoubleEndedIterator requires ExactSizeIterator, which isn't implemented for Range<u64>
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 spec_int_ranges_r!(u8 u16 u32 usize);
 
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 spec_int_ranges!(u8 u16 u32 usize);
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 spec_int_ranges_r!(u8 u16 u32 usize);
 
-#[cfg(target_pointer_width = "16")]
+#[cfg(target_address_width = "16")]
 spec_int_ranges!(u8 u16 usize);
-#[cfg(target_pointer_width = "16")]
+#[cfg(target_address_width = "16")]
 spec_int_ranges_r!(u8 u16 usize);

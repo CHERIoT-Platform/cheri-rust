@@ -460,7 +460,7 @@ impl i128 {
     midpoint_impl! { i128, signed }
 }
 
-#[cfg(target_pointer_width = "16")]
+#[cfg(target_address_width = "16")]
 impl isize {
     int_impl! {
         Self = isize,
@@ -485,7 +485,7 @@ impl isize {
     midpoint_impl! { isize, i32, signed }
 }
 
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 impl isize {
     int_impl! {
         Self = isize,
@@ -510,7 +510,7 @@ impl isize {
     midpoint_impl! { isize, i64, signed }
 }
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 impl isize {
     int_impl! {
         Self = isize,
@@ -1329,7 +1329,7 @@ impl u128 {
     carrying_carryless_mul_impl! { u128, u256 }
 }
 
-#[cfg(target_pointer_width = "16")]
+#[cfg(target_address_width = "16")]
 impl usize {
     uint_impl! {
         Self = usize,
@@ -1360,7 +1360,7 @@ impl usize {
     carrying_carryless_mul_impl! { usize, u32 }
 }
 
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 impl usize {
     uint_impl! {
         Self = usize,
@@ -1391,7 +1391,7 @@ impl usize {
     carrying_carryless_mul_impl! { usize, u64 }
 }
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 impl usize {
     uint_impl! {
         Self = usize,
