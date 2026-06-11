@@ -1,3 +1,4 @@
+// ignore-tidy-filelength
 //! [Flexible target specification.](https://github.com/rust-lang/rfcs/pull/131)
 //!
 //! Rust targets a wide variety of usecases, and in the interest of flexibility,
@@ -2189,6 +2190,16 @@ impl Target {
             });
         }
 
+        if let Some(target_address_width) = self.options.address_width {
+            let dl_address_size: u64 = dl.address_size().bits();
+            if dl_address_size != Into::<u64>::into(target_address_width) {
+                return Err(TargetDataLayoutError::InconsistentTargetAddressWidth {
+                    address_size: dl_address_size,
+                    target: target_address_width,
+                });
+            }
+        }
+
         dl.c_enum_min_size = Integer::from_size(Size::from_bits(
             self.c_enum_min_bits.unwrap_or(self.c_int_width as _),
         ))
@@ -2291,6 +2302,10 @@ type StaticCow<T> = Cow<'static, T>;
 pub struct TargetOptions {
     /// Used as the `target_endian` `cfg` variable. Defaults to little endian.
     pub endian: Endian,
+    /// Number of bits in the address part of a pointer, a `usize`, and the machine word size.
+    /// This decides the value of the `target_address_width` `cfg` variable.
+    /// Defaults to `pointer_width`.
+    pub address_width: Option<u16>,
     /// Width of c_int type. Defaults to "32".
     pub c_int_width: u16,
     /// OS name to use for conditional compilation (`target_os`). Defaults to [`Os::None`].
@@ -2817,6 +2832,7 @@ impl Default for TargetOptions {
     fn default() -> TargetOptions {
         TargetOptions {
             endian: Endian::Little,
+            address_width: None,
             c_int_width: 32,
             os: Os::None,
             env: Env::Unspecified,
@@ -2965,6 +2981,11 @@ impl Target {
     pub fn is_abi_supported(&self, abi: ExternAbi) -> bool {
         let abi_map = AbiMap::from_target(self);
         abi_map.canonize_abi(abi, false).is_mapped()
+    }
+
+    /// Number of bits in the address part of a pointer, a `usize`, and the machine word size.
+    pub fn address_width(&self) -> u16 {
+        self.address_width.unwrap_or(self.pointer_width)
     }
 
     /// Minimum integer size in bits that this target can perform atomic
