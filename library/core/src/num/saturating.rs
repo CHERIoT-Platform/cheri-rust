@@ -1068,19 +1068,19 @@ saturating_int_impl_unsigned! { usize u8 u16 u32 u64 u128 }
 // mod shift_max {
 //     #![allow(non_upper_case_globals)]
 //
-//     #[cfg(target_pointer_width = "16")]
+//     #[cfg(target_address_width = "16")]
 //     mod platform {
 //         pub const usize: u32 = super::u16;
 //         pub const isize: u32 = super::i16;
 //     }
 //
-//     #[cfg(target_pointer_width = "32")]
+//     #[cfg(target_address_width = "32")]
 //     mod platform {
 //         pub const usize: u32 = super::u32;
 //         pub const isize: u32 = super::i32;
 //     }
 //
-//     #[cfg(target_pointer_width = "64")]
+//     #[cfg(target_address_width = "64")]
 //     mod platform {
 //         pub const usize: u32 = super::u64;
 //         pub const isize: u32 = super::i64;

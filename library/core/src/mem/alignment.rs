@@ -370,7 +370,7 @@ const impl Default for Alignment {
     }
 }
 
-#[cfg(target_pointer_width = "16")]
+#[cfg(target_address_width = "16")]
 #[derive(Copy)]
 #[derive_const(Clone, PartialEq, Eq)]
 #[repr(usize)]
@@ -393,7 +393,7 @@ enum AlignmentEnum {
     _Align1Shl15 = 1 << 15,
 }
 
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 #[derive(Copy)]
 #[derive_const(Clone, PartialEq, Eq)]
 #[repr(usize)]
@@ -432,7 +432,7 @@ enum AlignmentEnum {
     _Align1Shl31 = 1 << 31,
 }
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 #[derive(Copy)]
 #[derive_const(Clone, PartialEq, Eq)]
 #[repr(usize)]

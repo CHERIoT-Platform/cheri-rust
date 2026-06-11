@@ -51,11 +51,11 @@ fn test_iterator_step_by_nth() {
 #[test]
 #[allow(non_local_definitions)]
 fn test_iterator_step_by_nth_overflow() {
-    #[cfg(target_pointer_width = "16")]
+    #[cfg(target_address_width = "16")]
     type Bigger = u32;
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(target_address_width = "32")]
     type Bigger = u64;
-    #[cfg(target_pointer_width = "64")]
+    #[cfg(target_address_width = "64")]
     type Bigger = u128;
 
     #[derive(Clone)]

@@ -464,11 +464,11 @@ fn align_offset_various_strides() {
 
 #[test]
 fn align_offset_issue_103361() {
-    #[cfg(target_pointer_width = "64")]
+    #[cfg(target_address_width = "64")]
     const SIZE: usize = 1 << 47;
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(target_address_width = "32")]
     const SIZE: usize = 1 << 30;
-    #[cfg(target_pointer_width = "16")]
+    #[cfg(target_address_width = "16")]
     const SIZE: usize = 1 << 13;
     struct HugeSize(#[allow(dead_code)] [u8; SIZE - 1]);
     let _ = ptr::without_provenance::<HugeSize>(SIZE).align_offset(SIZE);
@@ -930,8 +930,8 @@ fn test_const_swap_ptr() {
 
     // Ensure the entire thing is usize-aligned, so in principle this
     // looks like it could be eligible for a `usize` copying loop.
-    #[cfg_attr(target_pointer_width = "32", repr(align(4)))]
-    #[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+    #[cfg_attr(target_address_width = "32", repr(align(4)))]
+    #[cfg_attr(target_address_width = "64", repr(align(8)))]
     struct A(S);
 
     const {

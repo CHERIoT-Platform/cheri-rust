@@ -77,7 +77,7 @@ fn test_format_macro_interface() {
     t!(format!("{:X}", 10_usize), "A");
     t!(format!("{}", "foo"), "foo");
     t!(format!("{}", "foo".to_string()), "foo");
-    if cfg!(target_pointer_width = "32") {
+    if cfg!(target_address_width = "32") {
         t!(format!("{:#p}", ptr::without_provenance::<isize>(0x1234)), "0x00001234");
         t!(format!("{:#p}", ptr::without_provenance_mut::<isize>(0x1234)), "0x00001234");
     } else {
