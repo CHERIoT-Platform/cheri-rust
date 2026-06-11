@@ -210,7 +210,7 @@ pub macro assert_matches {
 ///     unix => {
 ///         fn foo() { /* unix specific functionality */ }
 ///     }
-///     target_pointer_width = "32" => {
+///     target_address_width = "32" => {
 ///         fn foo() { /* non-unix, 32-bit functionality */ }
 ///     }
 ///     _ => {

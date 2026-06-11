@@ -183,7 +183,7 @@ fn bswap() {
     assert_eq!(__bswapdi2(0x123456789ABCDEF0u64), 0xF0DEBC9A78563412u64);
     assert_eq!(__bswapdi2(0x0200000001000000u64), 0x0000000100000002u64);
 
-    #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+    #[cfg(any(target_address_width = "32", target_address_width = "64"))]
     {
         use compiler_builtins::int::bswap::__bswapti2;
         fuzz(N, |x: u128| {

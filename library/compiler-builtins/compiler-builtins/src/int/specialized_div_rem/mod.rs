@@ -135,14 +135,14 @@ fn u64_by_u64_div_rem(duo: u64, div: u64) -> (u64, u64) {
 
 // Whether `trifecta` or `delegate` is faster for 128 bit division depends on the speed at which a
 // microarchitecture can multiply and divide. We decide to be optimistic and assume `trifecta` is
-// faster if the target pointer width is at least 64. Note that this
+// faster if the target address width is at least 64. Note that this
 // implementation is additionally included on WebAssembly despite the typical
-// pointer width there being 32 because it's typically run on a 64-bit machine
+// address width there being 32 because it's typically run on a 64-bit machine
 // that has access to faster 64-bit operations.
 #[cfg(all(
     any(
         target_family = "wasm",
-        not(any(target_pointer_width = "16", target_pointer_width = "32")),
+        not(any(target_address_width = "16", target_address_width = "32")),
     ),
     not(all(feature = "arch", target_arch = "x86_64")),
     not(any(target_arch = "sparc", target_arch = "sparc64"))
@@ -157,13 +157,13 @@ impl_trifecta!(
     u128
 );
 
-// If the pointer width less than 64 and this isn't wasm, then the target
+// If the address width is less than 64 and this isn't wasm, then the target
 // architecture almost certainly does not have the fast 64 to 128 bit widening
 // multiplication needed for `trifecta` to be faster.
 #[cfg(all(
     not(any(
         target_family = "wasm",
-        not(any(target_pointer_width = "16", target_pointer_width = "32")),
+        not(any(target_address_width = "16", target_address_width = "32")),
     )),
     not(all(feature = "arch", target_arch = "x86_64")),
     not(any(target_arch = "sparc", target_arch = "sparc64"))
@@ -234,11 +234,11 @@ fn u32_by_u32_div_rem(duo: u32, div: u32) -> (u32, u32) {
     zero_div_fn()
 }
 
-// When not on x86 and the pointer width is not 64, use `delegate` since the division size is larger
+// When not on x86 and the address width is not 64, use `delegate` since the division size is larger
 // than register size.
 #[cfg(all(
     not(all(feature = "arch", target_arch = "x86")),
-    not(target_pointer_width = "64")
+    not(target_address_width = "64")
 ))]
 impl_delegate!(
     u64_div_rem,
@@ -252,10 +252,10 @@ impl_delegate!(
     i64
 );
 
-// When not on x86 and the pointer width is 64, use `binary_long`.
+// When not on x86 and the address width is 64, use `binary_long`.
 #[cfg(all(
     not(all(feature = "arch", target_arch = "x86")),
-    target_pointer_width = "64"
+    target_address_width = "64"
 ))]
 impl_binary_long!(
     u64_div_rem,

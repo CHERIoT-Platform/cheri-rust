@@ -434,17 +434,17 @@ macro_rules! step_integer_impls {
     };
 }
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 step_integer_impls! {
     [ [u8 i8], [u16 i16], [u32 i32], [u64 i64], [usize isize] ] <= usize < [ [u128 i128] ]
 }
 
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 step_integer_impls! {
     [ [u8 i8], [u16 i16], [u32 i32], [usize isize] ] <= usize < [ [u64 i64], [u128 i128] ]
 }
 
-#[cfg(target_pointer_width = "16")]
+#[cfg(target_address_width = "16")]
 step_integer_impls! {
     [ [u8 i8], [u16 i16], [usize isize] ] <= usize < [ [u32 i32], [u64 i64], [u128 i128] ]
 }
@@ -557,17 +557,17 @@ macro_rules! step_nonzero_impls {
     };
 }
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 step_nonzero_impls! {
     [u8, u16, u32, u64, usize] <= usize < [u128]
 }
 
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 step_nonzero_impls! {
     [u8, u16, u32, usize] <= usize < [u64, u128]
 }
 
-#[cfg(target_pointer_width = "16")]
+#[cfg(target_address_width = "16")]
 step_nonzero_impls! {
     [u8, u16, usize] <= usize < [u32, u64, u128]
 }
@@ -1079,13 +1079,13 @@ unsafe_range_trusted_random_access_impl! {
     NonZero<usize> NonZero<u8> NonZero<u16>
 }
 
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 unsafe_range_trusted_random_access_impl! {
     u32 i32
     NonZero<u32>
 }
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 unsafe_range_trusted_random_access_impl! {
     u32 i32
     u64 i64
