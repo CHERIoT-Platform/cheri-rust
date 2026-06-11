@@ -140,6 +140,7 @@ pub(crate) fn disallow_cfgs(sess: &Session, user_cfgs: &Cfg) {
             | (sym::windows, None)
             | (sym::relocation_model, Some(_))
             | (sym::target_abi, None | Some(_))
+            | (sym::target_address_width, Some(_))
             | (sym::target_arch, Some(_))
             | (sym::target_endian, Some(_))
             | (sym::target_env, None | Some(_))
@@ -304,7 +305,11 @@ pub(crate) fn default_configuration(sess: &Session) -> Cfg {
         }
     }
 
+    ins_sym!(sym::target_address_width, sym::integer(layout.address_size().bits()));
     ins_sym!(sym::target_os, sess.target.os.desc_symbol());
+    // HACK: This should be `layout.pointer_size()`.
+    //       This is is left as-is temporarily to keep core working until we
+    //       fix misuse of `target_pointer_width` in core in the next commit.
     ins_sym!(sym::target_pointer_width, sym::integer(layout.address_size().bits()));
 
     if sess.opts.unstable_opts.has_thread_local.unwrap_or(sess.target.has_thread_local) {
@@ -422,8 +427,9 @@ impl CheckCfg {
 
         // sym::target_*
         {
-            const VALUES: [&Symbol; 9] = [
+            const VALUES: [&Symbol; 10] = [
                 &sym::target_abi,
+                &sym::target_address_width,
                 &sym::target_arch,
                 &sym::target_endian,
                 &sym::target_env,
@@ -445,9 +451,10 @@ impl CheckCfg {
 
             if self.exhaustive_values {
                 // Get all values map at once otherwise it would be costly.
-                // (8 values * 220 targets ~= 1760 times, at the time of writing this comment).
+                // (10 values * 220 targets ~= 2200 times, at the time of writing this comment).
                 let [
                     Some(values_target_abi),
+                    Some(values_target_address_width),
                     Some(values_target_arch),
                     Some(values_target_endian),
                     Some(values_target_env),
@@ -463,6 +470,7 @@ impl CheckCfg {
 
                 for target in Target::builtins().chain(iter::once(current_target.clone())) {
                     values_target_abi.insert(target.options.cfg_abi.desc_symbol());
+                    values_target_address_width.insert(sym::integer(target.address_width()));
                     values_target_arch.insert(target.arch.desc_symbol());
                     values_target_endian.insert(target.options.endian.desc_symbol());
                     values_target_env.insert(target.options.env.desc_symbol());

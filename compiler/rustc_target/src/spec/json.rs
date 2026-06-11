@@ -65,6 +65,7 @@ impl Target {
         }
 
         forward!(frame_pointer);
+        forward_opt!(address_width);
         forward!(c_int_width);
         forward_opt!(c_enum_min_bits); // if None, matches c_int_width
         forward!(os);
@@ -300,6 +301,7 @@ impl ToJson for Target {
         target_val!(data_layout);
 
         target_option_val!(endian, "target-endian");
+        target_option_val!(address_width, "target-address-width");
         target_option_val!(c_int_width, "target-c-int-width");
         target_option_val!(os);
         target_option_val!(env);
@@ -508,6 +510,8 @@ struct TargetSpecJson {
     // options:
     target_endian: Option<EndianWrapper>,
     frame_pointer: Option<FramePointer>,
+    #[serde(rename = "target-address-width")]
+    address_width: Option<u16>,
     #[serde(rename = "target-c-int-width")]
     c_int_width: Option<u16>,
     c_enum_min_bits: Option<u64>,
