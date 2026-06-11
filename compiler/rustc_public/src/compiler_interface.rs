@@ -762,8 +762,10 @@ impl<'tcx> CompilerInterface<'tcx> {
 
     /// Return information about the target machine.
     pub(crate) fn target_info(&self) -> MachineInfo {
-        self.with_cx(|tables, cx| MachineInfo {
-            endian: cx.target_endian().stable(tables, cx),
+        let mut tables = self.tables.borrow_mut();
+        let cx = &*self.cx.borrow();
+        MachineInfo {
+            endian: cx.target_endian().stable(&mut *tables, cx),
             address_width: MachineSize::from_bits(cx.target_address_size()),
             pointer_width: MachineSize::from_bits(cx.target_pointer_size()),
         })
