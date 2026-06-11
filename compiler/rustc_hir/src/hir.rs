@@ -25,7 +25,8 @@ use rustc_index::IndexVec;
 use rustc_macros::{Decodable, Encodable, StableHash};
 use rustc_span::def_id::LocalDefId;
 use rustc_span::{
-    BytePos, DUMMY_SP, DesugaringKind, ErrorGuaranteed, Ident, Span, Spanned, Symbol, kw, sym,
+    BytePos, DUMMY_SP, DesugaringKind, ErrorGuaranteed, Ident, LocalExpnId, Span, Spanned, Symbol,
+    kw, sym,
 };
 use rustc_target::asm::InlineAsmRegOrRegClass;
 use smallvec::SmallVec;
@@ -700,12 +701,12 @@ impl<'hir> GenericArgs<'hir> {
     }
 
     #[inline]
-    pub fn num_lifetime_params(&self) -> usize {
+    pub fn num_lifetime_args(&self) -> usize {
         self.args.iter().filter(|arg| matches!(arg, GenericArg::Lifetime(_))).count()
     }
 
     #[inline]
-    pub fn has_lifetime_params(&self) -> bool {
+    pub fn has_lifetime_args(&self) -> bool {
         self.args.iter().any(|arg| matches!(arg, GenericArg::Lifetime(_)))
     }
 
@@ -1193,8 +1194,6 @@ pub enum WherePredicateKind<'hir> {
     BoundPredicate(WhereBoundPredicate<'hir>),
     /// A lifetime predicate (e.g., `'a: 'b + 'c`).
     RegionPredicate(WhereRegionPredicate<'hir>),
-    /// An equality predicate (unsupported).
-    EqPredicate(WhereEqPredicate<'hir>),
 }
 
 impl<'hir> WherePredicateKind<'hir> {
@@ -1202,7 +1201,6 @@ impl<'hir> WherePredicateKind<'hir> {
         match self {
             WherePredicateKind::BoundPredicate(p) => p.origin == PredicateOrigin::WhereClause,
             WherePredicateKind::RegionPredicate(p) => p.in_where_clause,
-            WherePredicateKind::EqPredicate(_) => false,
         }
     }
 
@@ -1210,7 +1208,6 @@ impl<'hir> WherePredicateKind<'hir> {
         match self {
             WherePredicateKind::BoundPredicate(p) => p.bounds,
             WherePredicateKind::RegionPredicate(p) => p.bounds,
-            WherePredicateKind::EqPredicate(_) => &[],
         }
     }
 }
@@ -2327,6 +2324,13 @@ impl CoroutineKind {
         matches!(self, CoroutineKind::Desugared(_, CoroutineSource::Fn))
     }
 
+    pub fn is_async_desugaring(self) -> bool {
+        matches!(
+            self,
+            CoroutineKind::Desugared(CoroutineDesugaring::Async | CoroutineDesugaring::AsyncGen, _)
+        )
+    }
+
     pub fn to_plural_string(&self) -> String {
         match self {
             CoroutineKind::Desugared(d, CoroutineSource::Fn) => format!("{d:#}fn bodies"),
@@ -2464,10 +2468,12 @@ pub enum ConstContext {
     /// - Array length expressions
     /// - Enum discriminants
     /// - Const generics
-    ///
-    /// For the most part, other contexts are treated just like a regular `const`, so they are
-    /// lumped into the same category.
-    Const { inline: bool },
+    Const {
+        /// For backwards compatibility `const` items allow
+        /// calls to `const fn` to get promoted.
+        /// We forbid that in comptime fns and inline consts.
+        allow_const_fn_promotion: bool,
+    },
 }
 
 impl ConstContext {
@@ -3314,7 +3320,7 @@ impl<'hir> TraitItem<'hir> {
 
     expect_methods_self_kind! {
         expect_const, (&'hir Ty<'hir>, Option<ConstItemRhs<'hir>>),
-            TraitItemKind::Const(ty, rhs, _), (ty, *rhs);
+            TraitItemKind::Const(ty, rhs), (ty, *rhs);
 
         expect_fn, (&FnSig<'hir>, &TraitFn<'hir>),
             TraitItemKind::Fn(ty, trfn), (ty, trfn);
@@ -3334,32 +3340,11 @@ pub enum TraitFn<'hir> {
     Provided(BodyId),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, StableHash)]
-pub enum IsTypeConst {
-    No,
-    Yes,
-}
-
-impl From<bool> for IsTypeConst {
-    fn from(value: bool) -> Self {
-        if value { Self::Yes } else { Self::No }
-    }
-}
-
-impl From<IsTypeConst> for bool {
-    fn from(value: IsTypeConst) -> Self {
-        matches!(value, IsTypeConst::Yes)
-    }
-}
-
 /// Represents a trait method or associated constant or type
 #[derive(Debug, Clone, Copy, StableHash)]
 pub enum TraitItemKind<'hir> {
-    // FIXME(mgca) eventually want to move the option that is around `ConstItemRhs<'hir>`
-    // into `ConstItemRhs`, much like `ast::ConstItemRhsKind`, but for now mark whether
-    // this node is a TypeConst with a flag.
     /// An associated constant with an optional value (otherwise `impl`s must contain a value).
-    Const(&'hir Ty<'hir>, Option<ConstItemRhs<'hir>>, IsTypeConst),
+    Const(&'hir Ty<'hir>, Option<ConstItemRhs<'hir>>),
     /// An associated function with an optional body.
     Fn(FnSig<'hir>, TraitFn<'hir>),
     /// An associated type with (possibly empty) bounds and optional concrete
@@ -3864,20 +3849,22 @@ pub enum OpaqueTyOrigin<D> {
     },
 }
 
-// Ids of parent (or child) path segment that contains user-specified args
 #[derive(Debug, Clone, Copy, PartialEq, Eq, StableHash)]
-pub struct DelegationGenerics {
+pub struct DelegationInfo {
+    pub call_expr_id: HirId,
+    pub call_path_res: Option<DefId>,
     pub parent_args_segment_id: Option<HirId>,
     pub child_args_segment_id: Option<HirId>,
     pub self_ty_id: Option<HirId>,
     pub propagate_self_ty: bool,
+    pub group_id: Option<(LocalExpnId, bool /* unused_target_expr */)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, StableHash)]
 pub enum InferDelegationSig<'hir> {
     Input(usize),
-    // Place generics info here, as we always specify output type for delegations.
-    Output(&'hir DelegationGenerics),
+    // Place delegation info here, as we always specify output type for delegations.
+    Output(&'hir DelegationInfo),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, StableHash)]
@@ -4164,7 +4151,7 @@ impl<'hir> FnDecl<'hir> {
         None
     }
 
-    pub fn opt_delegation_generics(&self) -> Option<&'hir DelegationGenerics> {
+    pub fn opt_delegation_info(&self) -> Option<&'hir DelegationInfo> {
         if let FnRetTy::Return(ty) = self.output
             && let TyKind::InferDelegation(InferDelegation::Sig(_, kind)) = ty.kind
             && let InferDelegationSig::Output(generics) = kind
@@ -4628,17 +4615,24 @@ impl fmt::Display for Safety {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Encodable, Decodable, StableHash)]
-#[derive(Default)]
 pub enum Constness {
-    #[default]
-    Const,
+    Const { always: bool },
     NotConst,
+}
+
+/// This impl exists as an optimization so that metadata deserialization can
+/// store the value directly and not have to encode it wrapped in another `Option`.
+impl Default for Constness {
+    fn default() -> Self {
+        Self::Const { always: false }
+    }
 }
 
 impl fmt::Display for Constness {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match *self {
-            Self::Const => "const",
+            Self::Const { always: true } => "comptime",
+            Self::Const { always: false } => "const",
             Self::NotConst => "non-const",
         })
     }
@@ -4690,10 +4684,6 @@ pub struct FnHeader {
 impl FnHeader {
     pub fn is_async(&self) -> bool {
         matches!(self.asyncness, IsAsync::Async(_))
-    }
-
-    pub fn is_const(&self) -> bool {
-        matches!(self.constness, Constness::Const)
     }
 
     pub fn is_unsafe(&self) -> bool {
@@ -5000,7 +4990,7 @@ impl<'hir> OwnerNode<'hir> {
             | OwnerNode::TraitItem(TraitItem {
                 kind:
                     TraitItemKind::Fn(_, TraitFn::Provided(body))
-                    | TraitItemKind::Const(_, Some(ConstItemRhs::Body(body)), _),
+                    | TraitItemKind::Const(_, Some(ConstItemRhs::Body(body))),
                 ..
             })
             | OwnerNode::ImplItem(ImplItem {
@@ -5227,7 +5217,7 @@ impl<'hir> Node<'hir> {
                 _ => None,
             },
             Node::TraitItem(it) => match it.kind {
-                TraitItemKind::Const(ty, _, _) => Some(ty),
+                TraitItemKind::Const(ty, _) => Some(ty),
                 TraitItemKind::Type(_, ty) => ty,
                 _ => None,
             },
@@ -5245,6 +5235,7 @@ impl<'hir> Node<'hir> {
                 GenericParamKind::Type { default, .. } => default,
                 GenericParamKind::Const { ty, .. } => Some(ty),
             },
+            Node::Field(f) => Some(f.ty),
             _ => None,
         }
     }
@@ -5270,7 +5261,7 @@ impl<'hir> Node<'hir> {
             | Node::TraitItem(TraitItem {
                 owner_id,
                 kind:
-                    TraitItemKind::Const(_, Some(ConstItemRhs::Body(body)), _)
+                    TraitItemKind::Const(_, Some(ConstItemRhs::Body(body)))
                     | TraitItemKind::Fn(_, TraitFn::Provided(body)),
                 ..
             })

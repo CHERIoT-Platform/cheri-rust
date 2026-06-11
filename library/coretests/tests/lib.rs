@@ -12,9 +12,9 @@
 #![feature(ascii_char_variants)]
 #![feature(async_iter_from_iter)]
 #![feature(async_iterator)]
-#![feature(bool_to_result)]
 #![feature(borrowed_buf_init)]
 #![feature(bstr)]
+#![feature(casefold)]
 #![feature(cfg_target_has_reliable_f16_f128)]
 #![feature(char_internals)]
 #![feature(clone_to_uninit)]
@@ -72,6 +72,8 @@
 #![feature(hashmap_internals)]
 #![feature(int_from_ascii)]
 #![feature(int_roundings)]
+#![feature(integer_casts)]
+#![feature(io_slice_as_bytes)]
 #![feature(ip)]
 #![feature(is_ascii_octdigit)]
 #![feature(iter_advance_by)]
@@ -86,6 +88,7 @@
 #![feature(iterator_try_collect)]
 #![feature(iterator_try_reduce)]
 #![feature(layout_for_ptr)]
+#![feature(macro_metavar_expr_concat)]
 #![feature(maybe_uninit_fill)]
 #![feature(maybe_uninit_uninit_array_transpose)]
 #![feature(min_specialization)]
@@ -101,7 +104,6 @@
 #![feature(pointer_is_aligned_to)]
 #![feature(portable_simd)]
 #![feature(ptr_metadata)]
-#![feature(result_option_map_or_default)]
 #![feature(rustc_attrs)]
 #![feature(signed_bigint_helpers)]
 #![feature(slice_from_ptr_range)]
@@ -133,6 +135,7 @@
 // tidy-alphabetical-end
 #![allow(internal_features)]
 #![deny(fuzzy_provenance_casts)]
+#![deny(lossy_provenance_casts)]
 #![deny(unsafe_op_in_unsafe_fn)]
 
 /// Version of `assert_matches` that ignores fancy runtime printing in const context and uses structural equality.

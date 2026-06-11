@@ -1681,6 +1681,13 @@ pub(crate) struct DelegationSelfTypeNotSpecified {
 }
 
 #[derive(Diagnostic)]
+#[diag("inferred lifetimes are not allowed in delegations as we need to inherit signature")]
+pub(crate) struct ElidedLifetimesAreNotAllowedInDelegations {
+    #[primary_span]
+    pub span: Span,
+}
+
+#[derive(Diagnostic)]
 #[diag("method should be `async` or return a future, but it is synchronous")]
 pub(crate) struct MethodShouldReturnFuture {
     #[primary_span]
@@ -2025,6 +2032,19 @@ pub(crate) struct PinV2WithoutPinDrop {
         code = "",
         applicability = "maybe-incorrect"
     )]
+    pub pin_v2_span: Option<Span>,
+    pub adt_name: Symbol,
+}
+
+#[derive(Diagnostic)]
+#[diag("`#[pin_v2]` types may not have `#[repr(packed)]`")]
+#[note(
+    "fields of a `#[repr(packed)]` type can be under-aligned, so a structurally pinned field may be moved to a properly aligned location, which `Pin` does not allow"
+)]
+pub(crate) struct PinV2OnPacked {
+    #[primary_span]
+    pub span: Span,
+    #[note("`{$adt_name}` is marked `#[pin_v2]` here")]
     pub pin_v2_span: Option<Span>,
     pub adt_name: Symbol,
 }

@@ -18,7 +18,7 @@ use rustc_feature::BUILTIN_ATTRIBUTE_MAP;
 use rustc_hir::attrs::diagnostic::Directive;
 use rustc_hir::attrs::{
     AttributeKind, DocAttribute, DocInline, EiiDecl, EiiImpl, EiiImplResolution, InlineAttr,
-    ReprAttr, SanitizerSet,
+    OptimizeAttr, ReprAttr,
 };
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::LocalModDefId;
@@ -163,6 +163,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         self.check_repr(attrs, span, target, item, hir_id);
         self.check_rustc_force_inline(hir_id, attrs, target);
         self.check_mix_no_mangle_export(hir_id, attrs);
+        self.check_optimize_and_inline(attrs);
     }
 
     /// Called by [`Self::check_attributes()`] to check a single attribute which is
@@ -227,10 +228,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
             }
             &AttributeKind::FfiPure(attr_span) => self.check_ffi_pure(attr_span, attrs),
             AttributeKind::MayDangle(attr_span) => self.check_may_dangle(hir_id, *attr_span),
-            &AttributeKind::Sanitize { on_set, off_set, rtsan: _, span: attr_span } => {
-                self.check_sanitize(attr_span, on_set | off_set, span, target);
-            }
-            AttributeKind::Link(_, attr_span) => self.check_link(hir_id, *attr_span, span, target),
+            AttributeKind::Link(_, attr_span) => self.check_link(hir_id, *attr_span, target),
             AttributeKind::MacroExport { span, .. } => {
                 self.check_macro_export(hir_id, *span, target)
             }
@@ -328,6 +326,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
             AttributeKind::RustcClean(..) => (),
             AttributeKind::RustcCoherenceIsCore => (),
             AttributeKind::RustcCoinductive => (),
+            AttributeKind::RustcComptime(_) => (),
             AttributeKind::RustcConfusables { .. } => (),
             AttributeKind::RustcConstStability { .. } => (),
             AttributeKind::RustcConstStableIndirect => (),
@@ -401,7 +400,9 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
             AttributeKind::RustcThenThisWouldNeed(..) => (),
             AttributeKind::RustcTrivialFieldReads => (),
             AttributeKind::RustcUnsafeSpecializationMarker => (),
+            AttributeKind::Sanitize { .. } => {}
             AttributeKind::ShouldPanic { .. } => (),
+            AttributeKind::Splat(..) => (),
             AttributeKind::Stability { .. } => (),
             AttributeKind::TestRunner(..) => (),
             AttributeKind::ThreadLocal => (),
@@ -545,7 +546,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         if target == (Target::Impl { of_trait: true }) {
             match item.unwrap() {
                 ItemLike::Item(it) => match it.expect_impl().constness {
-                    Constness::Const => {
+                    Constness::Const { .. } => {
                         let item_span = self.tcx.hir_span(hir_id);
                         self.tcx.emit_node_span_lint(
                             MISPLACED_DIAGNOSTIC_ATTRIBUTES,
@@ -627,52 +628,6 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         }
     }
 
-    /// Checks that the `#[sanitize(..)]` attribute is applied to a
-    /// function/closure/method, or to an impl block or module.
-    fn check_sanitize(
-        &self,
-        attr_span: Span,
-        set: SanitizerSet,
-        target_span: Span,
-        target: Target,
-    ) {
-        let mut not_fn_impl_mod = None;
-        let mut no_body = None;
-
-        match target {
-            Target::Fn
-            | Target::Closure
-            | Target::Method(MethodKind::Trait { body: true } | MethodKind::Inherent)
-            | Target::Impl { .. }
-            | Target::Mod => return,
-            Target::Static
-                // if we mask out the address bits, i.e. *only* address was set,
-                // we allow it
-                if set & !(SanitizerSet::ADDRESS | SanitizerSet::KERNELADDRESS)
-                    == SanitizerSet::empty() =>
-            {
-                return;
-            }
-
-            // These are "functions", but they aren't allowed because they don't
-            // have a body, so the usual explanation would be confusing.
-            Target::Method(MethodKind::Trait { body: false }) | Target::ForeignFn => {
-                no_body = Some(target_span);
-            }
-
-            _ => {
-                not_fn_impl_mod = Some(target_span);
-            }
-        }
-
-        self.dcx().emit_err(errors::SanitizeAttributeNotAllowed {
-            attr_span,
-            not_fn_impl_mod,
-            no_body,
-            help: (),
-        });
-    }
-
     /// Checks if `#[naked]` is applied to a function definition.
     fn check_naked(&self, hir_id: HirId, target: Target) {
         match target {
@@ -700,20 +655,17 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
     /// Debugging aid for the `object_lifetime_default` query.
     fn check_dump_object_lifetime_defaults(&self, hir_id: HirId) {
         let tcx = self.tcx;
-        if let Some(owner_id) = hir_id.as_owner()
-            && let Some(generics) = tcx.hir_get_generics(owner_id.def_id)
-        {
-            for p in generics.params {
-                let hir::GenericParamKind::Type { .. } = p.kind else { continue };
-                let default = tcx.object_lifetime_default(p.def_id);
-                let repr = match default {
-                    ObjectLifetimeDefault::Empty => "BaseDefault".to_owned(),
-                    ObjectLifetimeDefault::Static => "'static".to_owned(),
-                    ObjectLifetimeDefault::Param(def_id) => tcx.item_name(def_id).to_string(),
-                    ObjectLifetimeDefault::Ambiguous => "Ambiguous".to_owned(),
-                };
-                tcx.dcx().span_err(p.span, repr);
-            }
+        let Some(owner_id) = hir_id.as_owner() else { return };
+        for param in &tcx.generics_of(owner_id.def_id).own_params {
+            let ty::GenericParamDefKind::Type { .. } = param.kind else { continue };
+            let default = tcx.object_lifetime_default(param.def_id);
+            let repr = match default {
+                ObjectLifetimeDefault::Empty => "Empty".to_owned(),
+                ObjectLifetimeDefault::Static => "'static".to_owned(),
+                ObjectLifetimeDefault::Param(def_id) => tcx.item_name(def_id).to_string(),
+                ObjectLifetimeDefault::Ambiguous => "Ambiguous".to_owned(),
+            };
+            tcx.dcx().span_err(tcx.def_span(param.def_id), repr);
         }
     }
 
@@ -1126,21 +1078,19 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
     }
 
     /// Checks if `#[link]` is applied to an item other than a foreign module.
-    fn check_link(&self, hir_id: HirId, attr_span: Span, span: Span, target: Target) {
-        if target == Target::ForeignMod
-            && let hir::Node::Item(item) = self.tcx.hir_node(hir_id)
+    fn check_link(&self, hir_id: HirId, attr_span: Span, target: Target) {
+        if target != Target::ForeignMod {
+            return; // Checked by attribute parser
+        }
+
+        if let hir::Node::Item(item) = self.tcx.hir_node(hir_id)
             && let Item { kind: ItemKind::ForeignMod { abi, .. }, .. } = item
             && !matches!(abi, ExternAbi::Rust)
         {
             return;
         }
 
-        self.tcx.emit_node_span_lint(
-            UNUSED_ATTRIBUTES,
-            hir_id,
-            attr_span,
-            errors::Link { span: (target != Target::ForeignMod).then_some(span) },
-        );
+        self.tcx.emit_node_span_lint(UNUSED_ATTRIBUTES, hir_id, attr_span, errors::Link);
     }
 
     /// Checks if `#[rustc_legacy_const_generics]` is applied to a function and has a valid argument.
@@ -1205,7 +1155,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         // #[repr(foo)]
         // #[repr(bar, align(8))]
         // ```
-        let (reprs, first_attr_span) =
+        let (reprs, _first_attr_span) =
             find_attr!(attrs, Repr { reprs, first_span } => (reprs.as_slice(), Some(*first_span)))
                 .unwrap_or((&[], None));
 
@@ -1215,121 +1165,26 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         let mut is_simd = false;
         let mut is_transparent = false;
 
-        for (repr, repr_span) in reprs {
+        for (repr, _repr_span) in reprs {
             match repr {
                 ReprAttr::ReprRust => {
                     is_explicit_rust = true;
-                    match target {
-                        Target::Struct | Target::Union | Target::Enum => continue,
-                        _ => {
-                            self.dcx().emit_err(errors::AttrApplication::StructEnumUnion {
-                                hint_span: *repr_span,
-                                span,
-                            });
-                        }
-                    }
                 }
                 ReprAttr::ReprC => {
                     is_c = true;
-                    match target {
-                        Target::Struct | Target::Union | Target::Enum => continue,
-                        _ => {
-                            self.dcx().emit_err(errors::AttrApplication::StructEnumUnion {
-                                hint_span: *repr_span,
-                                span,
-                            });
-                        }
-                    }
                 }
-                ReprAttr::ReprAlign(..) => match target {
-                    Target::Struct | Target::Union | Target::Enum => {}
-                    Target::Fn | Target::Method(_) if self.tcx.features().fn_align() => {
-                        self.dcx().emit_err(errors::ReprAlignShouldBeAlign {
-                            span: *repr_span,
-                            item: target.plural_name(),
-                        });
-                    }
-                    Target::Static if self.tcx.features().static_align() => {
-                        self.dcx().emit_err(errors::ReprAlignShouldBeAlignStatic {
-                            span: *repr_span,
-                            item: target.plural_name(),
-                        });
-                    }
-                    _ => {
-                        self.dcx().emit_err(errors::AttrApplication::StructEnumUnion {
-                            hint_span: *repr_span,
-                            span,
-                        });
-                    }
-                },
-                ReprAttr::ReprPacked(_) => {
-                    if target != Target::Struct && target != Target::Union {
-                        self.dcx().emit_err(errors::AttrApplication::StructUnion {
-                            hint_span: *repr_span,
-                            span,
-                        });
-                    } else {
-                        continue;
-                    }
-                }
+                ReprAttr::ReprAlign(..) => {}
+                ReprAttr::ReprPacked(_) => {}
                 ReprAttr::ReprSimd => {
                     is_simd = true;
-                    if target != Target::Struct {
-                        self.dcx().emit_err(errors::AttrApplication::Struct {
-                            hint_span: *repr_span,
-                            span,
-                        });
-                    } else {
-                        continue;
-                    }
                 }
                 ReprAttr::ReprTransparent => {
                     is_transparent = true;
-                    match target {
-                        Target::Struct | Target::Union | Target::Enum => continue,
-                        _ => {
-                            self.dcx().emit_err(errors::AttrApplication::StructEnumUnion {
-                                hint_span: *repr_span,
-                                span,
-                            });
-                        }
-                    }
                 }
                 ReprAttr::ReprInt(_) => {
                     int_reprs += 1;
-                    if target != Target::Enum {
-                        self.dcx().emit_err(errors::AttrApplication::Enum {
-                            hint_span: *repr_span,
-                            span,
-                        });
-                    } else {
-                        continue;
-                    }
                 }
             };
-        }
-
-        // catch `repr()` with no arguments, applied to an item (i.e. not `#![repr()]`)
-        if let Some(first_attr_span) = first_attr_span
-            && reprs.is_empty()
-            && item.is_some()
-        {
-            match target {
-                Target::Struct | Target::Union | Target::Enum => {}
-                Target::Fn | Target::Method(_) => {
-                    self.dcx().emit_err(errors::ReprAlignShouldBeAlign {
-                        span: first_attr_span,
-                        item: target.plural_name(),
-                    });
-                }
-                _ => {
-                    self.dcx().emit_err(errors::AttrApplication::StructEnumUnion {
-                        hint_span: first_attr_span,
-                        span,
-                    });
-                }
-            }
-            return;
         }
 
         // Just point at all repr hints if there are any incompatibilities.
@@ -1724,6 +1579,17 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                     export_name_attr,
                 },
             );
+        }
+    }
+
+    fn check_optimize_and_inline(&self, attrs: &[Attribute]) {
+        if let Some(optimize_span) =
+            find_attr!(attrs, Optimize(OptimizeAttr::DoNotOptimize, span) => *span)
+            && let Some((inline_attr, inline_span)) =
+                find_attr!(attrs, Inline(inline_attr, span) => (inline_attr, *span))
+            && inline_attr != &InlineAttr::Never
+        {
+            self.dcx().emit_err(errors::BothOptimizeNoneAndInline { optimize_span, inline_span });
         }
     }
 

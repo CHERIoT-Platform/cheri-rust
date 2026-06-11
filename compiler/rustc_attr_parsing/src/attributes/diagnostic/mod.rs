@@ -1,12 +1,9 @@
 use std::ops::Range;
 
-use rustc_errors::E0232;
-use rustc_hir::AttrPath;
 use rustc_hir::attrs::diagnostic::{
     Directive, Filter, FilterFormatString, Flag, FormatArg, FormatString, LitOrArg, Name,
     NameValue, Piece, Predicate,
 };
-use rustc_macros::Diagnostic;
 use rustc_parse_format::{
     Argument, FormatSpec, ParseError, ParseMode, Parser, Piece as RpfPiece, Position,
 };
@@ -17,13 +14,13 @@ use rustc_span::{Ident, InnerSpan, Span, Symbol, kw, sym};
 use thin_vec::{ThinVec, thin_vec};
 
 use crate::context::AcceptContext;
-use crate::errors::{
-    FormatWarning, IgnoredDiagnosticOption, MalFormedDiagnosticAttributeLint,
-    MissingOptionsForDiagnosticAttribute, NonMetaItemDiagnosticAttribute, WrappedParserError,
+use crate::diagnostics::{
+    DupesNotAllowed, FormatWarning, IgnoredDiagnosticOption, InvalidOnClause,
+    MalFormedDiagnosticAttributeLint, MissingOptionsForDiagnosticAttribute,
+    NonMetaItemDiagnosticAttribute, WrappedParserError,
 };
 use crate::parser::{ArgParser, MetaItemListParser, MetaItemOrLitParser, MetaItemParser};
 
-pub(crate) mod check_cfg;
 pub(crate) mod do_not_recommend;
 pub(crate) mod on_const;
 pub(crate) mod on_move;
@@ -396,9 +393,7 @@ pub(crate) fn parse_format_string(
         .map(|piece| match piece {
             RpfPiece::Lit(lit) => Piece::Lit(Symbol::intern(lit)),
             RpfPiece::NextArgument(arg) => {
-                warn_on_format_spec(&arg.format, &mut warnings, span, parser.is_source_literal);
-                let arg = parse_arg(&arg, mode, &mut warnings, span, parser.is_source_literal);
-                Piece::Arg(arg)
+                Piece::Arg(parse_arg(&arg, mode, &mut warnings, span, parser.is_source_literal))
             }
         })
         .collect();
@@ -415,15 +410,25 @@ fn parse_arg(
 ) -> FormatArg {
     let span = slice_span(input_span, arg.position_span.clone(), is_source_literal);
 
-    match arg.position {
+    let mut check_format = true;
+
+    let ret = match arg.position {
         // Something like "hello {name}"
         Position::ArgumentNamed(name) => match (mode, Symbol::intern(name)) {
             (Mode::RustcOnUnimplemented, sym::ItemContext) => FormatArg::ItemContext,
 
-            // Like `{This}`, but sugared.
-            // FIXME(mejrs) maybe rename/rework this or something
-            // if we want to apply this to other attrs?
-            (Mode::RustcOnUnimplemented, sym::Trait) => FormatArg::Trait,
+            // `{This:ty}`
+            (Mode::RustcOnUnimplemented, sym::This) => match arg.format.ty {
+                "resolved" => {
+                    check_format = false;
+                    FormatArg::ThisResolved
+                }
+                "path" => {
+                    check_format = false;
+                    FormatArg::ThisPath
+                }
+                _ => FormatArg::This,
+            },
 
             // Some diagnostic attributes can use `{This}` to refer to the annotated item.
             // For those that don't, we continue and maybe use it as a generic parameter.
@@ -431,10 +436,7 @@ fn parse_arg(
             // FIXME(mejrs) `DiagnosticOnUnimplemented` is intentionally not here;
             // that requires lang approval which is best kept for a standalone PR.
             (
-                Mode::RustcOnUnimplemented
-                | Mode::DiagnosticOnUnknown
-                | Mode::DiagnosticOnMove
-                | Mode::DiagnosticOnUnmatchArgs,
+                Mode::DiagnosticOnUnknown | Mode::DiagnosticOnMove | Mode::DiagnosticOnUnmatchArgs,
                 sym::This,
             ) => FormatArg::This,
 
@@ -471,11 +473,11 @@ fn parse_arg(
                     attr: mode.as_str(),
                     allowed: mode.allowed_format_arguments(),
                 });
-                return FormatArg::AsIs(Symbol::intern(&format!("{{{as_is}}}")));
+                FormatArg::AsIs(Symbol::intern(&format!("{{{as_is}}}")))
             }
         },
 
-        // `{:1}` and `{}` are ignored
+        // `{1}` and `{}` are ignored
         Position::ArgumentIs(idx) => {
             warnings.push(FormatWarning::IndexedArgument { span });
             FormatArg::AsIs(Symbol::intern(&format!("{{{idx}}}")))
@@ -484,7 +486,11 @@ fn parse_arg(
             warnings.push(FormatWarning::PositionalArgument { span });
             FormatArg::AsIs(sym::empty_braces)
         }
+    };
+    if check_format {
+        warn_on_format_spec(&arg.format, warnings, input_span, is_source_literal);
     }
+    ret
 }
 
 /// `#[rustc_on_unimplemented]` and `#[diagnostic::...]` don't actually do anything
@@ -495,12 +501,8 @@ fn warn_on_format_spec(
     input_span: Span,
     is_source_literal: bool,
 ) {
-    if spec.ty != "" {
-        let span = spec
-            .ty_span
-            .as_ref()
-            .map(|inner| slice_span(input_span, inner.clone(), is_source_literal))
-            .unwrap_or(input_span);
+    if let Some(ty_span) = &spec.ty_span {
+        let span = slice_span(input_span, ty_span.clone(), is_source_literal);
         warnings.push(FormatWarning::InvalidSpecifier { span })
     }
 }
@@ -607,54 +609,3 @@ fn parse_filter_format(input: Symbol) -> FilterFormatString {
         .collect();
     FilterFormatString { pieces }
 }
-
-#[derive(Diagnostic)]
-pub(crate) enum InvalidOnClause {
-    #[diag("empty `on`-clause in `#[rustc_on_unimplemented]`", code = E0232)]
-    Empty {
-        #[primary_span]
-        #[label("empty `on`-clause here")]
-        span: Span,
-    },
-    #[diag("expected a single predicate in `not(..)`", code = E0232)]
-    ExpectedOnePredInNot {
-        #[primary_span]
-        #[label("unexpected quantity of predicates here")]
-        span: Span,
-    },
-    #[diag("literals inside `on`-clauses are not supported", code = E0232)]
-    UnsupportedLiteral {
-        #[primary_span]
-        #[label("unexpected literal here")]
-        span: Span,
-    },
-    #[diag("expected an identifier inside this `on`-clause", code = E0232)]
-    ExpectedIdentifier {
-        #[primary_span]
-        #[label("expected an identifier here, not `{$path}`")]
-        span: Span,
-        path: AttrPath,
-    },
-    #[diag("this predicate is invalid", code = E0232)]
-    InvalidPredicate {
-        #[primary_span]
-        #[label("expected one of `any`, `all` or `not` here, not `{$invalid_pred}`")]
-        span: Span,
-        invalid_pred: Symbol,
-    },
-    #[diag("invalid flag in `on`-clause", code = E0232)]
-    InvalidFlag {
-        #[primary_span]
-        #[label(
-            "expected one of the `crate_local`, `direct` or `from_desugaring` flags, not `{$invalid_flag}`"
-        )]
-        span: Span,
-        invalid_flag: Symbol,
-    },
-}
-
-#[derive(Diagnostic)]
-#[diag(
-    "using multiple `rustc_on_unimplemented` (or mixing it with `diagnostic::on_unimplemented`) is not supported"
-)]
-pub(crate) struct DupesNotAllowed;

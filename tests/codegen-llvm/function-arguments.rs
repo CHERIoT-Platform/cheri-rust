@@ -83,7 +83,7 @@ pub fn option_nonzero_int(x: Option<NonZero<u64>>) -> Option<NonZero<u64>> {
     x
 }
 
-// CHECK: @readonly_borrow(ptr[[ADDRSPACE]] noalias noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(4) %_1)
+// CHECK: @readonly_borrow(ptr[[ADDRSPACE]] noalias nofree noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(4) %_1)
 // FIXME #25759 This should also have `nocapture`
 #[no_mangle]
 pub fn readonly_borrow(_: &i32) {}
@@ -94,12 +94,12 @@ pub fn readonly_borrow_ret() -> &'static i32 {
     loop {}
 }
 
-// CHECK: @static_borrow(ptr[[ADDRSPACE]] noalias noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(4) %_1)
+// CHECK: @static_borrow(ptr[[ADDRSPACE]] noalias nofree noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(4) %_1)
 // static borrow may be captured
 #[no_mangle]
 pub fn static_borrow(_: &'static i32) {}
 
-// CHECK: @named_borrow(ptr[[ADDRSPACE]] noalias noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(4) %_1)
+// CHECK: @named_borrow(ptr[[ADDRSPACE]] noalias nofree noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(4) %_1)
 // borrow with named lifetime may be captured
 #[no_mangle]
 pub fn named_borrow<'r>(_: &'r i32) {}
@@ -109,12 +109,12 @@ pub fn named_borrow<'r>(_: &'r i32) {}
 #[no_mangle]
 pub fn unsafe_borrow(_: &UnsafeInner) {}
 
-// CHECK: @mutable_unsafe_borrow(ptr[[ADDRSPACE]] noalias noundef align 2 dereferenceable(2) %_1)
+// CHECK: @mutable_unsafe_borrow(ptr[[ADDRSPACE]] noalias nofree noundef align 2 dereferenceable(2) %_1)
 // ... unless this is a mutable borrow, those never alias
 #[no_mangle]
 pub fn mutable_unsafe_borrow(_: &mut UnsafeInner) {}
 
-// CHECK: @mutable_borrow(ptr[[ADDRSPACE]] noalias noundef align 4 dereferenceable(4) %_1)
+// CHECK: @mutable_borrow(ptr[[ADDRSPACE]] noalias nofree noundef align 4 dereferenceable(4) %_1)
 // FIXME #25759 This should also have `nocapture`
 #[no_mangle]
 pub fn mutable_borrow(_: &mut i32) {}
@@ -132,25 +132,25 @@ pub fn mutable_borrow_ret() -> &'static mut i32 {
 // <https://github.com/rust-lang/unsafe-code-guidelines/issues/381>.
 pub fn mutable_notunpin_borrow(_: &mut NotUnpin) {}
 
-// CHECK: @notunpin_borrow(ptr[[ADDRSPACE]] noalias noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(4) %_1)
+// CHECK: @notunpin_borrow(ptr[[ADDRSPACE]] noalias nofree noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(4) %_1)
 // But `&NotUnpin` behaves perfectly normal.
 #[no_mangle]
 pub fn notunpin_borrow(_: &NotUnpin) {}
 
-// CHECK: @indirect_struct(ptr[[ADDRSPACE]]{{( dead_on_return)?}} noalias noundef readonly align 4{{( captures\(none\))?}}{{( dead_on_return)?}} dereferenceable(32) %_1)
+// CHECK: @indirect_struct(ptr[[ADDRSPACE]]{{( dead_on_return)?}} noalias nofree noundef readonly align 4{{( captures\(none\))?}}{{( dead_on_return)?}} dereferenceable(32) %_1)
 #[no_mangle]
 pub fn indirect_struct(_: S) {}
 
-// CHECK: @borrowed_struct(ptr[[ADDRSPACE]] noalias noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(32) %_1)
+// CHECK: @borrowed_struct(ptr[[ADDRSPACE]] noalias nofree noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable(32) %_1)
 // FIXME #25759 This should also have `nocapture`
 #[no_mangle]
 pub fn borrowed_struct(_: &S) {}
 
-// CHECK: @option_borrow(ptr[[ADDRSPACE]] noalias noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable_or_null(4) %_x)
+// CHECK: @option_borrow(ptr[[ADDRSPACE]] noalias nofree noundef readonly align 4{{( captures\(address, read_provenance\))?}} dereferenceable_or_null(4) %_x)
 #[no_mangle]
 pub fn option_borrow(_x: Option<&i32>) {}
 
-// CHECK: @option_borrow_mut(ptr[[ADDRSPACE]] noalias noundef align 4 dereferenceable_or_null(4) %_x)
+// CHECK: @option_borrow_mut(ptr[[ADDRSPACE]] noalias nofree noundef align 4 dereferenceable_or_null(4) %_x)
 #[no_mangle]
 pub fn option_borrow_mut(_x: Option<&mut i32>) {}
 
@@ -173,7 +173,7 @@ pub fn _box(x: Box<i32>) -> Box<i32> {
 // With a custom allocator, it should *not* have `noalias`. (See
 // <https://github.com/rust-lang/miri/issues/3341> for why.) The second argument is the allocator,
 // which is a reference here that still carries `noalias` as usual.
-// CHECK: @_box_custom(ptr[[ADDRSPACE]] noundef nonnull align 4 %x.0, ptr[[ADDRSPACE]] noalias noundef nonnull readonly{{( captures\(address, read_provenance\))?}} %x.1)
+// CHECK: @_box_custom(ptr[[ADDRSPACE]] noundef nonnull align 4 %x.0, ptr[[ADDRSPACE]] noalias nofree noundef nonnull readonly{{( captures\(address, read_provenance\))?}} %x.1)
 #[no_mangle]
 pub fn _box_custom(x: Box<i32, &alloc::alloc::Global>) {
     drop(x)
@@ -185,7 +185,7 @@ pub fn notunpin_box(x: Box<NotUnpin>) -> Box<NotUnpin> {
     x
 }
 
-// CHECK: @struct_return(ptr[[ADDRSPACE]]{{( dead_on_unwind)?}} noalias noundef{{( writable)?}} sret([32 x i8]) align 4{{( captures\(none\))?}} dereferenceable(32){{( %_0)?}})
+// CHECK: @struct_return(ptr[[ADDRSPACE]]{{( dead_on_unwind)?}} noalias nofree noundef{{( writable)?}} sret([32 x i8]) align 4{{( captures\(none\))?}} dereferenceable(32){{( %_0)?}})
 #[no_mangle]
 pub fn struct_return() -> S {
     S { _field: [0, 0, 0, 0, 0, 0, 0, 0] }
@@ -197,14 +197,14 @@ pub fn struct_return() -> S {
 pub fn helper(_: usize) {}
 
 // CHECK: @slice(
-// CHECK-SAME: ptr[[ADDRSPACE]] noalias noundef nonnull readonly{{( captures\(address, read_provenance\))?}} %_1.0,
+// CHECK-SAME: ptr[[ADDRSPACE]] noalias nofree noundef nonnull readonly{{( captures\(address, read_provenance\))?}} %_1.0,
 // CHECK-SAME: [[USIZE]] noundef range({{i32 0, -2147483648|i64 0, -9223372036854775808}}) %_1.1)
 // FIXME #25759 This should also have `nocapture`
 #[no_mangle]
 pub fn slice(_: &[u8]) {}
 
 // CHECK: @mutable_slice(
-// CHECK-SAME: ptr[[ADDRSPACE]] noalias noundef nonnull %_1.0,
+// CHECK-SAME: ptr[[ADDRSPACE]] noalias nofree noundef nonnull %_1.0,
 // CHECK-SAME: [[USIZE]] noundef range({{i32 0, -2147483648|i64 0, -9223372036854775808}}) %_1.1)
 // FIXME #25759 This should also have `nocapture`
 #[no_mangle]
@@ -222,13 +222,13 @@ pub fn unsafe_slice(_: &[UnsafeInner]) {}
 pub fn raw_slice(_: *const [u8]) {}
 
 // CHECK: @str(
-// CHECK-SAME: ptr[[ADDRSPACE]] noalias noundef nonnull readonly{{( captures\(address, read_provenance\))?}} %_1.0,
+// CHECK-SAME: ptr[[ADDRSPACE]] noalias nofree noundef nonnull readonly{{( captures\(address, read_provenance\))?}} %_1.0,
 // CHECK-SAME: [[USIZE]] noundef range({{i32 0, -2147483648|i64 0, -9223372036854775808}}) %_1.1)
 // FIXME #25759 This should also have `nocapture`
 #[no_mangle]
 pub fn str(_: &[u8]) {}
 
-// CHECK: @trait_borrow(ptr[[ADDRSPACE]] noundef nonnull %_1.0, {{.+}} noalias noundef readonly align {{.*}} dereferenceable({{.*}}) %_1.1)
+// CHECK: @trait_borrow(ptr[[ADDRSPACE]] noundef nonnull %_1.0, {{.+}} noalias nofree noundef readonly align {{.*}} dereferenceable({{.*}}) %_1.1)
 // FIXME #25759 This should also have `nocapture`
 #[no_mangle]
 pub fn trait_borrow(_: &dyn Drop) {}
@@ -241,31 +241,31 @@ pub fn option_trait_borrow(x: Option<&dyn Drop>) {}
 #[no_mangle]
 pub fn option_trait_borrow_mut(x: Option<&mut dyn Drop>) {}
 
-// CHECK: @trait_raw(ptr[[ADDRSPACE]] noundef %_1.0, {{.+}} noalias noundef readonly align {{.*}} dereferenceable({{.*}}) %_1.1)
+// CHECK: @trait_raw(ptr[[ADDRSPACE]] noundef %_1.0, {{.+}} noalias nofree noundef readonly align {{.*}} dereferenceable({{.*}}) %_1.1)
 #[no_mangle]
 pub fn trait_raw(_: *const dyn Drop) {}
 
 // Ensure that `Box` gets `noalias` when the right traits are present, but removing *either* `Unpin`
 // or `UnsafeUnpin` is enough to lose the attribute.
-// CHECK: @trait_box(ptr[[ADDRSPACE]] noalias noundef nonnull{{( %0)?}}, {{.+}} noalias noundef readonly align {{.*}} dereferenceable({{.*}}){{( %1)?}})
+// CHECK: @trait_box(ptr[[ADDRSPACE]] noalias noundef nonnull{{( %0)?}}, {{.+}} noalias nofree noundef readonly align {{.*}} dereferenceable({{.*}}){{( %1)?}})
 #[no_mangle]
 pub fn trait_box(_: Box<dyn Drop + Unpin + UnsafeUnpin>) {}
-// CHECK: @trait_box_pin1(ptr[[ADDRSPACE]] noundef nonnull{{( %0)?}}, {{.+}} noalias noundef readonly align {{.*}} dereferenceable({{.*}}){{( %1)?}})
+// CHECK: @trait_box_pin1(ptr[[ADDRSPACE]] noundef nonnull{{( %0)?}}, {{.+}} noalias nofree noundef readonly align {{.*}} dereferenceable({{.*}}){{( %1)?}})
 #[no_mangle]
 pub fn trait_box_pin1(_: Box<dyn Drop + Unpin>) {}
-// CHECK: @trait_box_pin2(ptr[[ADDRSPACE]] noundef nonnull{{( %0)?}}, {{.+}} noalias noundef readonly align {{.*}} dereferenceable({{.*}}){{( %1)?}})
+// CHECK: @trait_box_pin2(ptr[[ADDRSPACE]] noundef nonnull{{( %0)?}}, {{.+}} noalias nofree noundef readonly align {{.*}} dereferenceable({{.*}}){{( %1)?}})
 #[no_mangle]
 pub fn trait_box_pin2(_: Box<dyn Drop + UnsafeUnpin>) {}
 
 // Same for mutable references (with a non-zero minimal size so that we also see the
 // `dereferenceable` disappear).
-// CHECK: @trait_mutref(ptr[[ADDRSPACE]] noalias noundef align 4 dereferenceable(4){{( %_1.0)?}}, {{.+}} noalias noundef readonly align {{.*}} dereferenceable({{.*}}){{( %_1.1)?}})
+// CHECK: @trait_mutref(ptr[[ADDRSPACE]] noalias nofree noundef align 4 dereferenceable(4){{( %_1.0)?}}, {{.+}} noalias nofree noundef readonly align {{.*}} dereferenceable({{.*}}){{( %_1.1)?}})
 #[no_mangle]
 pub fn trait_mutref(_: &mut (i32, dyn Drop + Unpin + UnsafeUnpin)) {}
-// CHECK: @trait_mutref_pin1(ptr[[ADDRSPACE]] noundef nonnull align 4{{( %_1.0)?}}, {{.+}} noalias noundef readonly align {{.*}} dereferenceable({{.*}}){{( %_1.1)?}})
+// CHECK: @trait_mutref_pin1(ptr[[ADDRSPACE]] noundef nonnull align 4{{( %_1.0)?}}, {{.+}} noalias nofree noundef readonly align {{.*}} dereferenceable({{.*}}){{( %_1.1)?}})
 #[no_mangle]
 pub fn trait_mutref_pin1(_: &mut (i32, dyn Drop + Unpin)) {}
-// CHECK: @trait_mutref_pin2(ptr[[ADDRSPACE]] noundef nonnull align 4{{( %_1.0)?}}, {{.+}} noalias noundef readonly align {{.*}} dereferenceable({{.*}}){{( %_1.1)?}})
+// CHECK: @trait_mutref_pin2(ptr[[ADDRSPACE]] noundef nonnull align 4{{( %_1.0)?}}, {{.+}} noalias nofree noundef readonly align {{.*}} dereferenceable({{.*}}){{( %_1.1)?}})
 #[no_mangle]
 pub fn trait_mutref_pin2(_: &mut (i32, dyn Drop + UnsafeUnpin)) {}
 
@@ -278,7 +278,7 @@ pub fn trait_option(
 }
 
 // CHECK: { ptr[[ADDRSPACE]], [[USIZE]] } @return_slice(
-// CHECK-SAME: ptr[[ADDRSPACE]] noalias noundef nonnull readonly align 2{{( captures\(address, read_provenance\))?}} %x.0,
+// CHECK-SAME: ptr[[ADDRSPACE]] noalias nofree noundef nonnull readonly align 2{{( captures\(address, read_provenance\))?}} %x.0,
 // CHECK-SAME: [[USIZE]] noundef range({{i32 0, 1073741824|i64 0, 4611686018427387904}}) %x.1)
 #[no_mangle]
 pub fn return_slice(x: &[u16]) -> &[u16] {

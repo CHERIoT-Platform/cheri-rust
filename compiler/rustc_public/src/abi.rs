@@ -461,6 +461,7 @@ pub enum CallConvention {
     PreserveMost,
     PreserveAll,
     PreserveNone,
+    Tail,
 
     Custom,
 

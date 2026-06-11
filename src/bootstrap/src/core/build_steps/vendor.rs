@@ -24,6 +24,7 @@ pub fn default_paths_to_vendor(builder: &Builder<'_>) -> Vec<(PathBuf, Vec<&'sta
         ("compiler/rustc_codegen_cranelift/Cargo.toml", vec![]),
         ("compiler/rustc_codegen_gcc/Cargo.toml", vec![]),
         ("library/Cargo.toml", vec![]),
+        ("library/stdarch/Cargo.toml", vec![]),
         ("src/bootstrap/Cargo.toml", vec![]),
         ("src/tools/rustbook/Cargo.toml", SUBMODULES_FOR_RUSTBOOK.into()),
         ("src/tools/rustc-perf/Cargo.toml", vec!["src/tools/rustc-perf"]),
@@ -114,6 +115,13 @@ impl Step for Vendor {
                 cmd.arg("--sync").arg(sync_arg);
             }
 
+            // Reuse vendored dependencies when building source tarball for offline support.
+            if builder.config.vendor {
+                cmd.arg("--respect-source-config")
+                    .arg("--config")
+                    .arg(builder.src.join(".cargo").join("config.toml"));
+            }
+
             // Will read the libstd Cargo.toml
             // which uses the unstable `public-dependency` feature.
             cmd.env("RUSTC_BOOTSTRAP", "1");
@@ -133,6 +141,13 @@ impl Step for Vendor {
 
         if self.versioned_dirs {
             cmd.arg("--versioned-dirs");
+        }
+
+        // Reuse vendored dependencies when building source tarball for offline support.
+        if builder.config.vendor {
+            cmd.arg("--respect-source-config")
+                .arg("--config")
+                .arg(builder.src.join("library").join(".cargo").join("config.toml"));
         }
 
         // Will read the libstd Cargo.toml

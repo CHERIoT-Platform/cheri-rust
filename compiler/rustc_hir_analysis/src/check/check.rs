@@ -35,8 +35,8 @@ use ty::TypingMode;
 use super::compare_impl_item::check_type_bounds;
 use super::*;
 use crate::check::wfcheck::{
-    check_associated_item, check_trait_item, check_variances_for_type_defn, check_where_clauses,
-    enter_wf_checking_ctxt,
+    check_associated_item, check_trait_item, check_type_defn, check_variances_for_type_defn,
+    check_where_clauses, enter_wf_checking_ctxt,
 };
 
 fn add_abi_diag_help<T: EmissionGuarantee>(abi: ExternAbi, diag: &mut Diag<'_, T>) {
@@ -103,7 +103,7 @@ pub fn check_custom_abi(tcx: TyCtxt<'_>, def_id: LocalDefId, fn_sig: FnSig<'_>, 
     }
 }
 
-fn check_struct(tcx: TyCtxt<'_>, def_id: LocalDefId) {
+fn check_struct(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(), ErrorGuaranteed> {
     let def = tcx.adt_def(def_id);
     let span = tcx.def_span(def_id);
     def.destructor(tcx); // force the destructor to be evaluated
@@ -116,15 +116,17 @@ fn check_struct(tcx: TyCtxt<'_>, def_id: LocalDefId) {
 
     check_transparent(tcx, def);
     check_packed(tcx, span, def);
+    check_type_defn(tcx, def_id, false)
 }
 
-fn check_union(tcx: TyCtxt<'_>, def_id: LocalDefId) {
+fn check_union(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(), ErrorGuaranteed> {
     let def = tcx.adt_def(def_id);
     let span = tcx.def_span(def_id);
     def.destructor(tcx); // force the destructor to be evaluated
     check_transparent(tcx, def);
     check_union_fields(tcx, span, def_id);
     check_packed(tcx, span, def);
+    check_type_defn(tcx, def_id, true)
 }
 
 fn allowed_union_or_unsafe_field<'tcx>(
@@ -775,8 +777,10 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
                 if has_default {
                     // need to store default and type of default
                     let ct = tcx.const_param_default(param.def_id).skip_binder();
-                    if let ty::ConstKind::Unevaluated(uv) = ct.kind() {
-                        tcx.ensure_ok().type_of(uv.def);
+                    if let ty::ConstKind::Unevaluated(uv) = ct.kind()
+                        && let Some(def_id) = uv.kind.opt_def_id()
+                    {
+                        tcx.ensure_ok().type_of(def_id);
                     }
                 }
             }
@@ -805,9 +809,12 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
             tcx.ensure_ok().generics_of(def_id);
             tcx.ensure_ok().type_of(def_id);
             tcx.ensure_ok().predicates_of(def_id);
-            crate::collect::lower_enum_variant_types(tcx, def_id);
+            crate::collect::check_enum_variant_types(tcx, def_id);
             check_enum(tcx, def_id);
             check_variances_for_type_defn(tcx, def_id);
+            res = res.and(check_type_defn(tcx, def_id, true));
+            // enums are fully handled by the type based check and have no hir wfcheck logic
+            return res;
         }
         DefKind::Fn => {
             tcx.ensure_ok().generics_of(def_id);
@@ -865,12 +872,19 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
                     _ => {}
                 }
             }
+            res = res.and(wfcheck::check_trait(tcx, def_id));
+            wfcheck::check_gat_where_clauses(tcx, def_id);
+            // Trait aliases do not have hir checks anymore
+            return res;
         }
         DefKind::TraitAlias => {
             tcx.ensure_ok().generics_of(def_id);
             tcx.ensure_ok().explicit_implied_predicates_of(def_id);
             tcx.ensure_ok().explicit_super_predicates_of(def_id);
             tcx.ensure_ok().predicates_of(def_id);
+            res = res.and(wfcheck::check_trait(tcx, def_id));
+            // Trait aliases do not have hir checks anymore
+            return res;
         }
         def_kind @ (DefKind::Struct | DefKind::Union) => {
             tcx.ensure_ok().generics_of(def_id);
@@ -885,14 +899,16 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
             }
 
             if let Some((_, ctor_def_id)) = adt.ctor {
-                crate::collect::lower_variant_ctor(tcx, ctor_def_id.expect_local());
+                crate::collect::check_ctor(tcx, ctor_def_id.expect_local());
             }
-            match def_kind {
+            check_variances_for_type_defn(tcx, def_id);
+            res = res.and(match def_kind {
                 DefKind::Struct => check_struct(tcx, def_id),
                 DefKind::Union => check_union(tcx, def_id),
                 _ => unreachable!(),
-            }
-            check_variances_for_type_defn(tcx, def_id);
+            });
+            // structs and enums are fully handled by the type based check and have no hir wfcheck logic
+            return res;
         }
         DefKind::OpaqueTy => {
             check_opaque_precise_captures(tcx, def_id);
@@ -958,7 +974,6 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
             tcx.ensure_ok().generics_of(def_id);
             tcx.ensure_ok().type_of(def_id);
             tcx.ensure_ok().predicates_of(def_id);
-            check_type_alias_type_params_are_used(tcx, def_id);
             let ty = tcx.type_of(def_id).instantiate_identity();
             let span = tcx.def_span(def_id);
             if tcx.type_alias_is_lazy(def_id) {
@@ -972,8 +987,8 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
                     check_where_clauses(wfcx, def_id);
                     Ok(())
                 }));
-                check_variances_for_type_defn(tcx, def_id);
             } else {
+                check_type_alias_type_params_are_used(tcx, def_id);
                 res = res.and(enter_wf_checking_ctxt(tcx, def_id, |wfcx| {
                     // HACK: We sometimes incidentally check that const arguments have the correct
                     // type as a side effect of the anon const desugaring. To make this "consistent"
@@ -1073,6 +1088,8 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
                     _ => (),
                 }
             }
+            // Doesn't have any hir based checks
+            return res;
         }
         DefKind::Closure => {
             // This is guaranteed to be called by metadata encoding,
@@ -1152,10 +1169,14 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
             return res;
         }
 
-        // Only `Node::Item` and `Node::ForeignItem` still have HIR based
-        // checks. Returning early here does not miss any checks and
-        // avoids this query from having a direct dependency edge on the HIR
-        DefKind::AnonConst | DefKind::InlineConst => return res,
+        // These have no wf checks
+        DefKind::AnonConst
+        | DefKind::InlineConst
+        | DefKind::ExternCrate
+        | DefKind::Macro(..)
+        | DefKind::Use
+        | DefKind::GlobalAsm
+        | DefKind::Mod => return res,
         _ => {}
     }
     let node = tcx.hir_node_by_def_id(def_id);
@@ -1613,6 +1634,16 @@ fn check_scalable_vector(tcx: TyCtxt<'_>, span: Span, def_id: LocalDefId, scalab
 pub(super) fn check_packed(tcx: TyCtxt<'_>, sp: Span, def: ty::AdtDef<'_>) {
     let repr = def.repr();
     if repr.packed() {
+        // `#[pin_v2]` on a packed type is unsound: drop glue for a packed type moves an
+        // over-aligned field to an aligned location before running its destructor, which would
+        // move a structurally pinned field out from under a `Pin<&mut _>` that was handed out.
+        if def.is_pin_project() {
+            tcx.dcx().emit_err(errors::PinV2OnPacked {
+                span: sp,
+                pin_v2_span: find_attr!(tcx, def.did(), PinV2(span) => *span),
+                adt_name: tcx.item_name(def.did()),
+            });
+        }
         if let Some(reprs) = find_attr!(tcx, def.did(), Repr { reprs, .. } => reprs) {
             for (r, _) in reprs {
                 if let ReprPacked(pack) = r
@@ -2032,12 +2063,6 @@ fn detect_discriminant_duplicate<'tcx>(tcx: TyCtxt<'tcx>, adt: ty::AdtDef<'tcx>)
 }
 
 fn check_type_alias_type_params_are_used<'tcx>(tcx: TyCtxt<'tcx>, def_id: LocalDefId) {
-    if tcx.type_alias_is_lazy(def_id) {
-        // Since we compute the variances for lazy type aliases and already reject bivariant
-        // parameters as unused, we can and should skip this check for lazy type aliases.
-        return;
-    }
-
     let generics = tcx.generics_of(def_id);
     if generics.own_counts().types == 0 {
         return;

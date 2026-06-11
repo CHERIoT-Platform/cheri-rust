@@ -53,7 +53,7 @@ pub struct BigPacked2 {
 #[no_mangle]
 pub fn call_pkd1(f: fn() -> Array) -> BigPacked1 {
     // CHECK: [[ALLOCA:%[_a-z0-9]+]] = alloca [32 x i8]
-    // CHECK: call[[ADDRSPACE]] void %{{.*}}(ptr[[ADDRSPACE]]{{( captures(none))?}} noalias{{( nocapture)?}} noundef sret{{.*}} dereferenceable(32) [[ALLOCA]])
+    // CHECK: call[[ADDRSPACE]] void %{{.*}}(ptr[[ADDRSPACE]]{{( captures(none))?}} noalias{{( nocapture)?}} nofree noundef sret{{.*}} dereferenceable(32) [[ALLOCA]])
     // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.*}}(ptr[[ADDRSPACE]] align 1 %{{.*}}, ptr[[ADDRSPACE]] align 4 %{{.*}}, i{{[0-9]+}} 32, i1 false)
     // check that calls whose destination is a field of a packed struct
     // go through an alloca rather than calling the function with an
@@ -65,7 +65,7 @@ pub fn call_pkd1(f: fn() -> Array) -> BigPacked1 {
 #[no_mangle]
 pub fn call_pkd2(f: fn() -> Array) -> BigPacked2 {
     // CHECK: [[ALLOCA:%[_a-z0-9]+]] = alloca [32 x i8]
-    // CHECK: call[[ADDRSPACE]] void %{{.*}}(ptr[[ADDRSPACE]]{{( captures(none))?}} noalias{{( nocapture)?}} noundef sret{{.*}} dereferenceable(32) [[ALLOCA]])
+    // CHECK: call[[ADDRSPACE]] void %{{.*}}(ptr[[ADDRSPACE]]{{( captures(none))?}} noalias{{( nocapture)?}} nofree noundef sret{{.*}} dereferenceable(32) [[ALLOCA]])
     // CHECK: call[[ADDRSPACE]] void @llvm.memcpy.{{.*}}(ptr[[ADDRSPACE]] align 2 %{{.*}}, ptr[[ADDRSPACE]] align 4 %{{.*}}, i{{[0-9]+}} 32, i1 false)
     // check that calls whose destination is a field of a packed struct
     // go through an alloca rather than calling the function with an

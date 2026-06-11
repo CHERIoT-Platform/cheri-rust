@@ -10,3 +10,5 @@
 fn foo() {
     panic!();
 }
+
+// CHECK-NOT: !"uwtable"

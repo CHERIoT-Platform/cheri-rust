@@ -44,7 +44,7 @@ use rustc_span::{Span, Symbol};
 
 use crate::builder::expr::as_place::PlaceBuilder;
 use crate::builder::scope::{DropKind, LintLevel};
-use crate::errors;
+use crate::diagnostics;
 
 pub(crate) fn closure_saved_names_of_captured_variables<'tcx>(
     tcx: TyCtxt<'tcx>,
@@ -577,7 +577,7 @@ fn construct_const<'a, 'tcx>(
         })
         | Node::ImplItem(hir::ImplItem { kind: hir::ImplItemKind::Const(ty, _), span, .. })
         | Node::TraitItem(hir::TraitItem {
-            kind: hir::TraitItemKind::Const(ty, Some(_), _),
+            kind: hir::TraitItemKind::Const(ty, Some(_)),
             span,
             ..
         }) => (*span, ty.span),
@@ -890,6 +890,12 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                     {
                         continue;
                     }
+                    // Ignore return value plumbing. After a call returning a non-`!`
+                    // uninhabited type, a tail expression can be unreachable while
+                    // still being needed to satisfy the surrounding return type.
+                    StatementKind::Assign((place, _)) if place.as_local() == Some(RETURN_PLACE) => {
+                        continue;
+                    }
                     StatementKind::StorageLive(_) | StatementKind::StorageDead(_) => {
                         continue;
                     }
@@ -925,7 +931,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                 lint::builtin::UNREACHABLE_CODE,
                 lint_root,
                 target_loc.span,
-                errors::UnreachableDueToUninhabited {
+                diagnostics::UnreachableDueToUninhabited {
                     expr: target_loc.span,
                     orig: orig_span,
                     descr,
