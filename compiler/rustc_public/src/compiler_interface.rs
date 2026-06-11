@@ -764,6 +764,7 @@ impl<'tcx> CompilerInterface<'tcx> {
     pub(crate) fn target_info(&self) -> MachineInfo {
         self.with_cx(|tables, cx| MachineInfo {
             endian: cx.target_endian().stable(tables, cx),
+            address_width: MachineSize::from_bits(cx.target_address_size()),
             pointer_width: MachineSize::from_bits(cx.target_pointer_size()),
         })
     }

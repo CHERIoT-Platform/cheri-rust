@@ -8,6 +8,7 @@ use crate::compiler_interface::with;
 #[derive(Clone, PartialEq, Eq, Serialize)]
 pub struct MachineInfo {
     pub endian: Endian,
+    pub address_width: MachineSize,
     pub pointer_width: MachineSize,
 }
 
@@ -18,6 +19,10 @@ impl MachineInfo {
 
     pub fn target_endianness() -> Endian {
         with(|cx| cx.target_info().endian)
+    }
+
+    pub fn target_address_width() -> MachineSize {
+        with(|cx| cx.target_info().address_width)
     }
 
     pub fn target_pointer_width() -> MachineSize {

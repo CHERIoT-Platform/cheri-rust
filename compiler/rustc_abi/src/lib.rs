@@ -340,6 +340,7 @@ pub enum TargetDataLayoutError<'a> {
     InvalidBits { kind: &'a str, bit: &'a str, cause: &'a str, err: ParseIntError },
     MissingAlignment { cause: &'a str },
     InvalidAlignment { cause: &'a str, err: AlignFromBytesError },
+    InconsistentTargetAddressWidth { address_size: u64, target: u16 },
     InconsistentTargetArchitecture { dl: &'a str, target: &'a str },
     InconsistentTargetPointerWidth { pointer_size: u64, target: u16 },
     InvalidBitsSize { err: String },
@@ -375,6 +376,10 @@ impl<G: EmissionGuarantee> Diagnostic<'_, G> for TargetDataLayoutError<'_> {
             TargetDataLayoutError::InconsistentTargetArchitecture { dl, target } => {
                 Diag::new(dcx, level, msg!("inconsistent target specification: \"data-layout\" claims architecture is {$dl}-endian, while \"target-endian\" is `{$target}`"))
                     .with_arg("dl", dl).with_arg("target", target)
+            }
+            TargetDataLayoutError::InconsistentTargetAddressWidth { address_size, target } => {
+                Diag::new(dcx, level, msg!("inconsistent target specification: \"data-layout\" claims addresses are {$address_size}-bit, while \"target-address-width\" is `{$target}`"))
+                    .with_arg("address_size", address_size).with_arg("target", target)
             }
             TargetDataLayoutError::InconsistentTargetPointerWidth { pointer_size, target } => {
                 Diag::new(dcx, level, msg!("inconsistent target specification: \"data-layout\" claims pointers are {$pointer_size}-bit, while \"target-pointer-width\" is `{$target}`"))

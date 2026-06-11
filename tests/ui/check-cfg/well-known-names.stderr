@@ -20,6 +20,7 @@ LL | #[cfg(list_all_well_known_cfgs)]
 `sanitizer_cfi_generalize_pointers`
 `sanitizer_cfi_normalize_integers`
 `target_abi`
+`target_address_width`
 `target_arch`
 `target_endian`
 `target_env`

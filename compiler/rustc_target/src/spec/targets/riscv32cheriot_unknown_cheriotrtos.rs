@@ -19,6 +19,7 @@ pub(crate) fn target() -> Target {
         arch: Arch::RiscV32,
 
         options: TargetOptions {
+            address_width: Some(32),
             linker_flavor: LinkerFlavor::Gnu(Cc::No, Lld::Yes),
             linker: None,
             cpu: "cheriot".into(),

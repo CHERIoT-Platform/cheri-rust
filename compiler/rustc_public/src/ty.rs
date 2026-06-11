@@ -596,7 +596,7 @@ pub enum IntTy {
 impl IntTy {
     pub fn num_bytes(self) -> usize {
         match self {
-            IntTy::Isize => MachineInfo::target_pointer_width().bytes(),
+            IntTy::Isize => MachineInfo::target_address_width().bytes(),
             IntTy::I8 => 1,
             IntTy::I16 => 2,
             IntTy::I32 => 4,
@@ -619,7 +619,7 @@ pub enum UintTy {
 impl UintTy {
     pub fn num_bytes(self) -> usize {
         match self {
-            UintTy::Usize => MachineInfo::target_pointer_width().bytes(),
+            UintTy::Usize => MachineInfo::target_address_width().bytes(),
             UintTy::U8 => 1,
             UintTy::U16 => 2,
             UintTy::U32 => 4,
