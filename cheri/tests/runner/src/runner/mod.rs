@@ -51,9 +51,13 @@ pub struct App {
     )]
     cheriot_rtos_repo_url: String,
 
-    /// The URL to the cheriot-rtos repository.
+    /// The branch of the cheriot-rtos repository to clone.
     #[clap(long = "rtos-repo-branch", default_value = Some("main"))]
     cheriot_rtos_repo_branch: Option<String>,
+
+    /// A specific cheriot-rtos commit to check out after cloning.
+    #[clap(long = "rtos-repo-commit", env = "CHERIOT_RTOS_COMMIT")]
+    cheriot_rtos_repo_commit: Option<String>,
 
     /// Paths to Rust files or directories containing Rust files to compile and link together to
     /// create a test firmware.
@@ -80,6 +84,8 @@ impl App {
             self.git(
                 &self.cheriot_rtos_repo_url,
                 self.cheriot_rtos_repo_branch.as_ref().map(|v| v.as_str()),
+                // Treat an empty `CHERIOT_RTOS_COMMIT` as unset, falling back to branch tip.
+                self.cheriot_rtos_repo_commit.as_deref().filter(|v| !v.is_empty()),
                 &rtos_dir,
             )?;
         } else {

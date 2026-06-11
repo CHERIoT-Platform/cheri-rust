@@ -20,6 +20,12 @@ jobs:
     env:
       CC: "clang"
       CXX: "clang++"
+      # Pin the cheriot-rtos tree used by every step that clones it (the test
+      # runner, the coretests linker, the examples) to one commit, so RTOS-side
+      # changes can't silently break CI. Set to a commit SHA to pin; leave empty
+      # to track the branch tip. Override per-invocation with the runner's
+      # `--rtos-repo-commit` flag.
+      CHERIOT_RTOS_COMMIT: ""
     steps:
       - name: Install dependencies
         run: |
