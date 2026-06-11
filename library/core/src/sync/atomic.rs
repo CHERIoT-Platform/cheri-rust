@@ -325,19 +325,19 @@ impl_atomic_primitive!([] u64 as Align8<u64>, size("64"));
 impl_atomic_primitive!([] i128 as Align16<i128>, size("128"));
 impl_atomic_primitive!([] u128 as Align16<u128>, size("128"));
 
-#[cfg(target_pointer_width = "16")]
-impl_atomic_primitive!([] isize as Align2<isize>, size("ptr"));
-#[cfg(target_pointer_width = "32")]
-impl_atomic_primitive!([] isize as Align4<isize>, size("ptr"));
-#[cfg(target_pointer_width = "64")]
-impl_atomic_primitive!([] isize as Align8<isize>, size("ptr"));
+#[cfg(target_address_width = "16")]
+impl_atomic_primitive!([] isize as Align2<isize>, size("16"));
+#[cfg(target_address_width = "32")]
+impl_atomic_primitive!([] isize as Align4<isize>, size("32"));
+#[cfg(target_address_width = "64")]
+impl_atomic_primitive!([] isize as Align8<isize>, size("64"));
 
-#[cfg(target_pointer_width = "16")]
-impl_atomic_primitive!([] usize as Align2<usize>, size("ptr"));
-#[cfg(target_pointer_width = "32")]
-impl_atomic_primitive!([] usize as Align4<usize>, size("ptr"));
-#[cfg(target_pointer_width = "64")]
-impl_atomic_primitive!([] usize as Align8<usize>, size("ptr"));
+#[cfg(target_address_width = "16")]
+impl_atomic_primitive!([] usize as Align2<usize>, size("16"));
+#[cfg(target_address_width = "32")]
+impl_atomic_primitive!([] usize as Align4<usize>, size("32"));
+#[cfg(target_address_width = "64")]
+impl_atomic_primitive!([] usize as Align8<usize>, size("64"));
 
 #[cfg(target_pointer_width = "16")]
 impl_atomic_primitive!([T] *mut T as Align2<*mut T>, size("ptr"));
@@ -3799,13 +3799,13 @@ atomic_int! {
     u128 AtomicU128
 }
 
-#[cfg(target_has_atomic_load_store = "ptr")]
-macro_rules! atomic_int_ptr_sized {
-    ( $($target_pointer_width:literal $align:literal)* ) => { $(
-        #[cfg(target_pointer_width = $target_pointer_width)]
+macro_rules! atomic_int_usize_sized {
+    ( $($target_address_width:literal $align:literal)* ) => { $(
+        #[cfg(target_has_atomic_load_store = $target_address_width)]
+        #[cfg(target_address_width = $target_address_width)]
         atomic_int! {
-            cfg(target_has_atomic = "ptr"),
-            cfg(target_has_atomic_equal_alignment = "ptr"),
+            cfg(target_has_atomic = $target_address_width),
+            cfg(target_has_atomic_equal_alignment = $target_address_width),
             stable(feature = "rust1", since = "1.0.0"),
             stable(feature = "extended_compare_and_swap", since = "1.10.0"),
             stable(feature = "atomic_debug", since = "1.3.0"),
@@ -3820,10 +3820,11 @@ macro_rules! atomic_int_ptr_sized {
             $align,
             isize AtomicIsize
         }
-        #[cfg(target_pointer_width = $target_pointer_width)]
+        #[cfg(target_has_atomic_load_store = $target_address_width)]
+        #[cfg(target_address_width = $target_address_width)]
         atomic_int! {
-            cfg(target_has_atomic = "ptr"),
-            cfg(target_has_atomic_equal_alignment = "ptr"),
+            cfg(target_has_atomic = $target_address_width),
+            cfg(target_has_atomic_equal_alignment = $target_address_width),
             stable(feature = "rust1", since = "1.0.0"),
             stable(feature = "extended_compare_and_swap", since = "1.10.0"),
             stable(feature = "atomic_debug", since = "1.3.0"),
@@ -3840,7 +3841,8 @@ macro_rules! atomic_int_ptr_sized {
         }
 
         /// An [`AtomicIsize`] initialized to `0`.
-        #[cfg(target_pointer_width = $target_pointer_width)]
+        #[cfg(target_has_atomic_load_store = $target_address_width)]
+        #[cfg(target_address_width = $target_address_width)]
         #[stable(feature = "rust1", since = "1.0.0")]
         #[deprecated(
             since = "1.34.0",
@@ -3850,7 +3852,8 @@ macro_rules! atomic_int_ptr_sized {
         pub const ATOMIC_ISIZE_INIT: AtomicIsize = AtomicIsize::new(0);
 
         /// An [`AtomicUsize`] initialized to `0`.
-        #[cfg(target_pointer_width = $target_pointer_width)]
+        #[cfg(target_has_atomic_load_store = $target_address_width)]
+        #[cfg(target_address_width = $target_address_width)]
         #[stable(feature = "rust1", since = "1.0.0")]
         #[deprecated(
             since = "1.34.0",
@@ -3861,8 +3864,7 @@ macro_rules! atomic_int_ptr_sized {
     )* };
 }
 
-#[cfg(target_has_atomic_load_store = "ptr")]
-atomic_int_ptr_sized! {
+atomic_int_usize_sized! {
     "16" 2
     "32" 4
     "64" 8

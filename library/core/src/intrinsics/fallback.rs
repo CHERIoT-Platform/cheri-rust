@@ -44,11 +44,11 @@ impl_carrying_mul_add_by_widening! {
     isize usize UDoubleSize,
 }
 
-#[cfg(target_pointer_width = "16")]
+#[cfg(target_address_width = "16")]
 type UDoubleSize = u32;
-#[cfg(target_pointer_width = "32")]
+#[cfg(target_address_width = "32")]
 type UDoubleSize = u64;
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 type UDoubleSize = u128;
 
 #[inline]

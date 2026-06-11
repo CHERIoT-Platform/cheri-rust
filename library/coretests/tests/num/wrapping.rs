@@ -108,11 +108,11 @@ fn wrapping_int_api() {
     );
 
     match () {
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(target_address_width = "32")]
         () => {
             assert_eq!((0xfedc_ba98_u32 as isize).wrapping_mul(16), (0xedcb_a980_u32 as isize));
         }
-        #[cfg(target_pointer_width = "64")]
+        #[cfg(target_address_width = "64")]
         () => {
             assert_eq!(
                 (0xfedc_ba98_7654_3217_u64 as isize).wrapping_mul(16),
@@ -127,11 +127,11 @@ fn wrapping_int_api() {
     assert_eq!((0xfedc_ba98_7654_3217 as u64).wrapping_mul(16), (0xedcb_a987_6543_2170 as u64));
 
     match () {
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(target_address_width = "32")]
         () => {
             assert_eq!((0xfedc_ba98 as usize).wrapping_mul(16), (0xedcb_a980 as usize));
         }
-        #[cfg(target_pointer_width = "64")]
+        #[cfg(target_address_width = "64")]
         () => {
             assert_eq!(
                 (0xfedc_ba98_7654_3217 as usize).wrapping_mul(16),
@@ -174,11 +174,11 @@ fn wrapping_int_api() {
     check_mul_wraps!(0x8000_0000_u32 as i32, -1);
     check_mul_wraps!(0x8000_0000_0000_0000_u64 as i64, -1);
     match () {
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(target_address_width = "32")]
         () => {
             check_mul_wraps!(0x8000_0000_u32 as isize, -1);
         }
-        #[cfg(target_pointer_width = "64")]
+        #[cfg(target_address_width = "64")]
         () => {
             check_mul_wraps!(0x8000_0000_0000_0000_u64 as isize, -1);
         }
@@ -218,11 +218,11 @@ fn wrapping_int_api() {
     check_div_wraps!(0x8000_0000_u32 as i32, -1);
     check_div_wraps!(0x8000_0000_0000_0000_u64 as i64, -1);
     match () {
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(target_address_width = "32")]
         () => {
             check_div_wraps!(0x8000_0000_u32 as isize, -1);
         }
-        #[cfg(target_pointer_width = "64")]
+        #[cfg(target_address_width = "64")]
         () => {
             check_div_wraps!(0x8000_0000_0000_0000_u64 as isize, -1);
         }
@@ -262,11 +262,11 @@ fn wrapping_int_api() {
     check_rem_wraps!(0x8000_0000_u32 as i32, -1);
     check_rem_wraps!(0x8000_0000_0000_0000_u64 as i64, -1);
     match () {
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(target_address_width = "32")]
         () => {
             check_rem_wraps!(0x8000_0000_u32 as isize, -1);
         }
-        #[cfg(target_pointer_width = "64")]
+        #[cfg(target_address_width = "64")]
         () => {
             check_rem_wraps!(0x8000_0000_0000_0000_u64 as isize, -1);
         }
@@ -294,11 +294,11 @@ fn wrapping_int_api() {
     check_neg_wraps!(0x8000_0000_u32 as i32);
     check_neg_wraps!(0x8000_0000_0000_0000_u64 as i64);
     match () {
-        #[cfg(target_pointer_width = "32")]
+        #[cfg(target_address_width = "32")]
         () => {
             check_neg_wraps!(0x8000_0000_u32 as isize);
         }
-        #[cfg(target_pointer_width = "64")]
+        #[cfg(target_address_width = "64")]
         () => {
             check_neg_wraps!(0x8000_0000_0000_0000_u64 as isize);
         }

@@ -118,13 +118,13 @@ define_unsigned_ilog10! {
 
 #[inline]
 pub(in crate::num) const fn usize(val: NonZero<usize>) -> u32 {
-    #[cfg(target_pointer_width = "16")]
+    #[cfg(target_address_width = "16")]
     let impl_fn = u16;
 
-    #[cfg(target_pointer_width = "32")]
+    #[cfg(target_address_width = "32")]
     let impl_fn = u32;
 
-    #[cfg(target_pointer_width = "64")]
+    #[cfg(target_address_width = "64")]
     let impl_fn = u64;
 
     // SAFETY: We have selected the correct `impl_fn`, so the converting `val` to the argument is

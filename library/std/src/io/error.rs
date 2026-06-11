@@ -8,14 +8,14 @@ mod tests;
 // This assumption is invalid on 64-bit UEFI, where error codes are 64-bit.
 // Therefore, the packed representation is explicitly disabled for UEFI
 // targets, and the unpacked representation must be used instead.
-#[cfg(all(target_pointer_width = "64", not(target_os = "uefi")))]
+#[cfg(all(target_address_width = "64", not(target_os = "uefi")))]
 mod repr_bitpacked;
-#[cfg(all(target_pointer_width = "64", not(target_os = "uefi")))]
+#[cfg(all(target_address_width = "64", not(target_os = "uefi")))]
 use repr_bitpacked::Repr;
 
-#[cfg(any(not(target_pointer_width = "64"), target_os = "uefi"))]
+#[cfg(any(not(target_address_width = "64"), target_os = "uefi"))]
 mod repr_unpacked;
-#[cfg(any(not(target_pointer_width = "64"), target_os = "uefi"))]
+#[cfg(any(not(target_address_width = "64"), target_os = "uefi"))]
 use repr_unpacked::Repr;
 
 use crate::{error, fmt, result, sys};
@@ -154,7 +154,7 @@ pub type RawOsError = sys::io::RawOsError;
 // alignment required by the struct, only increase it).
 //
 // If we add more variants to ErrorData, this can be increased to 8, but it
-// should probably be behind `#[cfg_attr(target_pointer_width = "64", ...)]` or
+// should probably be behind `#[cfg_attr(target_address_width = "64", ...)]` or
 // whatever cfg we're using to enable the `repr_bitpacked` code, since only the
 // that version needs the alignment, and 8 is higher than the alignment we'll
 // have on 32 bit platforms.
