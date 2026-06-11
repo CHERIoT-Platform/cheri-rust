@@ -17,30 +17,23 @@ fn size_of_basic() {
 }
 
 #[test]
-#[cfg(target_pointer_width = "16")]
-fn size_of_16() {
+fn size_of_usize() {
+    #[cfg(target_address_width = "16")]
     assert_eq!(size_of::<usize>(), 2);
-    assert_eq!(size_of::<*const usize>(), 2);
-}
-
-#[test]
-#[cfg(target_pointer_width = "32")]
-fn size_of_32() {
+    #[cfg(target_address_width = "32")]
     assert_eq!(size_of::<usize>(), 4);
-    // On CHERIoT and other CHERI platforms, the size and alignment
-    // of `usize` are not the same as those of `*const T`.
-    #[cfg(target_family = "cheriot")]
-    assert_eq!(size_of::<*const usize>(), 8);
-
-    #[cfg(not(target_family = "cheriot"))]
-    assert_eq!(size_of::<*const usize>(), 4);
+    #[cfg(target_address_width = "64")]
+    assert_eq!(size_of::<usize>(), 8);
 }
 
 #[test]
-#[cfg(target_pointer_width = "64")]
-fn size_of_64() {
-    assert_eq!(size_of::<usize>(), 8);
-    assert_eq!(size_of::<*const usize>(), 8);
+fn size_of_pointer() {
+    #[cfg(target_pointer_width = "16")]
+    assert_eq!(size_of::<*const ()>(), 2);
+    #[cfg(target_pointer_width = "32")]
+    assert_eq!(size_of::<*const ()>(), 4);
+    #[cfg(target_pointer_width = "64")]
+    assert_eq!(size_of::<*const ()>(), 8);
 }
 
 #[test]
@@ -59,31 +52,23 @@ fn align_of_basic() {
 }
 
 #[test]
-#[cfg(target_pointer_width = "16")]
-fn align_of_16() {
+fn align_of_usize() {
+    #[cfg(target_address_width = "16")]
     assert_eq!(align_of::<usize>(), 2);
-    assert_eq!(align_of::<*const usize>(), 2);
-}
-
-#[test]
-#[cfg(target_pointer_width = "32")]
-fn align_of_32() {
+    #[cfg(target_address_width = "32")]
     assert_eq!(align_of::<usize>(), 4);
-
-    // On CHERIoT and other CHERI platforms, the size and alignment
-    // of `usize` are not the same as those of `*const T`.
-    #[cfg(target_family = "cheriot")]
-    assert_eq!(align_of::<*const usize>(), 8);
-
-    #[cfg(not(target_family = "cheriot"))]
-    assert_eq!(align_of::<*const usize>(), 4);
+    #[cfg(target_address_width = "64")]
+    assert_eq!(align_of::<usize>(), 8);
 }
 
 #[test]
-#[cfg(target_pointer_width = "64")]
-fn align_of_64() {
-    assert_eq!(align_of::<usize>(), 8);
-    assert_eq!(align_of::<*const usize>(), 8);
+fn align_of_pointer() {
+    #[cfg(target_pointer_width = "16")]
+    assert_eq!(align_of::<*const ()>(), 2);
+    #[cfg(target_pointer_width = "32")]
+    assert_eq!(align_of::<*const ()>(), 4);
+    #[cfg(target_pointer_width = "64")]
+    assert_eq!(align_of::<*const ()>(), 8);
 }
 
 #[test]

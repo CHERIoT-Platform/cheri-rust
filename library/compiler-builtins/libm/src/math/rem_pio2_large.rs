@@ -28,7 +28,7 @@ const INIT_JK: [usize; 4] = [3, 4, 4, 6];
 //
 // NB: This table must have at least (e0-3)/24 + jk terms.
 //     For quad precision (e0 <= 16360, jk = 6), this is 686.
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "16"))]
+#[cfg(any(target_address_width = "32", target_address_width = "16"))]
 const IPIO2: [i32; 66] = [
     0xA2F983, 0x6E4E44, 0x1529FC, 0x2757D1, 0xF534DD, 0xC0DB62, 0x95993C, 0x439041, 0xFE5163,
     0xABDEBB, 0xC561B7, 0x246E3A, 0x424DD2, 0xE00649, 0x2EEA09, 0xD1921C, 0xFE1DEB, 0x1CB129,
@@ -40,7 +40,7 @@ const IPIO2: [i32; 66] = [
     0x73A8C9, 0x60E27B, 0xC08C6B,
 ];
 
-#[cfg(target_pointer_width = "64")]
+#[cfg(target_address_width = "64")]
 const IPIO2: [i32; 690] = [
     0xA2F983, 0x6E4E44, 0x1529FC, 0x2757D1, 0xF534DD, 0xC0DB62, 0x95993C, 0x439041, 0xFE5163,
     0xABDEBB, 0xC561B7, 0x246E3A, 0x424DD2, 0xE00649, 0x2EEA09, 0xD1921C, 0xFE1DEB, 0x1CB129,
@@ -236,7 +236,7 @@ pub(crate) fn rem_pio2_large(x: &[f64], y: &mut [f64], e0: i32, prec: usize) -> 
     let x1p24 = f64::from_bits(0x4170000000000000); // 0x1p24 === 2 ^ 24
     let x1p_24 = f64::from_bits(0x3e70000000000000); // 0x1p_24 === 2 ^ (-24)
 
-    if cfg!(target_pointer_width = "64") {
+    if cfg!(target_address_width = "64") {
         debug_assert!(e0 <= 16360);
     }
 

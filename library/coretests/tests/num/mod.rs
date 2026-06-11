@@ -67,9 +67,9 @@ macro_rules! cfg_block {
 /// support for larger/smaller pointer widths are added in the future.
 macro_rules! assume_usize_width {
     {$($it:item)*} => {#[cfg(not(any(
-        target_pointer_width = "16", target_pointer_width = "32", target_pointer_width = "64")))]
+        target_address_width = "16", target_address_width = "32", target_address_width = "64")))]
            compile_error!("The current tests of try_from on usize/isize assume that \
-                           the pointer width is either 16, 32, or 64");
+                           the address width is either 16, 32, or 64");
                     $($it)*
     }
 }
@@ -519,7 +519,7 @@ assume_usize_width! {
     test_impl_try_from_always_ok! { test_try_isizei128, isize, i128 }
 
     cfg_block!(
-        #[cfg(target_pointer_width = "16")] {
+        #[cfg(target_address_width = "16")] {
             test_impl_try_from_always_ok! { test_try_usizeu16, usize, u16 }
             test_impl_try_from_always_ok! { test_try_isizei16, isize, i16 }
             test_impl_try_from_always_ok! { test_try_usizeu32, usize, u32 }
@@ -528,7 +528,7 @@ assume_usize_width! {
             test_impl_try_from_always_ok! { test_try_usizei64, usize, i64 }
         }
 
-        #[cfg(target_pointer_width = "32")] {
+        #[cfg(target_address_width = "32")] {
             test_impl_try_from_always_ok! { test_try_u16isize, u16, isize }
             test_impl_try_from_always_ok! { test_try_usizeu32, usize, u32 }
             test_impl_try_from_always_ok! { test_try_isizei32, isize, i32 }
@@ -537,7 +537,7 @@ assume_usize_width! {
             test_impl_try_from_always_ok! { test_try_usizei64, usize, i64 }
         }
 
-        #[cfg(target_pointer_width = "64")] {
+        #[cfg(target_address_width = "64")] {
             test_impl_try_from_always_ok! { test_try_u16isize, u16, isize }
             test_impl_try_from_always_ok! { test_try_u32usize, u32, usize }
             test_impl_try_from_always_ok! { test_try_u32isize, u32, isize }
@@ -600,18 +600,18 @@ assume_usize_width! {
     test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_isizeusize, isize, usize }
 
     cfg_block!(
-        #[cfg(target_pointer_width = "16")] {
+        #[cfg(target_address_width = "16")] {
             test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_isizeu16, isize, u16 }
             test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_isizeu32, isize, u32 }
         }
 
-        #[cfg(target_pointer_width = "32")] {
+        #[cfg(target_address_width = "32")] {
             test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_isizeu32, isize, u32 }
 
             test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i32usize, i32, usize }
         }
 
-        #[cfg(target_pointer_width = "64")] {
+        #[cfg(target_address_width = "64")] {
             test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i32usize, i32, usize }
             test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i64usize, i64, usize }
         }
@@ -666,17 +666,17 @@ assume_usize_width! {
     test_impl_try_from_unsigned_to_signed_upper_err! { test_try_usizeisize, usize, isize }
 
     cfg_block!(
-        #[cfg(target_pointer_width = "16")] {
+        #[cfg(target_address_width = "16")] {
             test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u16isize, u16, isize }
             test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u32isize, u32, isize }
         }
 
-        #[cfg(target_pointer_width = "32")] {
+        #[cfg(target_address_width = "32")] {
             test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u32isize, u32, isize }
             test_impl_try_from_unsigned_to_signed_upper_err! { test_try_usizei32, usize, i32 }
         }
 
-        #[cfg(target_pointer_width = "64")] {
+        #[cfg(target_address_width = "64")] {
             test_impl_try_from_unsigned_to_signed_upper_err! { test_try_usizei32, usize, i32 }
             test_impl_try_from_unsigned_to_signed_upper_err! { test_try_usizei64, usize, i64 }
         }
@@ -751,7 +751,7 @@ assume_usize_width! {
     test_impl_try_from_same_sign_err! { test_try_i128isize, i128, isize }
 
     cfg_block!(
-        #[cfg(target_pointer_width = "16")] {
+        #[cfg(target_address_width = "16")] {
             test_impl_try_from_same_sign_err! { test_try_u32usize, u32, usize }
             test_impl_try_from_same_sign_err! { test_try_u64usize, u64, usize }
 
@@ -759,7 +759,7 @@ assume_usize_width! {
             test_impl_try_from_same_sign_err! { test_try_i64isize, i64, isize }
         }
 
-        #[cfg(target_pointer_width = "32")] {
+        #[cfg(target_address_width = "32")] {
             test_impl_try_from_same_sign_err! { test_try_u64usize, u64, usize }
             test_impl_try_from_same_sign_err! { test_try_usizeu16, usize, u16 }
 
@@ -767,7 +767,7 @@ assume_usize_width! {
             test_impl_try_from_same_sign_err! { test_try_isizei16, isize, i16 }
         }
 
-        #[cfg(target_pointer_width = "64")] {
+        #[cfg(target_address_width = "64")] {
             test_impl_try_from_same_sign_err! { test_try_usizeu16, usize, u16 }
             test_impl_try_from_same_sign_err! { test_try_usizeu32, usize, u32 }
 
@@ -828,16 +828,16 @@ assume_usize_width! {
     test_impl_try_from_signed_to_unsigned_err! { test_try_i128usize, i128, usize }
 
     cfg_block! {
-        #[cfg(target_pointer_width = "16")] {
+        #[cfg(target_address_width = "16")] {
             test_impl_try_from_signed_to_unsigned_err! { test_try_i32usize, i32, usize }
             test_impl_try_from_signed_to_unsigned_err! { test_try_i64usize, i64, usize }
         }
-        #[cfg(target_pointer_width = "32")] {
+        #[cfg(target_address_width = "32")] {
             test_impl_try_from_signed_to_unsigned_err! { test_try_i64usize, i64, usize }
 
             test_impl_try_from_signed_to_unsigned_err! { test_try_isizeu16, isize, u16 }
         }
-        #[cfg(target_pointer_width = "64")] {
+        #[cfg(target_address_width = "64")] {
             test_impl_try_from_signed_to_unsigned_err! { test_try_isizeu16, isize, u16 }
             test_impl_try_from_signed_to_unsigned_err! { test_try_isizeu32, isize, u32 }
         }

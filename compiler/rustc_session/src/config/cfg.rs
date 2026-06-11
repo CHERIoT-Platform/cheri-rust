@@ -307,10 +307,7 @@ pub(crate) fn default_configuration(sess: &Session) -> Cfg {
 
     ins_sym!(sym::target_address_width, sym::integer(layout.address_size().bits()));
     ins_sym!(sym::target_os, sess.target.os.desc_symbol());
-    // HACK: This should be `layout.pointer_size()`.
-    //       This is is left as-is temporarily to keep core working until we
-    //       fix misuse of `target_pointer_width` in core in the next commit.
-    ins_sym!(sym::target_pointer_width, sym::integer(layout.address_size().bits()));
+    ins_sym!(sym::target_pointer_width, sym::integer(layout.pointer_size().bits()));
 
     if sess.opts.unstable_opts.has_thread_local.unwrap_or(sess.target.has_thread_local) {
         ins_none!(sym::target_thread_local);
