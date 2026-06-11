@@ -114,6 +114,10 @@ impl<'tcx, B: Bridge> CompilerCtxt<'tcx, B> {
         self.tcx.data_layout.endian
     }
 
+    pub fn target_address_size(&self) -> usize {
+        self.tcx.data_layout.address_size().bits().try_into().unwrap()
+    }
+
     pub fn target_pointer_size(&self) -> usize {
         self.tcx.data_layout.pointer_size().bits().try_into().unwrap()
     }

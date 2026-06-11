@@ -770,6 +770,7 @@ impl<'tcx> CompilerInterface<'tcx> {
         let cx = &*self.cx.borrow();
         MachineInfo {
             endian: cx.target_endian().stable(&mut *tables, cx),
+            address_width: MachineSize::from_bits(cx.target_address_size()),
             pointer_width: MachineSize::from_bits(cx.target_pointer_size()),
         }
     }
