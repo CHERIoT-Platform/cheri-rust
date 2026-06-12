@@ -7,7 +7,6 @@
 use std::ops::ControlFlow;
 
 use rustc_errors::FatalError;
-use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
 use rustc_hir::{self as hir, LangItem};
 use rustc_middle::query::Providers;
@@ -887,14 +886,15 @@ impl<'tcx> TypeVisitor<TyCtxt<'tcx>> for IllegalSelfTypeVisitor<'tcx> {
         let ct = self.tcx.expand_abstract_consts(ct);
 
         match ct.kind() {
-            ty::ConstKind::Unevaluated(proj) if self.tcx.features().min_generic_const_args() => {
+            ty::ConstKind::Unevaluated(ty::UnevaluatedConst {
+                kind: ty::UnevaluatedConstKind::Projection { def_id },
+                args,
+                ..
+            }) if self.tcx.features().min_generic_const_args() => {
                 match self.allow_self_projections {
-                    AllowSelfProjections::Yes
-                        if matches!(self.tcx.def_kind(proj.def), DefKind::AssocConst { .. })
-                            && let trait_def_id = self.tcx.parent(proj.def)
-                            && self.tcx.def_kind(trait_def_id) == DefKind::Trait =>
-                    {
-                        let trait_ref = ty::TraitRef::from_assoc(self.tcx, trait_def_id, proj.args);
+                    AllowSelfProjections::Yes => {
+                        let trait_def_id = self.tcx.parent(def_id);
+                        let trait_ref = ty::TraitRef::from_assoc(self.tcx, trait_def_id, args);
 
                         // Only walk contained consts if the parent trait is not a supertrait.
                         if self.is_supertrait_of_current_trait(trait_ref) {
@@ -903,7 +903,7 @@ impl<'tcx> TypeVisitor<TyCtxt<'tcx>> for IllegalSelfTypeVisitor<'tcx> {
                             ct.super_visit_with(self)
                         }
                     }
-                    _ => ct.super_visit_with(self),
+                    AllowSelfProjections::No => ct.super_visit_with(self),
                 }
             }
             _ => ct.super_visit_with(self),

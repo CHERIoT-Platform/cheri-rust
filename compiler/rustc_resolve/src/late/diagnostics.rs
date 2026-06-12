@@ -149,10 +149,8 @@ pub(super) struct ElisionFnParameter {
 /// This is used to suggest introducing an explicit lifetime.
 #[derive(Clone, Copy, Debug)]
 pub(super) enum LifetimeElisionCandidate {
-    /// This is not a real lifetime.
+    /// This is not a real lifetime, or it is a named lifetime, in which case we won't suggest anything.
     Ignore,
-    /// There is a named lifetime, we won't suggest anything.
-    Named,
     Missing(MissingLifetime),
 }
 
@@ -2751,8 +2749,7 @@ impl<'ast, 'ra, 'tcx> LateResolutionVisitor<'_, 'ast, 'ra, 'tcx> {
         }
         // Fields are generally expected in the same contexts as locals.
         if filter_fn(Res::Local(ast::DUMMY_NODE_ID)) {
-            if let Some(node_id) =
-                self.diag_metadata.current_self_type.as_ref().and_then(extract_node_id)
+            if let Some(node_id) = self.diag_metadata.current_self_type.and_then(extract_node_id)
                 && let Some(resolution) = self.r.partial_res_map.get(&node_id)
                 && let Some(Res::Def(DefKind::Struct | DefKind::Union, did)) = resolution.full_res()
                 && let Some(fields) = self.r.field_idents(did)
@@ -3630,6 +3627,9 @@ impl<'ast, 'ra, 'tcx> LateResolutionVisitor<'_, 'ast, 'ra, 'tcx> {
             };
             match use_set {
                 Some(LifetimeUseSet::Many) => {}
+                // A lifetime bound is a real use of that lifetime parameter, even
+                // though visiting a bound like `'b: 'a` only records a use of `'a`.
+                Some(LifetimeUseSet::One { .. }) if !param.bounds.is_empty() => {}
                 Some(LifetimeUseSet::One { use_span, use_ctxt }) => {
                     let param_ident = param.ident;
                     let deletion_span =

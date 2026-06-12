@@ -301,6 +301,8 @@ mod tests;
 pub use core::io::{BorrowedBuf, BorrowedCursor};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use core::io::{Chain, Empty, Repeat, Sink, Take, empty, repeat, sink};
+#[stable(feature = "iovec", since = "1.36.0")]
+pub use core::io::{IoSlice, IoSliceMut};
 use core::slice::memchr;
 
 #[stable(feature = "bufwriter_into_parts", since = "1.56.0")]
@@ -331,9 +333,8 @@ pub use self::{
     error::{Error, ErrorKind, Result},
     stdio::{Stderr, StderrLock, Stdin, StdinLock, Stdout, StdoutLock, stderr, stdin, stdout},
 };
-use crate::mem::{MaybeUninit, take};
-use crate::ops::{Deref, DerefMut};
-use crate::{cmp, fmt, slice, str, sys};
+use crate::mem::MaybeUninit;
+use crate::{cmp, fmt, slice, str};
 
 mod buffered;
 pub(crate) mod copy;
@@ -469,7 +470,7 @@ pub(crate) fn default_read_to_end<R: Read + ?Sized>(
         let mut spare = buf.spare_capacity_mut();
         let buf_len = cmp::min(spare.len(), max_read_size);
         spare = &mut spare[..buf_len];
-        let mut read_buf: BorrowedBuf<'_> = spare.into();
+        let mut read_buf: BorrowedBuf<'_, u8> = spare.into();
 
         // Note that we don't track already initialized bytes here, but this is fine
         // because we explicitly limit the read size
@@ -566,7 +567,7 @@ pub(crate) fn default_read_exact<R: Read + ?Sized>(this: &mut R, mut buf: &mut [
     if !buf.is_empty() { Err(Error::READ_EXACT_EOF) } else { Ok(()) }
 }
 
-pub(crate) fn default_read_buf<F>(read: F, mut cursor: BorrowedCursor<'_>) -> Result<()>
+pub(crate) fn default_read_buf<F>(read: F, mut cursor: BorrowedCursor<'_, u8>) -> Result<()>
 where
     F: FnOnce(&mut [u8]) -> Result<usize>,
 {
@@ -577,7 +578,7 @@ where
 
 pub(crate) fn default_read_buf_exact<R: Read + ?Sized>(
     this: &mut R,
-    mut cursor: BorrowedCursor<'_>,
+    mut cursor: BorrowedCursor<'_, u8>,
 ) -> Result<()> {
     while cursor.capacity() > 0 {
         let prev_written = cursor.written();
@@ -1037,7 +1038,7 @@ pub trait Read {
     ///
     /// This method makes it possible to return both data and an error but it is advised against.
     #[unstable(feature = "read_buf", issue = "78485")]
-    fn read_buf(&mut self, buf: BorrowedCursor<'_>) -> Result<()> {
+    fn read_buf(&mut self, buf: BorrowedCursor<'_, u8>) -> Result<()> {
         default_read_buf(|b| self.read(b), buf)
     }
 
@@ -1060,7 +1061,7 @@ pub trait Read {
     ///
     /// If this function returns an error, all bytes read will be appended to `cursor`.
     #[unstable(feature = "read_buf", issue = "78485")]
-    fn read_buf_exact(&mut self, cursor: BorrowedCursor<'_>) -> Result<()> {
+    fn read_buf_exact(&mut self, cursor: BorrowedCursor<'_, u8>) -> Result<()> {
         default_read_buf_exact(self, cursor)
     }
 
@@ -1330,323 +1331,6 @@ pub fn read_to_string<R: Read>(mut reader: R) -> Result<String> {
     let mut buf = String::new();
     reader.read_to_string(&mut buf)?;
     Ok(buf)
-}
-
-/// A buffer type used with `Read::read_vectored`.
-///
-/// It is semantically a wrapper around a `&mut [u8]`, but is guaranteed to be
-/// ABI compatible with the `iovec` type on Unix platforms and `WSABUF` on
-/// Windows.
-#[stable(feature = "iovec", since = "1.36.0")]
-#[repr(transparent)]
-pub struct IoSliceMut<'a>(sys::io::IoSliceMut<'a>);
-
-#[stable(feature = "iovec_send_sync", since = "1.44.0")]
-unsafe impl<'a> Send for IoSliceMut<'a> {}
-
-#[stable(feature = "iovec_send_sync", since = "1.44.0")]
-unsafe impl<'a> Sync for IoSliceMut<'a> {}
-
-#[stable(feature = "iovec", since = "1.36.0")]
-impl<'a> fmt::Debug for IoSliceMut<'a> {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self.0.as_slice(), fmt)
-    }
-}
-
-impl<'a> IoSliceMut<'a> {
-    /// Creates a new `IoSliceMut` wrapping a byte slice.
-    ///
-    /// # Panics
-    ///
-    /// Panics on Windows if the slice is larger than 4GB.
-    #[stable(feature = "iovec", since = "1.36.0")]
-    #[inline]
-    pub fn new(buf: &'a mut [u8]) -> IoSliceMut<'a> {
-        IoSliceMut(sys::io::IoSliceMut::new(buf))
-    }
-
-    /// Advance the internal cursor of the slice.
-    ///
-    /// Also see [`IoSliceMut::advance_slices`] to advance the cursors of
-    /// multiple buffers.
-    ///
-    /// # Panics
-    ///
-    /// Panics when trying to advance beyond the end of the slice.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::io::IoSliceMut;
-    /// use std::ops::Deref;
-    ///
-    /// let mut data = [1; 8];
-    /// let mut buf = IoSliceMut::new(&mut data);
-    ///
-    /// // Mark 3 bytes as read.
-    /// buf.advance(3);
-    /// assert_eq!(buf.deref(), [1; 5].as_ref());
-    /// ```
-    #[stable(feature = "io_slice_advance", since = "1.81.0")]
-    #[inline]
-    pub fn advance(&mut self, n: usize) {
-        self.0.advance(n)
-    }
-
-    /// Advance a slice of slices.
-    ///
-    /// Shrinks the slice to remove any `IoSliceMut`s that are fully advanced over.
-    /// If the cursor ends up in the middle of an `IoSliceMut`, it is modified
-    /// to start at that cursor.
-    ///
-    /// For example, if we have a slice of two 8-byte `IoSliceMut`s, and we advance by 10 bytes,
-    /// the result will only include the second `IoSliceMut`, advanced by 2 bytes.
-    ///
-    /// # Panics
-    ///
-    /// Panics when trying to advance beyond the end of the slices.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::io::IoSliceMut;
-    /// use std::ops::Deref;
-    ///
-    /// let mut buf1 = [1; 8];
-    /// let mut buf2 = [2; 16];
-    /// let mut buf3 = [3; 8];
-    /// let mut bufs = &mut [
-    ///     IoSliceMut::new(&mut buf1),
-    ///     IoSliceMut::new(&mut buf2),
-    ///     IoSliceMut::new(&mut buf3),
-    /// ][..];
-    ///
-    /// // Mark 10 bytes as read.
-    /// IoSliceMut::advance_slices(&mut bufs, 10);
-    /// assert_eq!(bufs[0].deref(), [2; 14].as_ref());
-    /// assert_eq!(bufs[1].deref(), [3; 8].as_ref());
-    /// ```
-    #[stable(feature = "io_slice_advance", since = "1.81.0")]
-    #[inline]
-    pub fn advance_slices(bufs: &mut &mut [IoSliceMut<'a>], n: usize) {
-        // Number of buffers to remove.
-        let mut remove = 0;
-        // Remaining length before reaching n.
-        let mut left = n;
-        for buf in bufs.iter() {
-            if let Some(remainder) = left.checked_sub(buf.len()) {
-                left = remainder;
-                remove += 1;
-            } else {
-                break;
-            }
-        }
-
-        *bufs = &mut take(bufs)[remove..];
-        if bufs.is_empty() {
-            assert!(left == 0, "advancing io slices beyond their length");
-        } else {
-            bufs[0].advance(left);
-        }
-    }
-
-    /// Get the underlying bytes as a mutable slice with the original lifetime.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// #![feature(io_slice_as_bytes)]
-    /// use std::io::IoSliceMut;
-    ///
-    /// let mut data = *b"abcdef";
-    /// let io_slice = IoSliceMut::new(&mut data);
-    /// io_slice.into_slice()[0] = b'A';
-    ///
-    /// assert_eq!(&data, b"Abcdef");
-    /// ```
-    #[unstable(feature = "io_slice_as_bytes", issue = "132818")]
-    pub const fn into_slice(self) -> &'a mut [u8] {
-        self.0.into_slice()
-    }
-}
-
-#[stable(feature = "iovec", since = "1.36.0")]
-impl<'a> Deref for IoSliceMut<'a> {
-    type Target = [u8];
-
-    #[inline]
-    fn deref(&self) -> &[u8] {
-        self.0.as_slice()
-    }
-}
-
-#[stable(feature = "iovec", since = "1.36.0")]
-impl<'a> DerefMut for IoSliceMut<'a> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut [u8] {
-        self.0.as_mut_slice()
-    }
-}
-
-/// A buffer type used with `Write::write_vectored`.
-///
-/// It is semantically a wrapper around a `&[u8]`, but is guaranteed to be
-/// ABI compatible with the `iovec` type on Unix platforms and `WSABUF` on
-/// Windows.
-#[stable(feature = "iovec", since = "1.36.0")]
-#[derive(Copy, Clone)]
-#[repr(transparent)]
-pub struct IoSlice<'a>(sys::io::IoSlice<'a>);
-
-#[stable(feature = "iovec_send_sync", since = "1.44.0")]
-unsafe impl<'a> Send for IoSlice<'a> {}
-
-#[stable(feature = "iovec_send_sync", since = "1.44.0")]
-unsafe impl<'a> Sync for IoSlice<'a> {}
-
-#[stable(feature = "iovec", since = "1.36.0")]
-impl<'a> fmt::Debug for IoSlice<'a> {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self.0.as_slice(), fmt)
-    }
-}
-
-impl<'a> IoSlice<'a> {
-    /// Creates a new `IoSlice` wrapping a byte slice.
-    ///
-    /// # Panics
-    ///
-    /// Panics on Windows if the slice is larger than 4GB.
-    #[stable(feature = "iovec", since = "1.36.0")]
-    #[must_use]
-    #[inline]
-    pub fn new(buf: &'a [u8]) -> IoSlice<'a> {
-        IoSlice(sys::io::IoSlice::new(buf))
-    }
-
-    /// Advance the internal cursor of the slice.
-    ///
-    /// Also see [`IoSlice::advance_slices`] to advance the cursors of multiple
-    /// buffers.
-    ///
-    /// # Panics
-    ///
-    /// Panics when trying to advance beyond the end of the slice.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::io::IoSlice;
-    /// use std::ops::Deref;
-    ///
-    /// let data = [1; 8];
-    /// let mut buf = IoSlice::new(&data);
-    ///
-    /// // Mark 3 bytes as read.
-    /// buf.advance(3);
-    /// assert_eq!(buf.deref(), [1; 5].as_ref());
-    /// ```
-    #[stable(feature = "io_slice_advance", since = "1.81.0")]
-    #[inline]
-    pub fn advance(&mut self, n: usize) {
-        self.0.advance(n)
-    }
-
-    /// Advance a slice of slices.
-    ///
-    /// Shrinks the slice to remove any `IoSlice`s that are fully advanced over.
-    /// If the cursor ends up in the middle of an `IoSlice`, it is modified
-    /// to start at that cursor.
-    ///
-    /// For example, if we have a slice of two 8-byte `IoSlice`s, and we advance by 10 bytes,
-    /// the result will only include the second `IoSlice`, advanced by 2 bytes.
-    ///
-    /// # Panics
-    ///
-    /// Panics when trying to advance beyond the end of the slices.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::io::IoSlice;
-    /// use std::ops::Deref;
-    ///
-    /// let buf1 = [1; 8];
-    /// let buf2 = [2; 16];
-    /// let buf3 = [3; 8];
-    /// let mut bufs = &mut [
-    ///     IoSlice::new(&buf1),
-    ///     IoSlice::new(&buf2),
-    ///     IoSlice::new(&buf3),
-    /// ][..];
-    ///
-    /// // Mark 10 bytes as written.
-    /// IoSlice::advance_slices(&mut bufs, 10);
-    /// assert_eq!(bufs[0].deref(), [2; 14].as_ref());
-    /// assert_eq!(bufs[1].deref(), [3; 8].as_ref());
-    #[stable(feature = "io_slice_advance", since = "1.81.0")]
-    #[inline]
-    pub fn advance_slices(bufs: &mut &mut [IoSlice<'a>], n: usize) {
-        // Number of buffers to remove.
-        let mut remove = 0;
-        // Remaining length before reaching n. This prevents overflow
-        // that could happen if the length of slices in `bufs` were instead
-        // accumulated. Those slice may be aliased and, if they are large
-        // enough, their added length may overflow a `usize`.
-        let mut left = n;
-        for buf in bufs.iter() {
-            if let Some(remainder) = left.checked_sub(buf.len()) {
-                left = remainder;
-                remove += 1;
-            } else {
-                break;
-            }
-        }
-
-        *bufs = &mut take(bufs)[remove..];
-        if bufs.is_empty() {
-            assert!(left == 0, "advancing io slices beyond their length");
-        } else {
-            bufs[0].advance(left);
-        }
-    }
-
-    /// Get the underlying bytes as a slice with the original lifetime.
-    ///
-    /// This doesn't borrow from `self`, so is less restrictive than calling
-    /// `.deref()`, which does.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// #![feature(io_slice_as_bytes)]
-    /// use std::io::IoSlice;
-    ///
-    /// let data = b"abcdef";
-    ///
-    /// let mut io_slice = IoSlice::new(data);
-    /// let tail = &io_slice.as_slice()[3..];
-    ///
-    /// // This works because `tail` doesn't borrow `io_slice`
-    /// io_slice = IoSlice::new(tail);
-    ///
-    /// assert_eq!(io_slice.as_slice(), b"def");
-    /// ```
-    #[unstable(feature = "io_slice_as_bytes", issue = "132818")]
-    pub const fn as_slice(self) -> &'a [u8] {
-        self.0.as_slice()
-    }
-}
-
-#[stable(feature = "iovec", since = "1.36.0")]
-impl<'a> Deref for IoSlice<'a> {
-    type Target = [u8];
-
-    #[inline]
-    fn deref(&self) -> &[u8] {
-        self.0.as_slice()
-    }
 }
 
 /// A trait for objects which are byte-oriented sinks.
@@ -2745,7 +2429,7 @@ impl<T: Read, U: Read> Read for Chain<T, U> {
     // We don't override `read_to_string` here because an UTF-8 sequence could
     // be split between the two parts of the chain
 
-    fn read_buf(&mut self, mut buf: BorrowedCursor<'_>) -> Result<()> {
+    fn read_buf(&mut self, mut buf: BorrowedCursor<'_, u8>) -> Result<()> {
         if buf.capacity() == 0 {
             return Ok(());
         }
@@ -2829,7 +2513,7 @@ impl<T: Read> Read for Take<T> {
         Ok(n)
     }
 
-    fn read_buf(&mut self, mut buf: BorrowedCursor<'_>) -> Result<()> {
+    fn read_buf(&mut self, mut buf: BorrowedCursor<'_, u8>) -> Result<()> {
         // Don't call into inner reader at all at EOF because it may still block
         if self.limit == 0 {
             return Ok(());

@@ -26,6 +26,8 @@ mod bignum;
 #[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod carryless_mul;
 #[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+mod cast;
+#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod const_from;
 #[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
 mod dec2flt;

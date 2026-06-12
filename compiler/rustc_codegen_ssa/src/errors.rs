@@ -694,6 +694,14 @@ pub(crate) struct IncompatibleArchiveFormat {
 pub(crate) struct BpfStaticlibNotSupported;
 
 #[derive(Diagnostic)]
+#[diag(
+    "-Zstaticlib-hide-internal-symbols only supports ELF and Mach-O targets, but the target uses `{$binary_format}`"
+)]
+pub(crate) struct StaticlibHideInternalSymbolsUnsupported {
+    pub binary_format: String,
+}
+
+#[derive(Diagnostic)]
 #[diag("entry symbol `main` declared multiple times")]
 #[help(
     "did you use `#[no_mangle]` on `fn main`? Use `#![no_main]` to suppress the usual Rust-generated entry point"
@@ -1220,14 +1228,17 @@ pub(crate) struct UnstableCTargetFeature<'a> {
 
 #[derive(Diagnostic)]
 #[diag("target feature `{$feature}` cannot be {$enabled} with `-Ctarget-feature`: {$reason}")]
-#[note(
-    "this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!"
-)]
-#[note("for more information, see issue #116344 <https://github.com/rust-lang/rust/issues/116344>")]
 pub(crate) struct ForbiddenCTargetFeature<'a> {
     pub feature: &'a str,
     pub enabled: &'a str,
     pub reason: &'a str,
+    #[note(
+        "this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!"
+    )]
+    #[note(
+        "for more information, see issue #116344 <https://github.com/rust-lang/rust/issues/116344>"
+    )]
+    pub future_compat_note: bool,
 }
 
 pub(crate) struct TargetFeatureDisableOrEnable<'a> {

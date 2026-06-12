@@ -5,6 +5,7 @@ use std::ops::ControlFlow;
 use rustc_data_structures::sso::SsoHashSet;
 use rustc_data_structures::stack::ensure_sufficient_stack;
 use rustc_errors::ErrorGuaranteed;
+use rustc_hir::def_id::DefId;
 use rustc_hir::lang_items::LangItem;
 use rustc_infer::infer::DefineOpaqueTypes;
 use rustc_infer::infer::resolve::OpportunisticRegionResolver;
@@ -275,10 +276,13 @@ pub fn normalize_projection_term<'a, 'b, 'tcx>(
             // and a deferred predicate to resolve this when more type
             // information is available.
 
-            selcx
-                .infcx
-                .projection_term_to_infer(param_env, alias_term, cause, depth + 1, obligations)
-                .into()
+            selcx.infcx.projection_term_to_infer(
+                param_env,
+                alias_term,
+                cause,
+                depth + 1,
+                obligations,
+            )
         })
 }
 
@@ -462,14 +466,14 @@ fn normalize_to_error<'a, 'tcx>(
     depth: usize,
 ) -> NormalizedTerm<'tcx> {
     let trait_ref = ty::Binder::dummy(projection_term.trait_ref(selcx.tcx()));
-    let new_value = match projection_term.kind(selcx.tcx()) {
+    let new_value = match projection_term.kind {
         ty::AliasTermKind::ProjectionTy { .. }
         | ty::AliasTermKind::InherentTy { .. }
         | ty::AliasTermKind::OpaqueTy { .. }
         | ty::AliasTermKind::FreeTy { .. } => selcx.infcx.next_ty_var(cause.span).into(),
         ty::AliasTermKind::FreeConst { .. }
         | ty::AliasTermKind::InherentConst { .. }
-        | ty::AliasTermKind::UnevaluatedConst { .. }
+        | ty::AliasTermKind::AnonConst { .. }
         | ty::AliasTermKind::ProjectionConst { .. } => {
             selcx.infcx.next_const_var(cause.span).into()
         }
@@ -482,6 +486,30 @@ fn normalize_to_error<'a, 'tcx>(
         predicate: trait_ref.upcast(selcx.tcx()),
     });
     Normalized { value: new_value, obligations }
+}
+
+/// When normalizing a const alias, register a `ConstArgHasType` obligation
+/// to ensure the const value's type matches the declared type.
+fn push_const_arg_has_type_obligation<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    obligations: &mut PredicateObligations<'tcx>,
+    cause: &ObligationCause<'tcx>,
+    depth: usize,
+    param_env: ty::ParamEnv<'tcx>,
+    term: Term<'tcx>,
+    def_id: DefId,
+    args: ty::GenericArgsRef<'tcx>,
+) {
+    if let Some(ct) = term.as_const() {
+        let expected_ty = tcx.type_of(def_id).instantiate(tcx, args).skip_norm_wip();
+        obligations.push(Obligation::with_depth(
+            tcx,
+            cause.clone(),
+            depth,
+            param_env,
+            ty::ClauseKind::ConstArgHasType(ct, expected_ty),
+        ));
+    }
 }
 
 /// Confirm and normalize the given inherent projection.
@@ -545,11 +573,22 @@ pub fn normalize_inherent_projection<'a, 'b, 'tcx>(
         ));
     }
 
-    let term: Term<'tcx> = if alias_term.kind(tcx).is_type() {
+    let term: Term<'tcx> = if alias_term.kind.is_type() {
         tcx.type_of(alias_term.def_id()).instantiate(tcx, args).skip_norm_wip().into()
     } else {
         tcx.const_of_item(alias_term.def_id()).instantiate(tcx, args).skip_norm_wip().into()
     };
+
+    push_const_arg_has_type_obligation(
+        tcx,
+        obligations,
+        &cause,
+        depth + 1,
+        param_env,
+        term,
+        alias_term.def_id(),
+        args,
+    );
 
     let mut term = selcx.infcx.resolve_vars_if_possible(term);
     if term.has_aliases() {
@@ -629,7 +668,7 @@ impl<'tcx> Progress<'tcx> {
         alias_term: ty::AliasTerm<'tcx>,
         guar: ErrorGuaranteed,
     ) -> Self {
-        let err_term = if alias_term.kind(tcx).is_type() {
+        let err_term = if alias_term.kind.is_type() {
             Ty::new_error(tcx, guar).into()
         } else {
             ty::Const::new_error(tcx, guar).into()
@@ -952,9 +991,9 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                             // get a result which isn't correct for all monomorphizations.
                             match selcx.typing_mode() {
                                 TypingMode::Coherence
-                                | TypingMode::Analysis { .. }
-                                | TypingMode::Borrowck { .. }
-                                | TypingMode::PostBorrowckAnalysis { .. } => {
+                                | TypingMode::Typeck { .. }
+                                | TypingMode::PostTypeckUntilBorrowck { .. }
+                                | TypingMode::PostBorrowck { .. } => {
                                     debug!(
                                         assoc_ty = ?selcx.tcx().def_path_str(node_item.item.def_id),
                                         ?obligation.predicate,
@@ -962,7 +1001,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                                     );
                                     false
                                 }
-                                TypingMode::PostAnalysis => {
+                                TypingMode::PostAnalysis | TypingMode::Codegen => {
                                     // NOTE(eddyb) inference variables can resolve to parameters, so
                                     // assume `poly_trait_ref` isn't monomorphic, if it contains any.
                                     let poly_trait_ref =
@@ -2010,7 +2049,7 @@ fn confirm_impl_candidate<'cx, 'tcx>(
             return Ok(Projected::NoProgress(obligation.predicate.to_term(tcx)));
         } else {
             return Ok(Projected::Progress(Progress {
-                term: if obligation.predicate.kind(tcx).is_type() {
+                term: if obligation.predicate.kind.is_type() {
                     Ty::new_misc_error(tcx).into()
                 } else {
                     ty::Const::new_misc_error(tcx).into()
@@ -2029,7 +2068,7 @@ fn confirm_impl_candidate<'cx, 'tcx>(
     let args = obligation.predicate.args.rebase_onto(tcx, trait_def_id, args);
     let args = translate_args(selcx.infcx, param_env, impl_def_id, args, assoc_term.defining_node);
 
-    let term = if obligation.predicate.kind(tcx).is_type() {
+    let term = if obligation.predicate.kind.is_type() {
         tcx.type_of(assoc_term.item.def_id).map_bound(|ty| ty.into())
     } else {
         tcx.const_of_item(assoc_term.item.def_id).map_bound(|ct| ct.into())
@@ -2038,7 +2077,7 @@ fn confirm_impl_candidate<'cx, 'tcx>(
     let progress = if !tcx.check_args_compatible(assoc_term.item.def_id, args) {
         let msg = "impl item and trait item have different parameters";
         let span = obligation.cause.span;
-        let err = if obligation.predicate.kind(tcx).is_type() {
+        let err = if obligation.predicate.kind.is_type() {
             Ty::new_error_with_message(tcx, span, msg).into()
         } else {
             ty::Const::new_error_with_message(tcx, span, msg).into()
@@ -2046,7 +2085,18 @@ fn confirm_impl_candidate<'cx, 'tcx>(
         Progress { term: err, obligations: nested }
     } else {
         assoc_term_own_obligations(selcx, obligation, &mut nested);
-        Progress { term: term.instantiate(tcx, args).skip_norm_wip(), obligations: nested }
+        let instantiated_term: Term<'tcx> = term.instantiate(tcx, args).skip_norm_wip();
+        push_const_arg_has_type_obligation(
+            tcx,
+            &mut nested,
+            &obligation.cause,
+            obligation.recursion_depth + 1,
+            obligation.param_env,
+            instantiated_term,
+            assoc_term.item.def_id,
+            args,
+        );
+        Progress { term: instantiated_term, obligations: nested }
     };
     Ok(Projected::Progress(progress))
 }

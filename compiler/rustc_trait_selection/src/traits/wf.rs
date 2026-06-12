@@ -6,7 +6,6 @@
 use std::iter;
 
 use rustc_hir as hir;
-use rustc_hir::def::DefKind;
 use rustc_hir::lang_items::LangItem;
 use rustc_infer::traits::{ObligationCauseCode, PredicateObligations};
 use rustc_middle::bug;
@@ -22,9 +21,9 @@ use tracing::{debug, instrument, trace};
 use crate::infer::InferCtxt;
 use crate::traits;
 
-/// Returns the set of obligations needed to make `arg` well-formed.
-/// If `arg` contains unresolved inference variables, this may include
-/// further WF obligations. However, if `arg` IS an unresolved
+/// Returns the set of obligations needed to make `term` well-formed.
+/// If `term` contains unresolved inference variables, this may include
+/// further WF obligations. However, if `term` IS an unresolved
 /// inference variable, returns `None`, because we are not able to
 /// make any progress at all. This is to prevent cycles where we
 /// say "?0 is WF if ?0 is WF".
@@ -100,7 +99,7 @@ pub fn unnormalized_obligations<'tcx>(
 ) -> Option<PredicateObligations<'tcx>> {
     debug_assert_eq!(term, infcx.resolve_vars_if_possible(term));
 
-    // However, if `arg` IS an unresolved inference variable, returns `None`,
+    // However, if `term` IS an unresolved inference variable, returns `None`,
     // because we are not able to make any progress at all. This is to prevent
     // cycles where we say "?0 is WF if ?0 is WF".
     if term.is_infer() {
@@ -1065,7 +1064,7 @@ impl<'a, 'tcx> TypeVisitor<TyCtxt<'tcx>> for WfPredicates<'a, 'tcx> {
             ty::ConstKind::Unevaluated(uv) => {
                 if !c.has_escaping_bound_vars() {
                     // Skip type consts as mGCA doesn't support evaluatable clauses
-                    if !tcx.is_type_const(uv.def) && !tcx.features().generic_const_args() {
+                    if !uv.kind.is_type_const(tcx) && !tcx.features().generic_const_args() {
                         let predicate = ty::Binder::dummy(ty::PredicateKind::Clause(
                             ty::ClauseKind::ConstEvaluatable(c),
                         ));
@@ -1079,16 +1078,17 @@ impl<'a, 'tcx> TypeVisitor<TyCtxt<'tcx>> for WfPredicates<'a, 'tcx> {
                         ));
                     }
 
-                    if matches!(tcx.def_kind(uv.def), DefKind::AssocConst { .. })
-                        && tcx.def_kind(tcx.parent(uv.def)) == (DefKind::Impl { of_trait: false })
-                    {
-                        self.add_wf_preds_for_inherent_projection(
-                            ty::AliasTerm::from_unevaluated_const(tcx, uv),
-                        );
-                        return; // Subtree is handled by above function
-                    } else {
-                        let obligations = self.nominal_obligations(uv.def, uv.args);
-                        self.out.extend(obligations);
+                    match uv.kind {
+                        ty::UnevaluatedConstKind::Inherent { .. } => {
+                            self.add_wf_preds_for_inherent_projection(uv.into());
+                            return; // Subtree is handled by above function
+                        }
+                        ty::UnevaluatedConstKind::Projection { def_id }
+                        | ty::UnevaluatedConstKind::Free { def_id }
+                        | ty::UnevaluatedConstKind::Anon { def_id } => {
+                            let obligations = self.nominal_obligations(def_id, uv.args);
+                            self.out.extend(obligations);
+                        }
                     }
                 }
             }

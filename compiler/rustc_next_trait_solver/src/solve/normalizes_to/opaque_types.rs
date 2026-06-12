@@ -41,10 +41,8 @@ where
                 self.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
                     .map_err(Into::into)
             }
-            TypingMode::Analysis {
-                defining_opaque_types_and_generators: defining_opaque_types,
-            }
-            | TypingMode::Borrowck { defining_opaque_types } => {
+            TypingMode::Typeck { defining_opaque_types_and_generators: defining_opaque_types }
+            | TypingMode::PostTypeckUntilBorrowck { defining_opaque_types } => {
                 let Some(def_id) = def_id
                     .as_local()
                     .filter(|&def_id| defining_opaque_types.contains(&def_id.into()))
@@ -86,8 +84,8 @@ where
                     // inference variables. In borrowck we instead use the type
                     // computed in HIR typeck as the initial value.
                     match self.typing_mode().assert_not_erased() {
-                        TypingMode::Analysis { .. } => {}
-                        TypingMode::Borrowck { .. } => {
+                        TypingMode::Typeck { .. } => {}
+                        TypingMode::PostTypeckUntilBorrowck { .. } => {
                             let actual = cx
                                 .type_of_opaque_hir_typeck(def_id)
                                 .instantiate(cx, opaque_ty.args)
@@ -99,8 +97,9 @@ where
                             self.eq(goal.param_env, expected, actual)?;
                         }
                         TypingMode::Coherence
-                        | TypingMode::PostBorrowckAnalysis { .. }
-                        | TypingMode::PostAnalysis => unreachable!(),
+                        | TypingMode::PostBorrowck { .. }
+                        | TypingMode::PostAnalysis
+                        | TypingMode::Codegen => unreachable!(),
                     }
                 }
 
@@ -113,7 +112,7 @@ where
                 self.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
                     .map_err(Into::into)
             }
-            TypingMode::PostBorrowckAnalysis { defined_opaque_types } => {
+            TypingMode::PostBorrowck { defined_opaque_types } => {
                 let Some(def_id) = opaque_ty
                     .def_id()
                     .as_local()
@@ -138,7 +137,7 @@ where
                 self.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
                     .map_err(Into::into)
             }
-            TypingMode::PostAnalysis => {
+            TypingMode::PostAnalysis | TypingMode::Codegen => {
                 // FIXME: Add an assertion that opaque type storage is empty.
                 let actual =
                     cx.type_of(def_id.into()).instantiate(cx, opaque_ty.args).skip_norm_wip();
