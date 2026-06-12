@@ -5,7 +5,7 @@ use rustc_errors::{
 };
 use rustc_macros::{Diagnostic, Subdiagnostic};
 use rustc_middle::mir::AssertKind;
-use rustc_middle::ty::{Ty, TyCtxt};
+use rustc_middle::ty::TyCtxt;
 use rustc_session::lint::{self, Lint};
 use rustc_span::def_id::DefId;
 use rustc_span::{Ident, Span, Symbol};

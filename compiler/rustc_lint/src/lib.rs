@@ -650,16 +650,6 @@ fn register_builtins(store: &mut LintStore) {
         "inline_always_mismatching_target_features",
         "replaced by a hard error for `#[inline(always)]` with `#[target_feature]`",
     );
-    store.register_removed(
-        "repr_transparent_external_private_fields",
-        "converted into hard error, \
-         see <https://github.com/rust-lang/rust/issues/78586> for more information",
-    );
-    store.register_removed(
-        "repr_transparent_non_zst_fields",
-        "converted into hard error, \
-         see <https://github.com/rust-lang/rust/issues/78586> for more information",
-    );
 }
 
 fn register_internals(store: &mut LintStore) {

@@ -43,31 +43,22 @@ pub(crate) fn remove_string_attr_from_llfn(llfn: &Value, name: &str) {
 
 /// Get LLVM attribute for the provided inline heuristic.
 #[inline]
-pub(crate) fn inline_attr<'tcx, 'll>(
+fn inline_attr<'ll>(
     cx: &SimpleCx<'ll>,
-    tcx: TyCtxt<'tcx>,
-    instance: Instance<'tcx>,
-    codegen_fn_attrs: &CodegenFnAttrs,
+    sess: &Session,
+    inline: InlineAttr,
 ) -> Option<&'ll Attribute> {
-    if !tcx.sess.opts.unstable_opts.inline_llvm {
+    if !sess.opts.unstable_opts.inline_llvm {
         // disable LLVM inlining
         return Some(AttributeKind::NoInline.create_attr(cx.llcx));
     }
-
-    // `optnone` requires `noinline`
-    let inline = match (codegen_fn_attrs.inline, &codegen_fn_attrs.optimize) {
-        (_, OptimizeAttr::DoNotOptimize) => InlineAttr::Never,
-        (InlineAttr::None, _) if instance.def.requires_inline(tcx) => InlineAttr::Hint,
-        (inline, _) => inline,
-    };
-
     match inline {
         InlineAttr::Hint => Some(AttributeKind::InlineHint.create_attr(cx.llcx)),
         InlineAttr::Always | InlineAttr::Force { .. } => {
             Some(AttributeKind::AlwaysInline.create_attr(cx.llcx))
         }
         InlineAttr::Never => {
-            if tcx.sess.target.arch != Arch::AmdGpu {
+            if sess.target.arch != Arch::AmdGpu {
                 Some(AttributeKind::NoInline.create_attr(cx.llcx))
             } else {
                 None
@@ -453,7 +444,14 @@ pub(crate) fn llfn_attrs_from_instance<'ll, 'tcx>(
     }
 
     if let Some(instance) = instance {
-        to_add.extend(inline_attr(cx, tcx, instance, codegen_fn_attrs));
+        // `optnone` requires `noinline`
+        let inline = match (codegen_fn_attrs.inline, &codegen_fn_attrs.optimize) {
+            (_, OptimizeAttr::DoNotOptimize) => InlineAttr::Never,
+            (InlineAttr::None, _) if instance.def.requires_inline(tcx) => InlineAttr::Hint,
+            (inline, _) => inline,
+        };
+
+        to_add.extend(inline_attr(cx, sess, inline));
     }
 
     if sess.must_emit_unwind_tables() {
