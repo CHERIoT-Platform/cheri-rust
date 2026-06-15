@@ -448,9 +448,22 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                         if let Some((msg, span)) = type_def {
                             err.span_label(span, msg);
                         }
-                        for note in notes {
-                            // If it has a custom `#[rustc_on_unimplemented]` note, let's display it
-                            err.note(note);
+                        // `#[rustc_on_unimplemented]` notes for derivable traits (e.g. `Debug`'s
+                        // "add `#[derive(Debug)]` to `X` or manually `impl Debug for X`") duplicate
+                        // the `consider annotating X with #[derive(..)]` suggestion that
+                        // `suggest_derive` emits below, so skip them when that suggestion will be
+                        // shown. We keep the note otherwise (e.g. when a field isn't `Debug`, so
+                        // the derive can't be suggested) to avoid leaving the diagnostic without
+                        // actionable guidance.
+                        let derive_suggestion_will_be_shown = main_trait_predicate
+                            == leaf_trait_predicate
+                            && self.can_suggest_derive(&obligation, leaf_trait_predicate);
+                        if !derive_suggestion_will_be_shown {
+                            for note in notes {
+                                // If it has a custom `#[rustc_on_unimplemented]` note, let's display
+                                // it.
+                                err.note(note);
+                            }
                         }
                         if let Some(s) = parent_label {
                             let body = obligation.cause.body_id;
@@ -1651,9 +1664,9 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                             }
                         };
 
-                    if let Some(lhs) = lhs.to_alias_term(self.tcx)
+                    if let Some(lhs) = lhs.to_alias_term()
                         && let ty::AliasTermKind::ProjectionTy { .. }
-                        | ty::AliasTermKind::ProjectionConst { .. } = lhs.kind(self.tcx)
+                        | ty::AliasTermKind::ProjectionConst { .. } = lhs.kind
                         && let Some((better_type_err, expected_term)) =
                             derive_better_type_error(lhs, rhs)
                     {
@@ -1661,9 +1674,9 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                             Some((lhs, self.resolve_vars_if_possible(expected_term), rhs)),
                             better_type_err,
                         )
-                    } else if let Some(rhs) = rhs.to_alias_term(self.tcx)
+                    } else if let Some(rhs) = rhs.to_alias_term()
                         && let ty::AliasTermKind::ProjectionTy { .. }
-                        | ty::AliasTermKind::ProjectionConst { .. } = rhs.kind(self.tcx)
+                        | ty::AliasTermKind::ProjectionConst { .. } = rhs.kind
                         && let Some((better_type_err, expected_term)) =
                             derive_better_type_error(rhs, lhs)
                     {
@@ -3732,41 +3745,39 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                 ty::ConstKind::Unevaluated(uv) => {
                     let mut err =
                         self.dcx().struct_span_err(span, "unconstrained generic constant");
-                    let const_span = self.tcx.def_span(uv.def);
 
-                    let const_ty =
-                        self.tcx.type_of(uv.def).instantiate(self.tcx, uv.args).skip_norm_wip();
+                    let const_ty = uv.type_of(self.tcx).skip_norm_wip();
                     let cast = if const_ty != self.tcx.types.usize { " as usize" } else { "" };
                     let msg = "try adding a `where` bound";
-                    match self.tcx.sess.source_map().span_to_snippet(const_span) {
-                        Ok(snippet) => {
-                            let code = format!("[(); {snippet}{cast}]:");
-                            let def_id = if let ObligationCauseCode::CompareImplItem {
-                                trait_item_def_id,
-                                ..
-                            } = obligation.cause.code()
-                            {
-                                trait_item_def_id.as_local()
-                            } else {
-                                Some(obligation.cause.body_id)
-                            };
-                            if let Some(def_id) = def_id
-                                && let Some(generics) = self.tcx.hir_get_generics(def_id)
-                            {
-                                err.span_suggestion_verbose(
-                                    generics.tail_span_for_predicate_suggestion(),
-                                    msg,
-                                    format!("{} {code}", generics.add_where_or_trailing_comma()),
-                                    Applicability::MaybeIncorrect,
-                                );
-                            } else {
-                                err.help(format!("{msg}: where {code}"));
-                            };
-                        }
-                        _ => {
-                            err.help(msg);
-                        }
-                    };
+                    if let Some(def_id) = uv.kind.opt_def_id()
+                        && let const_span = self.tcx.def_span(def_id)
+                        && let Ok(snippet) = self.tcx.sess.source_map().span_to_snippet(const_span)
+                    {
+                        let code = format!("[(); {snippet}{cast}]:");
+                        let suggestion_def_id = if let ObligationCauseCode::CompareImplItem {
+                            trait_item_def_id,
+                            ..
+                        } = obligation.cause.code()
+                        {
+                            trait_item_def_id.as_local()
+                        } else {
+                            Some(obligation.cause.body_id)
+                        };
+                        if let Some(suggestion_def_id) = suggestion_def_id
+                            && let Some(generics) = self.tcx.hir_get_generics(suggestion_def_id)
+                        {
+                            err.span_suggestion_verbose(
+                                generics.tail_span_for_predicate_suggestion(),
+                                msg,
+                                format!("{} {code}", generics.add_where_or_trailing_comma()),
+                                Applicability::MaybeIncorrect,
+                            );
+                        } else {
+                            err.help(format!("{msg}: where {code}"));
+                        };
+                    } else {
+                        err.help(msg);
+                    }
                     Ok(err)
                 }
                 ty::ConstKind::Expr(_) => {

@@ -898,11 +898,12 @@ fn rewrite_type_outlives_constraints_in_universe_for_eager_placeholder_handling<
             // in coherence
             match infcx.typing_mode_raw() {
                 TypingMode::Coherence => candidates.push(RegionConstraint::Ambiguity),
-                TypingMode::Analysis { .. }
+                TypingMode::Typeck { .. }
                 | TypingMode::ErasedNotCoherence { .. }
-                | TypingMode::Borrowck { .. }
-                | TypingMode::PostBorrowckAnalysis { .. }
-                | TypingMode::PostAnalysis => (),
+                | TypingMode::PostTypeckUntilBorrowck { .. }
+                | TypingMode::PostBorrowck { .. }
+                | TypingMode::PostAnalysis
+                | TypingMode::Codegen => (),
             };
 
             RegionConstraint::Or(candidates.into_boxed_slice())

@@ -65,7 +65,9 @@ pub fn can_partially_move_ty<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> bool
     }
     match ty.kind() {
         ty::Param(_) => false,
-        ty::Adt(def, subs) => def.all_fields().any(|f| !is_copy(cx, f.ty(cx.tcx, subs).skip_norm_wip())),
+        ty::Adt(def, subs) => def
+            .all_fields()
+            .any(|f| !is_copy(cx, f.ty(cx.tcx, subs).skip_norm_wip())),
         _ => true,
     }
 }
@@ -1048,11 +1050,13 @@ pub fn make_projection<'tcx>(
         #[cfg(debug_assertions)]
         assert_generic_args_match(tcx, assoc_item.def_id, args);
 
-        Some(AliasTy::new_from_args(
-            tcx,
-            ty::AliasTyKind::new_from_def_id(tcx, assoc_item.def_id),
-            args,
-        ))
+        let kind = if let DefKind::Impl { of_trait: false } = tcx.def_kind(tcx.parent(assoc_item.def_id)) {
+            ty::AliasTyKind::Inherent { def_id: assoc_item.def_id }
+        } else {
+            ty::AliasTyKind::Projection { def_id: assoc_item.def_id }
+        };
+
+        Some(AliasTy::new_from_args(tcx, kind, args))
     }
     helper(
         tcx,

@@ -25,10 +25,10 @@ use rustc_session::Session;
 use rustc_session::config::{
     BranchProtection, CFGuard, CFProtection, CrateType, DebugInfo, FunctionReturn, PAuthKey, PacRet,
 };
-use rustc_span::{DUMMY_SP, Span, Spanned, Symbol};
-use rustc_symbol_mangling::mangle_internal_symbol;
+use rustc_span::{DUMMY_SP, Span, Spanned, Symbol, sym};
 use rustc_target::spec::{
-    Arch, CfgAbi, Env, HasTargetSpec, Os, RelocModel, SmallDataThresholdSupport, Target, TlsModel,
+    Arch, CfgAbi, Env, FramePointer, HasTargetSpec, Os, RelocModel, SmallDataThresholdSupport,
+    Target, TlsModel,
 };
 use smallvec::SmallVec;
 
@@ -135,7 +135,6 @@ pub(crate) struct FullCx<'ll, 'tcx> {
     pub dbg_cx: Option<debuginfo::CodegenUnitDebugContext<'ll, 'tcx>>,
 
     eh_personality: Cell<Option<&'ll Value>>,
-    eh_catch_typeinfo: Cell<Option<&'ll Value>>,
     pub rust_try_fn: Cell<Option<(&'ll Type, &'ll Value)>>,
 
     intrinsics:
@@ -311,6 +310,25 @@ pub(crate) unsafe fn create_module<'ll>(
         );
     }
 
+    if sess.must_emit_unwind_tables() {
+        // This assertion checks that Max is the correct merge behavior.
+        // Async unwind tables are strictly more useful than sync uwtables.
+        const {
+            assert!((llvm::UWTableKind::None as u32) < (llvm::UWTableKind::Sync as u32));
+            assert!((llvm::UWTableKind::Sync as u32) < (llvm::UWTableKind::Async as u32));
+        }
+
+        llvm::add_module_flag_u32(
+            llmod,
+            llvm::ModuleFlagMergeBehavior::Max,
+            "uwtable",
+            match sess.opts.unstable_opts.use_sync_unwind {
+                Some(true) => llvm::UWTableKind::Sync as u32,
+                Some(false) | None => llvm::UWTableKind::Async as u32,
+            },
+        );
+    }
+
     // Add "kcfi" module flag if KCFI is enabled. (See https://reviews.llvm.org/D119296.)
     if sess.is_sanitizer_kcfi_enabled() {
         llvm::add_module_flag_u32(llmod, llvm::ModuleFlagMergeBehavior::Override, "kcfi", 1);
@@ -468,6 +486,20 @@ pub(crate) unsafe fn create_module<'ll>(
                 1,
             );
         }
+    }
+
+    let fp = attributes::frame_pointer(sess);
+    if fp != FramePointer::MayOmit {
+        llvm::add_module_flag_u32(
+            llmod,
+            llvm::ModuleFlagMergeBehavior::Max,
+            "frame-pointer",
+            match fp {
+                FramePointer::Always => llvm::FramePointerKind::All as u32,
+                FramePointer::NonLeaf => llvm::FramePointerKind::NonLeaf as u32,
+                FramePointer::MayOmit => llvm::FramePointerKind::None as u32,
+            },
+        );
     }
 
     if sess.opts.unstable_opts.indirect_branch_cs_prefix {
@@ -638,7 +670,6 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
                 coverage_cx,
                 dbg_cx,
                 eh_personality: Cell::new(None),
-                eh_catch_typeinfo: Cell::new(None),
                 rust_try_fn: Cell::new(None),
                 intrinsics: Default::default(),
                 local_gen_sym_counter: Cell::new(0),
@@ -937,6 +968,13 @@ impl<'ll, 'tcx> MiscCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
             None
         }
     }
+
+    fn intrinsic_call_expects_place_always(&self, name: Symbol) -> bool {
+        matches!(
+            name,
+            sym::autodiff | sym::volatile_load | sym::unaligned_volatile_load | sym::black_box
+        )
+    }
 }
 
 impl<'ll> CodegenCx<'ll, '_> {
@@ -1000,23 +1038,6 @@ impl<'ll> CodegenCx<'ll, '_> {
                 (self.get_type_of_global(f), f)
             }
         }
-    }
-
-    pub(crate) fn eh_catch_typeinfo(&self) -> &'ll Value {
-        if let Some(eh_catch_typeinfo) = self.eh_catch_typeinfo.get() {
-            return eh_catch_typeinfo;
-        }
-        let tcx = self.tcx;
-        assert!(self.sess().target.os == Os::Emscripten);
-        let eh_catch_typeinfo = match tcx.lang_items().eh_catch_typeinfo() {
-            Some(def_id) => self.get_static(def_id),
-            _ => {
-                let ty = self.type_struct(&[self.type_ptr(), self.type_ptr()], false);
-                self.declare_global(&mangle_internal_symbol(self.tcx, "rust_eh_catch_typeinfo"), ty)
-            }
-        };
-        self.eh_catch_typeinfo.set(Some(eh_catch_typeinfo));
-        eh_catch_typeinfo
     }
 }
 

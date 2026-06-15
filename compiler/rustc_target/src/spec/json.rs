@@ -256,7 +256,7 @@ impl ToJson for Target {
             };
             ($attr:ident, $json_name:expr) => {{
                 let name = $json_name;
-                d.insert(name.into(), target.$attr.to_json());
+                d.insert(name.to_string(), target.$attr.to_json());
             }};
         }
 
@@ -266,7 +266,7 @@ impl ToJson for Target {
                 let name = $json_name;
                 #[allow(rustc::bad_opt_access)]
                 if default.$attr != target.$attr {
-                    d.insert(name.into(), target.$attr.to_json());
+                    d.insert(name.to_string(), target.$attr.to_json());
                 }
             }};
             (link_args - $attr:ident, $json_name:expr) => {{
@@ -453,7 +453,6 @@ impl schemars::JsonSchema for EndianWrapper {
             "type": "string",
             "enum": ["big", "little"]
         })
-        .into()
     }
 }
 
@@ -479,7 +478,6 @@ impl schemars::JsonSchema for ExternAbiWrapper {
             "type": "string",
             "enum": all,
         })
-        .into()
     }
 }
 

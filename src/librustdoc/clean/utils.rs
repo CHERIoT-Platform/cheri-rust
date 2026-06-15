@@ -350,13 +350,20 @@ pub(crate) fn name_from_pat(p: &hir::Pat<'_>) -> Symbol {
 
 pub(crate) fn print_const(tcx: TyCtxt<'_>, n: ty::Const<'_>) -> String {
     match n.kind() {
-        ty::ConstKind::Unevaluated(ty::UnevaluatedConst { def, args: _ }) => {
-            if let Some(def) = def.as_local() {
-                rendered_const(tcx, tcx.hir_body_owned_by(def), def)
-            } else {
-                inline::print_inlined_const(tcx, def)
+        ty::ConstKind::Unevaluated(ty::UnevaluatedConst { kind, .. }) => match kind {
+            ty::UnevaluatedConstKind::Projection { def_id }
+            | ty::UnevaluatedConstKind::Inherent { def_id }
+            | ty::UnevaluatedConstKind::Free { def_id }
+            | ty::UnevaluatedConstKind::Anon { def_id } => {
+                if let Some(local_def_id) = def_id.as_local()
+                    && let Some(body_id) = tcx.hir_maybe_body_owned_by(local_def_id)
+                {
+                    rendered_const(tcx, body_id, local_def_id)
+                } else {
+                    inline::print_inlined_const(tcx, def_id)
+                }
             }
-        }
+        },
         // array lengths are obviously usize
         ty::ConstKind::Value(cv) if *cv.ty.kind() == ty::Uint(ty::UintTy::Usize) => {
             cv.to_leaf().to_string()

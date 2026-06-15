@@ -771,31 +771,35 @@ where
             // =============================
             (RerunCondition::Always, _) => RerunDecision::Yes,
             // =============================
-            (RerunCondition::OpaqueInStorage(..), TypingMode::PostAnalysis) => RerunDecision::Yes,
+            (
+                RerunCondition::OpaqueInStorage(..),
+                TypingMode::PostAnalysis | TypingMode::Codegen,
+            ) => RerunDecision::Yes,
             (
                 RerunCondition::OpaqueInStorage(defids),
-                TypingMode::PostBorrowckAnalysis { defined_opaque_types: opaques }
-                | TypingMode::Analysis { defining_opaque_types_and_generators: opaques }
-                | TypingMode::Borrowck { defining_opaque_types: opaques },
+                TypingMode::PostBorrowck { defined_opaque_types: opaques }
+                | TypingMode::Typeck { defining_opaque_types_and_generators: opaques }
+                | TypingMode::PostTypeckUntilBorrowck { defining_opaque_types: opaques },
             ) => opaque_in_storage(opaques, defids),
             // =============================
-            (RerunCondition::AnyOpaqueHasInferAsHidden, TypingMode::Analysis { .. }) => {
+            (RerunCondition::AnyOpaqueHasInferAsHidden, TypingMode::Typeck { .. }) => {
                 any_opaque_has_infer_as_hidden()
             }
             (
                 RerunCondition::AnyOpaqueHasInferAsHidden,
-                TypingMode::PostBorrowckAnalysis { .. }
+                TypingMode::PostBorrowck { .. }
                 | TypingMode::PostAnalysis
-                | TypingMode::Borrowck { .. },
+                | TypingMode::Codegen
+                | TypingMode::PostTypeckUntilBorrowck { .. },
             ) => RerunDecision::No,
             // =============================
             (
                 RerunCondition::OpaqueInStorageOrAnyOpaqueHasInferAsHidden(_),
-                TypingMode::PostAnalysis,
+                TypingMode::PostAnalysis | TypingMode::Codegen,
             ) => RerunDecision::No,
             (
                 RerunCondition::OpaqueInStorageOrAnyOpaqueHasInferAsHidden(defids),
-                TypingMode::Analysis { defining_opaque_types_and_generators: opaques },
+                TypingMode::Typeck { defining_opaque_types_and_generators: opaques },
             ) => {
                 if let RerunDecision::Yes = any_opaque_has_infer_as_hidden() {
                     RerunDecision::Yes
@@ -807,8 +811,8 @@ where
             }
             (
                 RerunCondition::OpaqueInStorageOrAnyOpaqueHasInferAsHidden(defids),
-                TypingMode::PostBorrowckAnalysis { defined_opaque_types: opaques }
-                | TypingMode::Borrowck { defining_opaque_types: opaques },
+                TypingMode::PostBorrowck { defined_opaque_types: opaques }
+                | TypingMode::PostTypeckUntilBorrowck { defining_opaque_types: opaques },
             ) => opaque_in_storage(opaques, defids),
         };
 

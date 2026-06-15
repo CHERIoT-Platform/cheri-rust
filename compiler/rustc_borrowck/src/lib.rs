@@ -650,7 +650,7 @@ pub(crate) struct BorrowckInferCtxt<'tcx> {
 
 impl<'tcx> BorrowckInferCtxt<'tcx> {
     pub(crate) fn new(tcx: TyCtxt<'tcx>, def_id: LocalDefId, root_def_id: LocalDefId) -> Self {
-        let typing_mode = if tcx.use_typing_mode_borrowck() {
+        let typing_mode = if tcx.use_typing_mode_post_typeck_until_borrowck() {
             TypingMode::borrowck(tcx, def_id)
         } else {
             TypingMode::analysis_in_body(tcx, def_id)
@@ -881,14 +881,7 @@ impl<'a, 'tcx> ResultsVisitor<'tcx, Borrowck<'a, 'tcx>> for MirBorrowckCtxt<'a, 
             TerminatorKind::SwitchInt { discr, targets: _ } => {
                 self.consume_operand(loc, (discr, span), state);
             }
-            TerminatorKind::Drop {
-                place,
-                target: _,
-                unwind: _,
-                replace,
-                drop: _,
-                async_fut: _,
-            } => {
+            TerminatorKind::Drop { place, target: _, unwind: _, replace, drop: _ } => {
                 debug!(
                     "visit_terminator_drop \
                      loc: {:?} term: {:?} place: {:?} span: {:?}",

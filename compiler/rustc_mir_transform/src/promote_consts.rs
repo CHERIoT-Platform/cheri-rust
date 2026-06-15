@@ -580,11 +580,7 @@ impl<'tcx> Validator<'_, 'tcx> {
                 self.validate_ref(*kind, place)?;
             }
 
-            Rvalue::Reborrow(_, _, place) => {
-                // FIXME(reborrow): should probably have a place_simplified like above.
-                let op = &Operand::Copy(*place);
-                self.validate_operand(op)?
-            }
+            Rvalue::Reborrow(..) => return Err(Unpromotable),
 
             Rvalue::Aggregate(_, operands) => {
                 for o in operands {
@@ -663,7 +659,10 @@ impl<'tcx> Validator<'_, 'tcx> {
         // backwards compatibility reason to allow more promotion inside of them.
         let promote_all_fn = matches!(
             self.const_kind,
-            Some(hir::ConstContext::Static(_) | hir::ConstContext::Const { inline: false })
+            Some(
+                hir::ConstContext::Static(_)
+                    | hir::ConstContext::Const { allow_const_fn_promotion: true }
+            )
         );
         if !promote_all_fn {
             return Err(Unpromotable);
