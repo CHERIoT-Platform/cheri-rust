@@ -119,7 +119,7 @@ fn test_intersperse_fold() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): Unhandled (on opt 3, not on opt z)
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/187
 fn test_intersperse_collect_string() {
     let contents = [1, 2, 3];
 
