@@ -776,7 +776,7 @@ fn array_eq() {
 }
 
 #[test]
-// FIXME(cheri/triage): assertion failed: self.range_empty(alloc_range(offset, cx.data_layout().pointer_size()), cx)
+// FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/181
 #[cfg(not(target_abi = "cheriot"))]
 fn const_array_ops() {
     const fn doubler(x: usize) -> usize {
