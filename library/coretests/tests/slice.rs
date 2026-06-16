@@ -1587,7 +1587,7 @@ fn test_rotate_right() {
 }
 
 #[test]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): too slow
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(miri, ignore)] // Miri is too slow
 fn brute_force_rotate_test_0() {
     // In case of edge cases involving multiple algorithms
@@ -1607,7 +1607,7 @@ fn brute_force_rotate_test_0() {
 }
 
 #[test]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): too slow
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 fn brute_force_rotate_test_1() {
     // `ptr_rotate` covers so many kinds of pointer usage, that this is just a good test for
     // pointers in general. This uses a `[usize; 4]` to hit all algorithms without overwhelming miri
@@ -1629,7 +1629,7 @@ fn brute_force_rotate_test_1() {
 #[test]
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg_attr(miri, ignore)] // Miri is too slow
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): exits without error, related to sort/random
+#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/188
 fn select_nth_unstable() {
     use core::cmp::Ordering::{Equal, Greater, Less};
 
@@ -2499,7 +2499,7 @@ fn test_get_disjoint_mut_range_empty_at_edge() {
 }
 
 #[test]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): uninitialized memory
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/181
 fn test_slice_from_raw_parts_in_const() {
     static FANCY: i32 = 4;
     static FANCY_SLICE: &[i32] = unsafe { std::slice::from_raw_parts(&FANCY, 1) };

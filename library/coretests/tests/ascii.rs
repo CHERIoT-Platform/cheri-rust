@@ -379,7 +379,7 @@ fn test_is_ascii_align_size_thoroughly() {
     }
 
     // Miri is too slow
-    // FIXME(cheri/triage): simulator too slow
+    // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
     let iter = if cfg!(any(miri, target_abi = "cheriot")) { 0..20 } else { 0..100 };
 
     for i in iter {

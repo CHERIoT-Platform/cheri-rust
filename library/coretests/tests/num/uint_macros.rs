@@ -469,7 +469,7 @@ macro_rules! uint_module {
             }
         }
 
-        // FIXME(cheri/triage): too slow on simulator
+        // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
         #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
         #[test]
         fn test_lots_of_isqrt() {
@@ -489,7 +489,7 @@ macro_rules! uint_module {
             }
         }
 
-        // FIXME(cheri/triage): too slow on simulator
+        // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
         #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
         #[test]
         fn test_lots_of_extract_deposit() {
