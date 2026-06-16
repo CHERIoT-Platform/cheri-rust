@@ -266,7 +266,7 @@ fn test_format_int_exp_precision() {
     assert_eq!(format!("{:+10.3e}", 1), "  +1.000e0");
 
     // test precision remains correct when rounding to next power
-    // FIXME(cheri/triage): simulator too slow
+    // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
     #[cfg(any(miri, target_abi = "cheriot"))] // can't cover all of `i16` in Miri
     let range = [i16::MIN, -1, 1, i16::MAX];
     #[cfg(not(any(miri, target_abi = "cheriot")))]

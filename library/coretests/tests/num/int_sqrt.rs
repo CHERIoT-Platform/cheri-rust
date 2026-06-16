@@ -61,7 +61,7 @@ macro_rules! tests {
                 //   and the previous perfect square
                 #[test]
                 // Skip this test on Miri, as it takes too long to run.
-                // FIXME(cheri/triage): takes too long on the simulator
+                // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
                 #[cfg(not(any(miri, target_abi = "cheriot")))]
                 fn isqrt_extended() {
                     // The correct value is worked out by using the fact that
