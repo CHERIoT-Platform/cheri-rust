@@ -1005,6 +1005,10 @@ unsafe extern "C" {
     pub(crate) fn LLVMGetValueName2(Val: &Value, Length: *mut size_t) -> *const c_char;
     pub(crate) fn LLVMSetValueName2(Val: &Value, Name: *const c_char, NameLen: size_t);
     pub(crate) fn LLVMReplaceAllUsesWith<'a>(OldVal: &'a Value, NewVal: &'a Value);
+    pub(crate) safe fn LLVMGetMetadata<'a>(
+        Val: &'a Value,
+        KindID: MetadataKindId,
+    ) -> Option<&'a Value>;
     pub(crate) safe fn LLVMSetMetadata<'a>(Val: &'a Value, KindID: MetadataKindId, Node: &'a Value);
     pub(crate) fn LLVMGlobalSetMetadata<'a>(
         Val: &'a Value,
@@ -1034,6 +1038,7 @@ unsafe extern "C" {
         Name: *const c_char,
         Val: &'a Value,
     );
+    pub(crate) fn LLVMReplaceMDNodeOperandWith(Val: &Value, index: u32, replacement: &Metadata);
 
     // Operations on scalar constants
     pub(crate) fn LLVMConstInt(IntTy: &Type, N: c_ulonglong, SignExtend: Bool) -> &Value;

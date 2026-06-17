@@ -32,9 +32,10 @@ use crate::attributes::deprecation::*;
 use crate::attributes::diagnostic::do_not_recommend::*;
 use crate::attributes::diagnostic::on_const::*;
 use crate::attributes::diagnostic::on_move::*;
+use crate::attributes::diagnostic::on_type_error::*;
 use crate::attributes::diagnostic::on_unimplemented::*;
 use crate::attributes::diagnostic::on_unknown::*;
-use crate::attributes::diagnostic::on_unmatch_args::*;
+use crate::attributes::diagnostic::on_unmatched_args::*;
 use crate::attributes::doc::*;
 use crate::attributes::dummy::*;
 use crate::attributes::inline::*;
@@ -62,6 +63,7 @@ use crate::attributes::stability::*;
 use crate::attributes::test_attrs::*;
 use crate::attributes::traits::*;
 use crate::attributes::transparency::*;
+use crate::attributes::unroll::*;
 use crate::attributes::{AttributeParser as _, AttributeSafety, Combine, Single, WithoutArgs};
 use crate::parser::{
     ArgParser, MetaItemListParser, MetaItemOrLitParser, MetaItemParser, NameValueParser,
@@ -145,9 +147,10 @@ attribute_parsers!(
         NakedParser,
         OnConstParser,
         OnMoveParser,
+        OnTypeErrorParser,
         OnUnimplementedParser,
         OnUnknownParser,
-        OnUnmatchArgsParser,
+        OnUnmatchedArgsParser,
         RustcAlignParser,
         RustcAlignStaticParser,
         RustcCguTestAttributeParser,
@@ -186,6 +189,7 @@ attribute_parsers!(
         Single<IgnoreParser>,
         Single<InlineParser>,
         Single<InstructionSetParser>,
+        Single<InstrumentFnParser>,
         Single<LangParser>,
         Single<LinkNameParser>,
         Single<LinkOrdinalParser>,
@@ -230,6 +234,7 @@ attribute_parsers!(
         Single<ShouldPanicParser>,
         Single<TestRunnerParser>,
         Single<TypeLengthLimitParser>,
+        Single<UnrollParser>,
         Single<WindowsSubsystemParser>,
         Single<WithoutArgs<AllowInternalUnsafeParser>>,
         Single<WithoutArgs<AutomaticallyDerivedParser>>,

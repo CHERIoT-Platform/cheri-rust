@@ -17,6 +17,9 @@ unsafe extern "C" fn variadic(a: f64, mut args: ...) -> f64 {
 
     a + b + c
 
-    // CHECK: call[[ADDRSPACE]] void @llvm.va_end.[[PSPACE]](ptr[[ADDRSPACE]] nonnull %args)
+    // We no longer call the LLVM va_end.
+    // CHECK-NOT: call[[ADDRSPACE]] void @llvm.va_end
+
+    // But we do still explicitly end the lifetime of the VaList.
     // CHECK: call[[ADDRSPACE]] void @llvm.lifetime.end.[[PSPACE]]({{(i64 [0-9]+, )?}}ptr[[ADDRSPACE]] nonnull %args)
 }

@@ -340,7 +340,6 @@
 #![feature(exact_size_is_empty)]
 #![feature(exclusive_wrapper)]
 #![feature(extend_one)]
-#![feature(float_algebraic)]
 #![feature(float_gamma)]
 #![feature(float_minimum_maximum)]
 #![feature(fmt_internals)]
@@ -803,6 +802,15 @@ mod sealed {
     #[unstable(feature = "sealed", issue = "none")]
     pub trait Sealed {}
 }
+
+macro_rules! impl_sealed {
+    ($($t:ty)*) => {$(
+        /// Allows implementations within `std`.
+        #[unstable(feature = "sealed", issue = "none")]
+        impl crate::sealed::Sealed for $t {}
+    )*}
+}
+impl_sealed! { isize i8 i16 i32 i64 i128 usize u8 u16 u32 u64 u128 f32 f64 }
 
 #[cfg(test)]
 #[allow(dead_code)] // Not used in all configurations.
