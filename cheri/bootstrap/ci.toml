@@ -1,12 +1,19 @@
 change-id = "ignore"
 
 [build]
-rustfmt = "./build/host/stage1/bin/rustfmt"
 description = "cheri-rust"
+locked-deps = true
 
 [rust]
 channel = "dev"
+codegen-units-std = 1
+debug-assertions = true
+debug-logging = true
+# See https://github.com/CHERIoT-Platform/cheri-rust/issues/202
+optimize = 3
+overflow-checks = true
 std-features = ["compiler-builtins-mem"]
+verify-llvm-ir = true
 
 [llvm]
 download-ci-llvm = false

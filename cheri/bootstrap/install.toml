@@ -23,9 +23,9 @@ compression-formats = ["gz"]
 [rust]
 channel = "dev"
 debug-logging = true
-debug-assertions = true
 debuginfo-level = "line-tables-only"
 std-features = ["compiler-builtins-mem"]
 strip = true
 dist-src = false
-optimize = "z"
+# See https://github.com/CHERIoT-Platform/cheri-rust/issues/202
+optimize = 3
