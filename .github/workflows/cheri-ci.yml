@@ -27,7 +27,7 @@ jobs:
         run: echo "key ok"
       - name: Install sccache
         env:
-          SCCACHE_GCS_BUCKET: ${{ vars.GCP_SCCACHE_BUCKET }}
+          SCCACHE_GCS_BUCKET: cheriot-sccache
           SCCACHE_GCS_KEY_PATH: /tmp/sccache-key.json
           SCCACHE_GCS_RW_MODE: READ_WRITE
           # could we share with llvm-project? may be rude to use their prefix
