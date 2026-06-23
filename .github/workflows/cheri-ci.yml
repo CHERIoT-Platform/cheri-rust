@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - "beta"
-  pull_request:
+  pull_request_target:
     branches:
       - "**"
 
@@ -51,6 +51,9 @@ jobs:
         name: Checkout
         with:
           fetch-depth: 2
+          # see https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
           # TODO: src/ci/scripts/checkout-submodules.sh should be faster
           submodules: recursive
 
