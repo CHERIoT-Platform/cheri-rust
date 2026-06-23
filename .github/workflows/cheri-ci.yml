@@ -39,7 +39,7 @@ jobs:
           curl -fo /usr/local/bin/sccache "${url}"
           chmod +x /usr/local/bin/sccache
           echo '${{ secrets.GCP_SCCACHE_KEY_JSON }}' > /tmp/sccache-key.json
-          /tmp/sccache --start-server
+          sccache --start-server
           rm /tmp/sccache-key.json
 
       - name: Check sccache stats
