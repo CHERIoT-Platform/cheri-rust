@@ -27,6 +27,25 @@ jobs:
           sudo apt update
           sudo apt install -y pkg-config clang ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git zlib1g-dev
 
+      - name: Install sccache
+        env:
+          SCCACHE_IDLE_TIMEOUT: 14400 # seconds (timeout-minutes * 60)
+          SCCACHE_GCS_BUCKET: ${{ vars.GCP_SCCACHE_BUCKET }}
+          SCCACHE_GCS_KEY_PATH: /tmp/sccache-key.json
+          SCCACHE_GCS_RW_MODE: READ_WRITE
+          # could we share with llvm-project? may be rude to use their prefix
+          SCCACHE_GCS_KEY_PREFIX: ${{ github.repository }}/${{ github.event_name }}/aarch64
+        run: |
+          url=https://ci-mirrors.rust-lang.org/rustc/2025-02-24-sccache-v0.10.0-aarch64-unknown-linux-musl
+          curl -fo /usr/local/bin/sccache "${url}"
+          chmod +x /usr/local/bin/sccache
+          echo '${{ secrets.GCP_SCCACHE_KEY_JSON }}' > /tmp/sccache-key.json
+          sccache --start-server
+          rm /tmp/sccache-key.json
+
+      - name: Check sccache stats
+        run: sccache --show-stats
+
         # after apt install git
       - uses: actions/checkout@v5
         name: Checkout
@@ -114,6 +133,10 @@ jobs:
 
       - name: Run coretests (CHERIoT/facade)
         run: ./cheri/ci/script/coretests.sh
+
+      - name: Check sccache stats
+        if: always()
+        run: sccache --show-stats
 
       - name: Check disk
         if: always()
