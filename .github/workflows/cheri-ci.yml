@@ -21,7 +21,9 @@ jobs:
         if: ${{ vars.GCP_SCCACHE_BUCKET != '' }}
         run: echo "bucket ok"
       - name: Run if we have the key
-        if: ${{ secrets.GCP_SCCACHE_KEY_JSON != '' }}
+        env:
+          secret: ${{ secrets.GCP_SCCACHE_KEY_JSON }}
+        if: env.secret != ''
         run: echo "key ok"
       - name: Install sccache
         env:
