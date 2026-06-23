@@ -13,8 +13,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  tidy:
+    name: Check formatting
+    runs-on: warp-custom-gcp-aarch64-2cpu
+    timeout-minutes: 20
+    env:
+      CC: "clang"
+      CXX: "clang++"
+    steps:
+      - name: Install dependencies
+        run: |
+          set -eo pipefail
+          sudo apt update
+          sudo apt install -y git
+      - uses: actions/checkout@v5
+        name: Checkout
+        with:
+          fetch-depth: 2
+      - name: Configure bootstrap
+        run: cp cheri/bootstrap/ci.toml bootstrap.toml
+      - name: Run `x test tidy` (host)
+        run: ./x test tidy --ci=false
+
   test:
     name: Run tests
+    needs: tidy
     runs-on: warp-custom-gcp-aarch64-32cpu
     timeout-minutes: 240
     env:
@@ -40,12 +63,6 @@ jobs:
 
       - name: Build LLVM
         run: ./x build llvm --ci=false
-
-      - name: Build rustfmt
-        run: ./x build rustfmt --ci=false
-
-      - name: Run `x test tidy` (host)
-        run: ./x test tidy --ci=false
 
       - name: Run `x check` (host)
         run: ./x check --ci=false
