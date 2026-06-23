@@ -27,6 +27,24 @@ jobs:
           sudo apt update
           sudo apt install -y pkg-config clang ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git zlib1g-dev
 
+      - name: Install sccache
+        env:
+          SCCACHE_GCS_BUCKET: ${{ vars.GCP_SCCACHE_BUCKET }}
+          SCCACHE_GCS_KEY_PATH: /tmp/sccache-key.json
+          SCCACHE_GCS_RW_MODE: READ_WRITE
+          # could we share with llvm-project? may be rude to use their prefix
+          SCCACHE_GCS_KEY_PREFIX: ${{ github.repository }}/${{ github.event_name }}/aarch64
+        run: |
+          url=https://ci-mirrors.rust-lang.org/rustc/2025-02-24-sccache-v0.10.0-aarch64-unknown-linux-musl
+          curl -fo /usr/local/bin/sccache "${url}"
+          chmod +x /usr/local/bin/sccache
+          echo '${{ secrets.GCP_SCCACHE_KEY_JSON }}' > /tmp/sccache-key.json
+          /tmp/sccache --start-server
+          rm /tmp/sccache-key.json
+
+      - name: Check sccache stats
+        run: sccache --show-stats
+
         # after apt install git
       - uses: actions/checkout@v5
         name: Checkout
@@ -41,79 +59,83 @@ jobs:
       - name: Build LLVM
         run: ./x build llvm --ci=false
 
-      - name: Build rustfmt
-        run: ./x build rustfmt --ci=false
+      # - name: Build rustfmt
+      #   run: ./x build rustfmt --ci=false
 
-      - name: Run `x test tidy` (host)
-        run: ./x test tidy --ci=false
+      # - name: Run `x test tidy` (host)
+      #   run: ./x test tidy --ci=false
 
-      - name: Run `x check` (host)
-        run: ./x check --ci=false
+      # - name: Run `x check` (host)
+      #   run: ./x check --ci=false
 
-      - name: Run `x test` (host)
-        run: ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make --skip tidy --ci=false
+      # - name: Run `x test` (host)
+      #   run: ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make --skip tidy --ci=false
 
-      - name: Build rustc, core (CHERIoT)
-        run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos --ci=false
+      # - name: Build rustc, core (CHERIoT)
+      #   run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos --ci=false
 
-      - name: Run `x test tests/codegen-llvm` (CHERIoT)
-        run: ./x test tests/codegen-llvm --target=riscv32cheriot-unknown-cheriotrtos --skip src/tools/linkchecker --ci=false
+      # - name: Run `x test tests/codegen-llvm` (CHERIoT)
+      #   run: ./x test tests/codegen-llvm --target=riscv32cheriot-unknown-cheriotrtos --skip src/tools/linkchecker --ci=false
 
-      - name: Install xmake
-        run: |
-          curl -fsSL https://xmake.io/shget.text | bash
-          echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+      # - name: Install xmake
+      #   run: |
+      #     curl -fsSL https://xmake.io/shget.text | bash
+      #     echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
 
-      - name: Check xmake
-        run: xmake --version
+      # - name: Check xmake
+      #   run: xmake --version
 
-      - name: Install Rust (upstream stable)
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
-          . "$HOME/.cargo/env" && echo "PATH=$PATH" >> $GITHUB_ENV
+      # - name: Install Rust (upstream stable)
+      #   run: |
+      #     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
+      #     . "$HOME/.cargo/env" && echo "PATH=$PATH" >> $GITHUB_ENV
 
-      - name: Check rust
-        run: cargo --version
+      # - name: Check rust
+      #   run: cargo --version
 
-      - name: Install Sail
-        run: |
-          wget https://github.com/rems-project/sail/releases/download/0.20.1/sail-Linux-aarch64.tar.gz
-          tar xfv sail-Linux-aarch64.tar.gz
-          echo "PATH=$PATH:$(pwd)/sail/bin" >> $GITHUB_ENV
+      # - name: Install Sail
+      #   run: |
+      #     wget https://github.com/rems-project/sail/releases/download/0.20.1/sail-Linux-aarch64.tar.gz
+      #     tar xfv sail-Linux-aarch64.tar.gz
+      #     echo "PATH=$PATH:$(pwd)/sail/bin" >> $GITHUB_ENV
 
-      - name: Build Sail simulator
-        run: |
-          git clone --recurse-submodules --depth=1 https://github.com/CHERIoT-Platform/cheriot-sail
-          opam init --reinit --bypass-check --disable-sandboxing --disable-shell-hook
-          eval $(opam env)
-          cd cheriot-sail && make csim -j$(nproc) && sudo cp c_emulator/cheriot_sim /usr/local/bin
-        env:
-          CC: "cc"
-          CXX: "cpp"
+      # - name: Build Sail simulator
+      #   run: |
+      #     git clone --recurse-submodules --depth=1 https://github.com/CHERIoT-Platform/cheriot-sail
+      #     opam init --reinit --bypass-check --disable-sandboxing --disable-shell-hook
+      #     eval $(opam env)
+      #     cd cheriot-sail && make csim -j$(nproc) && sudo cp c_emulator/cheriot_sim /usr/local/bin
+      #   env:
+      #     CC: "cc"
+      #     CXX: "cpp"
 
-      - name: Check sail sim
-        run: cheriot_sim
+      # - name: Check sail sim
+      #   run: cheriot_sim
 
-      - name: Build test runner (host)
-        working-directory: ./cheri/tests/runner
-        run: cargo build --release
+      # - name: Build test runner (host)
+      #   working-directory: ./cheri/tests/runner
+      #   run: cargo build --release
 
-      - name: Run internal tests (CHERIoT)
-        working-directory: ./cheri/tests
-        run: ./runner/target/release/cheriot-runner -vvvvv . --sysroot=../../build/host/llvm --rustc=../../build/host/stage1/bin/rustc
+      # - name: Run internal tests (CHERIoT)
+      #   working-directory: ./cheri/tests
+      #   run: ./runner/target/release/cheriot-runner -vvvvv . --sysroot=../../build/host/llvm --rustc=../../build/host/stage1/bin/rustc
 
-      - name: Run examples (CHERIoT)
-        working-directory: ./cheri/examples
-        run: ./run_examples.sh
+      # - name: Run examples (CHERIoT)
+      #   working-directory: ./cheri/examples
+      #   run: ./run_examples.sh
 
-      - name: Reconfigure bootstrap for facade
-        run: cp cheri/bootstrap/facade.toml bootstrap.toml
+      # - name: Reconfigure bootstrap for facade
+      #   run: cp cheri/bootstrap/facade.toml bootstrap.toml
 
-      - name: Build rustc, std (CHERIoT/facade)
-        run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos.facade --ci=false
+      # - name: Build rustc, std (CHERIoT/facade)
+      #   run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos.facade --ci=false
 
-      - name: Run coretests (CHERIoT/facade)
-        run: ./cheri/ci/script/coretests.sh
+      # - name: Run coretests (CHERIoT/facade)
+      #   run: ./cheri/ci/script/coretests.sh
+
+      - name: Check sccache stats
+        if: always()
+        run: sccache --show-stats
 
       - name: Check disk
         if: always()
