@@ -21,6 +21,10 @@ jobs:
       CC: "clang"
       CXX: "clang++"
     steps:
+      - name: Setup interactive ssh session
+        uses: Warpbuilds/action-debugger@v1.3
+        with:
+          limit-access-to-actor: true
       - name: Install dependencies
         run: |
           set -eo pipefail
