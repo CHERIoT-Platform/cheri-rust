@@ -112,8 +112,11 @@ jobs:
       - name: Build rustc, std (CHERIoT/facade)
         run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos.facade --ci=false
 
+      - name: Build test-runner
+        run: cargo install --path cheri/ci/tools/test_runner
+
       - name: Run coretests (CHERIoT/facade)
-        run: ./cheri/ci/script/coretests.sh
+        run: test-runner coretests
 
       - name: Check disk
         if: always()
