@@ -1,0 +1,13 @@
+[workspace]
+members = []
+
+[package]
+name = "test-runner"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.102" }
+clap = { version = "4.6.1", features = ["derive", "string"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = { version = "1.0.150" }
