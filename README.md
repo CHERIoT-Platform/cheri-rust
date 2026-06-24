@@ -1,4 +1,4 @@
-# The Rust Programming Language - experimental CHERI\[oT\] port.
+# The Nice Rust Programming Language - experimental CHERI\[oT\] port.
 
 > [!WARNING]  
 > This project is still in its early days, and must be considered experimental and not ready for production.
