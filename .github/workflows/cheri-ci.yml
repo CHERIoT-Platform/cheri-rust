@@ -34,8 +34,13 @@ jobs:
         name: Checkout
         with:
           fetch-depth: 2
-          # TODO: src/ci/scripts/checkout-submodules.sh should be faster
-          submodules: recursive
+
+      - name: Checkout submodules
+        run: ./src/ci/scripts/checkout-submodules.sh
+
+        # seperate bootstrap setup logs from later tasks
+      - name: Initialise bootstrap
+        run: ./x setup none --ci=false
 
       - name: Install sccache
         env:
@@ -64,16 +69,13 @@ jobs:
         run: sccache --zero-stats
 
       - name: Configure bootstrap
-        run: cp cheri/bootstrap/ci.toml bootstrap.toml
-
-      - name: Build LLVM
-        run: ./x build llvm --ci=false
-
-      - name: Build rustfmt
-        run: ./x build rustfmt --ci=false
+        run: ./configure --set profile=cheriot --enable-sccache --disable-manage-submodules
 
       - name: Run `x test tidy` (host)
         run: ./x test tidy --ci=false
+
+      - name: Build LLVM
+        run: ./x build llvm --ci=false
 
       - name: Run `x check` (host)
         run: ./x check --ci=false
@@ -128,9 +130,6 @@ jobs:
       - name: Run examples (CHERIoT)
         working-directory: ./cheri/examples
         run: ./run_examples.sh
-
-      - name: Reconfigure bootstrap for facade
-        run: cp cheri/bootstrap/facade.toml bootstrap.toml
 
       - name: Build rustc, std (CHERIoT/facade)
         run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos.facade --ci=false
