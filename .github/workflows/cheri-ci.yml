@@ -24,8 +24,12 @@ jobs:
       - name: Install dependencies
         run: |
           set -eo pipefail
+          sudo apt upgrade -y
+          sudo apt install -y software-properties-common ca-certificates curl gnupg
+          sudo mkdir -p /etc/apt/keyrings
+          sudo add-apt-repository ppa:xmake-io/xmake
           sudo apt update
-          sudo apt install -y pkg-config clang ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git zlib1g-dev
+          sudo apt install -y xmake pkg-config clang ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git zlib1g-dev
 
         # after apt install git
       - uses: actions/checkout@v5
@@ -58,11 +62,6 @@ jobs:
 
       - name: Run `x test tests/codegen-llvm` (CHERIoT)
         run: ./x test tests/codegen-llvm --target=riscv32cheriot-unknown-cheriotrtos --skip src/tools/linkchecker --ci=false
-
-      - name: Install xmake
-        run: |
-          curl -fsSL https://xmake.io/shget.text | bash
-          echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
 
       - name: Check xmake
         run: xmake --version
