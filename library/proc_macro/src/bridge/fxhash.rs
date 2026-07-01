@@ -27,9 +27,15 @@ pub(super) struct FxHasher {
     hash: usize,
 }
 
-#[cfg(target_pointer_width = "32")]
+#[cfg(any(
+    all(bootstrap, target_pointer_width = "32"),
+    all(not(bootstrap), target_address_width = "32"),
+))]
 const K: usize = 0x9e3779b9;
-#[cfg(target_pointer_width = "64")]
+#[cfg(any(
+    all(bootstrap, target_pointer_width = "64"),
+    all(not(bootstrap), target_address_width = "64"),
+))]
 const K: usize = 0x517cc1b727220a95;
 
 impl FxHasher {
