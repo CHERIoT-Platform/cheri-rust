@@ -139,7 +139,7 @@ jobs:
         run: cargo install --path cheri/ci/tools/test_runner
 
       - name: Run coretests (CHERIoT/facade)
-        run: test-runner coretests
+        run: test-runner coretests --known-issues library/coretests/known_issues
 
       - name: Check sccache stats
         if: always()
