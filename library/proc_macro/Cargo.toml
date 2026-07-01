@@ -16,4 +16,4 @@ default = ["rustc-dep-of-std"]
 rustc-dep-of-std = []
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(bootstrap)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(bootstrap)', 'cfg(target_address_width, values("32", "64"))'] }
