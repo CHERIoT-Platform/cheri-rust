@@ -677,9 +677,9 @@ pub const fn forget<T: ?Sized>(_: T);
 /// assert_eq!(num, 0x78563412);
 /// ```
 ///
-/// Turning a pointer into a `usize`:
+/// Turning a pointer into a `usize` (which isn't an option on CHERI targets anyway):
 ///
-/// ```no_run
+/// ```no_run,ignore-cheri
 /// let ptr = &0;
 /// let ptr_num_transmute = unsafe {
 ///     std::mem::transmute::<&i32, usize>(ptr)
