@@ -24,9 +24,6 @@ jobs:
       - name: Install dependencies
         run: |
           set -eo pipefail
-          sudo apt upgrade -y
-          sudo apt install -y software-properties-common ca-certificates curl gnupg
-          sudo mkdir -p /etc/apt/keyrings
           sudo add-apt-repository ppa:xmake-io/xmake
           sudo apt update
           sudo apt install -y xmake pkg-config clang ninja-build lld cmake perl opam z3 libgmp-dev libssl-dev git zlib1g-dev
