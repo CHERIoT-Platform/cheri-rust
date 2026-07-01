@@ -28,8 +28,11 @@ use std::path::PathBuf;
 use clap::Parser;
 
 mod cargo;
+mod known_issues;
 mod results;
 mod runner;
+
+use results::FailureMode;
 
 #[derive(Parser)]
 struct Args {
@@ -46,6 +49,10 @@ struct Args {
     /// The root of the rustc project. If not set, assumes current working directory
     #[arg(long, default_value = ".", value_name = "DIR")]
     root_dir: PathBuf,
+
+    /// Path to a known issues file
+    #[arg(long, value_name = "FILE")]
+    known_issues: Option<PathBuf>,
 
     /// Clean build directories
     #[arg(long)]
@@ -69,6 +76,11 @@ fn main() -> anyhow::Result<()> {
         None => cargo.get_features(&args.suite).unwrap(),
     };
 
+    let known_issues = match args.known_issues {
+        Some(path) => known_issues::KnownIssues::from_file(&path).unwrap(),
+        None => known_issues::KnownIssues::default(),
+    };
+
     // for each module, build a test executable and run it through the
     // simulator, then fold the results.
     // TODO: it should be possible to parallelise
@@ -76,7 +88,7 @@ fn main() -> anyhow::Result<()> {
         .iter()
         .map(|module| {
             let executable = cargo.build_test_executable(&args.suite, module)?;
-            let runner = runner::Runner::new(&args.simulator, executable);
+            let runner = runner::Runner::new(&args.simulator, executable, &known_issues);
             let results = runner.run()?;
             Ok(results)
         })
@@ -90,8 +102,20 @@ fn main() -> anyhow::Result<()> {
 
     if !failures.is_empty() {
         println!(
-            "\nFailing:\n{}\n",
-            failures.iter().map(|test| format!("  {}", test,)).collect::<Vec<_>>().join("\n")
+            "\nFailing:\n{}",
+            failures
+                .iter()
+                .map(|(test, failure_mode)| format!(
+                    "  {}{}",
+                    test,
+                    match failure_mode {
+                        FailureMode::UnexpectedFail => " - failed",
+                        FailureMode::UnexpectedPass => " - ok, but in known issues",
+                        FailureMode::UnexpectedIgnore => " - ignored, but in known issues",
+                    }
+                ))
+                .collect::<Vec<_>>()
+                .join("\n")
         );
         anyhow::bail!("test suite unsuccessful")
     }

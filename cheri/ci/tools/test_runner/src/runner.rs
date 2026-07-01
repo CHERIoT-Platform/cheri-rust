@@ -5,19 +5,28 @@ use std::process::{Child, Command, Stdio};
 use anyhow::anyhow;
 use serde::Deserialize;
 
+use crate::known_issues::KnownIssues;
 use crate::results::Results;
 
 pub struct Runner<'a> {
     simulator: &'a PathBuf,
     executable: PathBuf,
+    known_issues: &'a KnownIssues,
     expected: Option<u32>,
     finished: Option<u32>,
     results: Results,
 }
 
 impl<'a> Runner<'a> {
-    pub fn new(simulator: &'a PathBuf, executable: PathBuf) -> Self {
-        Self { simulator, executable, expected: None, finished: None, results: Results::default() }
+    pub fn new(simulator: &'a PathBuf, executable: PathBuf, known_issues: &'a KnownIssues) -> Self {
+        Self {
+            simulator,
+            executable,
+            known_issues,
+            expected: None,
+            finished: None,
+            results: Results::default(),
+        }
     }
 
     pub fn run(mut self) -> anyhow::Result<Results> {
@@ -82,26 +91,50 @@ impl<'a> Runner<'a> {
                     self.finished = Some(self.results.get_total());
                 }
             },
-            Log::Test { test } => match test.event {
-                TestEvent::Started => {
-                    // we may want to keep track of which tests are in-flight,
-                    // or measure their execution time, handle timeouts, etc.
-                    println!("{} ... started", test.name);
+            Log::Test { test } => {
+                let known_issue = self.known_issues.get(&test.name);
+
+                match test.event {
+                    TestEvent::Started => {
+                        // we may want to keep track of which tests are in-flight,
+                        // or measure their execution time, handle timeouts, etc.
+                        println!("{} ... started", test.name);
+                    }
+                    TestEvent::Failed { stdout } => match known_issue {
+                        Some(issue) => {
+                            println!("{} ... FAILED (expected: {})", test.name, issue);
+                            println!("\n{stdout}\n");
+                            self.results.fail();
+                        }
+                        None => {
+                            println!("{} ... FAILED", test.name);
+                            println!("{stdout}\n");
+                            self.results.fail_unexpected(test.name);
+                        }
+                    },
+                    TestEvent::Ignored => match known_issue {
+                        Some(issue) => {
+                            println!("{} ... ignored (unexpected: {})", test.name, issue);
+                            self.results.ignore_unexpected(test.name);
+                        }
+                        None => {
+                            println!("{} ... ignored", test.name);
+                            self.results.ignore();
+                        }
+                    },
+
+                    TestEvent::Ok => match known_issue {
+                        Some(issue) => {
+                            println!("{} ... ok (unexpected: {})", test.name, issue);
+                            self.results.pass_unexpected(test.name);
+                        }
+                        None => {
+                            println!("{} ... ok", test.name);
+                            self.results.pass();
+                        }
+                    },
                 }
-                TestEvent::Failed { stdout } => {
-                    println!("{} ... FAILED", test.name);
-                    println!("{stdout}\n");
-                    self.results.fail(test.name);
-                }
-                TestEvent::Ignored => {
-                    println!("{} ... ignored", test.name);
-                    self.results.ignore();
-                }
-                TestEvent::Ok => {
-                    println!("{} ... ok", test.name);
-                    self.results.pass();
-                }
-            },
+            }
         }
     }
 }
