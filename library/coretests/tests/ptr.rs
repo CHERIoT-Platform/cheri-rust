@@ -975,7 +975,6 @@ fn test_null_array_as_slice() {
 }
 
 #[test]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/181
 fn test_ptr_from_raw_parts_in_const() {
     const EMPTY_SLICE_PTR: *const [i32] =
         std::ptr::slice_from_raw_parts(std::ptr::without_provenance(123), 456);
