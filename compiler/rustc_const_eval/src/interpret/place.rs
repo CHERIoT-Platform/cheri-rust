@@ -725,14 +725,14 @@ where
                 alloc.write_scalar(alloc_range(Size::ZERO, scalar.data_size()), scalar)?;
             }
             Immediate::ScalarPair(a_val, b_val) => {
-                let BackendRepr::ScalarPair(_a, b) = layout.backend_repr else {
+                let BackendRepr::ScalarPair(a, b) = layout.backend_repr else {
                     span_bug!(
                         self.cur_span(),
                         "write_immediate_to_mplace: invalid ScalarPair layout: {:#?}",
                         layout
                     )
                 };
-                let a_size = a_val.in_memory_size();
+                let a_size = a.in_memory_size(&tcx);
                 let b_offset = a_size.align_to(b.default_align(&tcx).abi);
                 assert!(b_offset.bytes() > 0); // in `operand_field` we use the offset to tell apart the fields
 
