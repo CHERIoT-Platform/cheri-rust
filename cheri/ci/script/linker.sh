@@ -59,6 +59,12 @@ done
 # if we need to clone the rtos
 if [[ ! -d "cheriot-rtos" ]]; then
     git clone https://github.com/CHERIoT-Platform/cheriot-rtos --recursive --depth=1
+    # Pin the RTOS to $CHERIOT_RTOS_COMMIT when set. If empty/unset, keeps
+    # branch tip.
+    if [[ -n "${CHERIOT_RTOS_COMMIT:-}" ]]; then
+        git -C cheriot-rtos fetch --depth=1 origin "$CHERIOT_RTOS_COMMIT"
+        git -C cheriot-rtos checkout --recurse-submodules "$CHERIOT_RTOS_COMMIT"
+    fi
 fi
 
 # if we need to run xmake config

@@ -67,6 +67,7 @@ impl App {
         &self,
         url: &str,
         branch: Option<&str>,
+        commit: Option<&str>,
         out_dir: &Path,
     ) -> anyhow::Result<()> {
         let mut cmd = std::process::Command::new(&self.git_path);
@@ -103,8 +104,43 @@ impl App {
             }
         };
 
+        if let Some(commit) = commit {
+            self.run_git(
+                &["-C", &out, "fetch", "--depth=1", url, commit],
+                &format!("fetch commit `{commit}`"),
+            )?;
+            self.run_git(
+                &["-C", &out, "checkout", "--recurse-submodules", commit],
+                &format!("check out commit `{commit}`"),
+            )?;
+        }
+
         infoln!(self, "ok".bright_green());
         Ok(())
+    }
+
+    fn run_git(&self, args: &[&str], context: &str) -> anyhow::Result<()> {
+        let mut cmd = std::process::Command::new(&self.git_path);
+        cmd.args(args);
+        traceln!(self, "running ", format!("{cmd:?}"));
+
+        match cmd.output() {
+            Ok(s) if s.status.success() => Ok(()),
+            Ok(s) => {
+                infoln!(self, "failed".bright_red());
+                let out = String::from_utf8_lossy(&s.stderr);
+                traceln!(self, "-- begin `git` output --");
+                trace!(self, out);
+                traceln!(self, "-- end `git` output -- ");
+                anyhow::bail!("failed to {context} (run with trace logging level to see output)")
+            }
+            Err(e) => {
+                infoln!(self, "failed".bright_red());
+                anyhow::bail!(
+                    "failed to {context}: {e} (run with trace logging level to see output)"
+                )
+            }
+        }
     }
 
     pub(crate) fn xmake(&self, cwd: &Path, args: &[&str]) -> anyhow::Result<std::process::Output> {

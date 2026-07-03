@@ -20,6 +20,7 @@ jobs:
     env:
       CC: "clang"
       CXX: "clang++"
+      CHERIOT_RTOS_COMMIT: "6b3266706786e34a19b6a5c5ac7863f4fc3a588d"
     steps:
       - name: Install dependencies
         run: |
