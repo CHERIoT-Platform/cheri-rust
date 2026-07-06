@@ -1,2 +1,1 @@
-slice::select_nth_unstable https://github.com/CHERIoT-Platform/cheri-rust/issues/188
 iter_adapters::test_intersperse_collect_string https://github.com/CHERIoT-Platform/cheri-rust/issues/187
