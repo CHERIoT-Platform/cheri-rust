@@ -1628,7 +1628,7 @@ fn brute_force_rotate_test_1() {
 
 #[test]
 #[cfg(not(target_arch = "wasm32"))]
-#[cfg_attr(miri, ignore)] // Miri is too slow
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow, FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 fn select_nth_unstable() {
     use core::cmp::Ordering::{Equal, Greater, Less};
 
