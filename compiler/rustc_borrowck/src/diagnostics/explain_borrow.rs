@@ -585,11 +585,11 @@ impl<'tcx> MirBorrowckCtxt<'_, '_, 'tcx> {
             NllRegionVariableOrigin::FreeRegion,
             outlived_region,
         );
-        let BlameConstraint { category, from_closure, cause, .. } = blame_constraint;
+        let BlameConstraint { category, from_closure, span, .. } = blame_constraint;
 
         let outlived_fr_name = self.give_region_a_name(outlived_region);
 
-        (category, from_closure, cause.span, outlived_fr_name, path)
+        (category, from_closure, span, outlived_fr_name, path)
     }
 
     /// Returns structured explanation for *why* the borrow contains the
@@ -706,7 +706,7 @@ impl<'tcx> MirBorrowckCtxt<'_, '_, 'tcx> {
             Some(Cause::LiveVar(..) | Cause::DropVar(..)) | None => {
                 // Here, under NLL: no cause was found. Under polonius: no cause was found, or a
                 // boring local was found, which we ignore like NLLs do to match its diagnostics.
-                if let Some(region) = self.to_error_region_vid(borrow_region_vid) {
+                if let Some(region) = self.regioncx.to_error_region_vid(borrow_region_vid) {
                     let (category, from_closure, span, region_name, path) =
                         self.free_region_constraint_info(borrow_region_vid, region);
                     if let Some(region_name) = region_name {

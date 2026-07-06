@@ -735,7 +735,6 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                     | ty::PredicateKind::Ambiguous
                     | ty::PredicateKind::Clause(ty::ClauseKind::UnstableFeature { .. })
                     | ty::PredicateKind::NormalizesTo { .. }
-                    | ty::PredicateKind::AliasRelate(..)
                     | ty::PredicateKind::Clause(ty::ClauseKind::ConstArgHasType { .. }) => {
                         span_bug!(
                             span,
@@ -1612,7 +1611,7 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                         infer::BoundRegionConversionTime::HigherRankedType,
                         bound_predicate.rebind(data),
                     );
-                    let unnormalized_term = data.projection_term.to_term(self.tcx);
+                    let unnormalized_term = data.projection_term.to_term(self.tcx, ty::IsRigid::No);
                     // FIXME(-Znext-solver): For diagnostic purposes, it would be nice
                     // to deeply normalize this type.
                     let normalized_term = ocx.normalize(
@@ -1638,53 +1637,6 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                                 data.term,
                             )),
                             new_err,
-                        )
-                    } else {
-                        (None, error.err)
-                    }
-                }
-                ty::PredicateKind::AliasRelate(lhs, rhs, _) => {
-                    let derive_better_type_error =
-                        |alias_term: ty::AliasTerm<'tcx>, expected_term: ty::Term<'tcx>| {
-                            let ocx = ObligationCtxt::new(self);
-
-                            let normalized_term = ocx.normalize(
-                                &ObligationCause::dummy(),
-                                obligation.param_env,
-                                Unnormalized::new_wip(alias_term.to_term(self.tcx)),
-                            );
-
-                            if let Err(terr) = ocx.eq(
-                                &ObligationCause::dummy(),
-                                obligation.param_env,
-                                expected_term,
-                                normalized_term,
-                            ) {
-                                Some((terr, self.resolve_vars_if_possible(normalized_term)))
-                            } else {
-                                None
-                            }
-                        };
-
-                    if let Some(lhs) = lhs.to_alias_term()
-                        && let ty::AliasTermKind::ProjectionTy { .. }
-                        | ty::AliasTermKind::ProjectionConst { .. } = lhs.kind
-                        && let Some((better_type_err, expected_term)) =
-                            derive_better_type_error(lhs, rhs)
-                    {
-                        (
-                            Some((lhs, self.resolve_vars_if_possible(expected_term), rhs)),
-                            better_type_err,
-                        )
-                    } else if let Some(rhs) = rhs.to_alias_term()
-                        && let ty::AliasTermKind::ProjectionTy { .. }
-                        | ty::AliasTermKind::ProjectionConst { .. } = rhs.kind
-                        && let Some((better_type_err, expected_term)) =
-                            derive_better_type_error(rhs, lhs)
-                    {
-                        (
-                            Some((rhs, self.resolve_vars_if_possible(expected_term), lhs)),
-                            better_type_err,
                         )
                     } else {
                         (None, error.err)
@@ -1919,10 +1871,10 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                 ty::Closure(..) => Some(9),
                 ty::Tuple(..) => Some(10),
                 ty::Param(..) => Some(11),
-                ty::Alias(ty::AliasTy { kind: ty::Projection { .. }, .. }) => Some(12),
-                ty::Alias(ty::AliasTy { kind: ty::Inherent { .. }, .. }) => Some(13),
-                ty::Alias(ty::AliasTy { kind: ty::Opaque { .. }, .. }) => Some(14),
-                ty::Alias(ty::AliasTy { kind: ty::Free { .. }, .. }) => Some(15),
+                ty::Alias(_, ty::AliasTy { kind: ty::Projection { .. }, .. }) => Some(12),
+                ty::Alias(_, ty::AliasTy { kind: ty::Inherent { .. }, .. }) => Some(13),
+                ty::Alias(_, ty::AliasTy { kind: ty::Opaque { .. }, .. }) => Some(14),
+                ty::Alias(_, ty::AliasTy { kind: ty::Free { .. }, .. }) => Some(15),
                 ty::Never => Some(16),
                 ty::Adt(..) => Some(17),
                 ty::Coroutine(..) => Some(18),
@@ -2147,7 +2099,8 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                     let impl_trait_ref = ocx.normalize(
                         &ObligationCause::dummy(),
                         param_env,
-                        ty::EarlyBinder::bind(single.trait_ref).instantiate(self.tcx, impl_args),
+                        ty::EarlyBinder::bind(self.tcx, single.trait_ref)
+                            .instantiate(self.tcx, impl_args),
                     );
 
                     ocx.register_obligations(
@@ -2323,18 +2276,80 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                 {
                     return false;
                 }
+                let mut multi_span = MultiSpan::from_span(self.tcx.def_span(def_id));
                 let (desc, mention_castable) =
                     match (cand.self_ty().kind(), trait_pred.self_ty().skip_binder().kind()) {
                         (ty::FnPtr(..), ty::FnDef(..)) => {
                             (" implemented for fn pointer `", ", cast using `as`")
                         }
                         (ty::FnPtr(..), _) => (" implemented for fn pointer `", ""),
-                        _ => (" implemented for `", ""),
+                        _ => {
+                            let evaluate_obligations = || {
+                                let ocx = ObligationCtxt::new_with_diagnostics(self);
+                                self.enter_forall(trait_pred, |obligation_trait_ref| {
+                                    let impl_args = self.fresh_args_for_item(DUMMY_SP, def_id);
+                                    let impl_trait_ref = ocx.normalize(
+                                        &ObligationCause::dummy(),
+                                        param_env,
+                                        ty::EarlyBinder::bind(self.tcx, cand)
+                                            .instantiate(self.tcx, impl_args),
+                                    );
+                                    if ocx
+                                        .eq(
+                                            &ObligationCause::dummy(),
+                                            param_env,
+                                            obligation_trait_ref.trait_ref,
+                                            impl_trait_ref,
+                                        )
+                                        .is_err()
+                                    {
+                                        return Vec::new();
+                                    }
+                                    ocx.register_obligations(
+                                        self.tcx
+                                            .predicates_of(def_id)
+                                            .instantiate(self.tcx, impl_args)
+                                            .into_iter()
+                                            .map(|(clause, span)| {
+                                                Obligation::new(
+                                                    self.tcx,
+                                                    ObligationCause::dummy_with_span(span),
+                                                    param_env,
+                                                    clause.skip_normalization(),
+                                                )
+                                            }),
+                                    );
+                                    ocx.try_evaluate_obligations()
+                                })
+                            };
+                            let failing_obligations =
+                                if !self.tcx.predicates_of(def_id).predicates.is_empty() {
+                                    self.probe(|_| evaluate_obligations())
+                                } else {
+                                    Vec::new()
+                                };
+
+                            if failing_obligations.is_empty() {
+                                (" implemented for `", "")
+                            } else {
+                                for error in failing_obligations {
+                                    multi_span.push_span_label(
+                                        error.root_obligation.cause.span,
+                                        format!(
+                                            "unsatisfied requirement introduced here: `{}`",
+                                            error.root_obligation.predicate,
+                                        ),
+                                    );
+                                }
+
+                                (" conditionally implemented for `", "")
+                            }
+                        }
                     };
                 let trait_ = self.tcx.short_string(cand.print_trait_sugared(), err.long_ty_path());
                 let self_ty = self.tcx.short_string(cand.self_ty(), err.long_ty_path());
                 err.highlighted_span_help(
-                    self.tcx.def_span(def_id),
+                    multi_span,
                     vec![
                         StringPart::normal(format!("the trait `{trait_}` ")),
                         StringPart::highlighted("is"),
@@ -2805,12 +2820,26 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                 self.infcx.tcx
             }
 
+            // FIXME: why don't we also instantiate const and region params with infer vars
+            // here? Because diagnostics isn't soundness critical and no one bothers to be
+            // pedantic yet.
             fn fold_ty(&mut self, ty: Ty<'tcx>) -> Ty<'tcx> {
-                if let ty::Param(_) = *ty.kind() {
-                    let infcx = self.infcx;
-                    *self.var_map.entry(ty).or_insert_with(|| infcx.next_ty_var(DUMMY_SP))
-                } else {
-                    ty.super_fold_with(self)
+                match ty.kind() {
+                    ty::Param(_) => {
+                        let infcx = self.infcx;
+                        *self.var_map.entry(ty).or_insert_with(|| infcx.next_ty_var(DUMMY_SP))
+                    }
+                    // FIXME(#155345): This should automatically
+                    // handled by type folders instead of needing to do it
+                    // manually here.
+                    &ty::Alias(is_rigid, alias)
+                        if is_rigid == ty::IsRigid::Yes
+                            && ty.has_type_flags(ty::TypeFlags::HAS_TY_PARAM) =>
+                    {
+                        let alias = alias.fold_with(self);
+                        Ty::new_alias(self.cx(), ty::IsRigid::No, alias)
+                    }
+                    _ => ty.super_fold_with(self),
                 }
             }
         }
@@ -3752,12 +3781,12 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
 
         match obligation.predicate.kind().skip_binder() {
             ty::PredicateKind::Clause(ty::ClauseKind::ConstEvaluatable(ct)) => match ct.kind() {
-                ty::ConstKind::Unevaluated(uv) => {
+                ty::ConstKind::Alias(_, alias_const) => {
                     let mut err =
                         self.dcx().struct_span_err(span, "unconstrained generic constant");
-                    let const_span = uv.kind.def_span(self.tcx);
+                    let const_span = alias_const.kind.def_span(self.tcx);
 
-                    let const_ty = uv.type_of(self.tcx).skip_norm_wip();
+                    let const_ty = alias_const.type_of(self.tcx).skip_norm_wip();
                     let cast = if const_ty != self.tcx.types.usize { " as usize" } else { "" };
                     let msg = "try adding a `where` bound";
                     if let Ok(snippet) = self.tcx.sess.source_map().span_to_snippet(const_span) {
@@ -3795,7 +3824,7 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                     Ok(err)
                 }
                 _ => {
-                    bug!("const evaluatable failed for non-unevaluated const `{ct:?}`");
+                    bug!("const evaluatable failed for non-alias const `{ct:?}`");
                 }
             },
             _ => {

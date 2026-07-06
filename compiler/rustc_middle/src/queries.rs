@@ -541,7 +541,7 @@ rustc_queries! {
         desc { "computing `#[expect]`ed lints in this crate" }
     }
 
-    query lints_that_dont_need_to_run(_: ()) -> &'tcx UnordSet<LintId> {
+    query skippable_lints(_: ()) -> &'tcx UnordSet<LintId> {
         arena_cache
         // This depends on the lint store, which includes internal lints when the
         // untracked `-Zunstable-options` flag is set.
@@ -1400,10 +1400,10 @@ rustc_queries! {
     }
 
     /// Generates a MIR body for the shim.
-    query mir_shims(key: ty::InstanceKind<'tcx>) -> &'tcx mir::Body<'tcx> {
+    query mir_shims(key: ty::ShimKind<'tcx>) -> &'tcx mir::Body<'tcx> {
         arena_cache
         desc {
-            "generating MIR shim for `{}`, instance={:?}",
+            "generating MIR shim for `{}`, kind={:?}",
             tcx.def_path_str(key.def_id()),
             key
         }
@@ -2161,6 +2161,15 @@ rustc_queries! {
         desc { "fetching what a crate is named" }
         separate_provide_extern
     }
+
+    /// Iterates over all named children of the given module,
+    /// including both proper items and reexports.
+    /// Module here is understood in name resolution sense - it can be a `mod` item,
+    /// or a crate root, or an enum, or a trait.
+    ///
+    /// # Panics
+    ///
+    /// May panic if the provided `id` does not refer to a module.
     query module_children(def_id: DefId) -> &'tcx [ModChild] {
         desc { "collecting child items of module `{}`", tcx.def_path_str(def_id) }
         separate_provide_extern

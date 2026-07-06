@@ -361,7 +361,7 @@ macro_rules! impl_Display {
 
         #[cfg(feature = "optimize_for_size")]
         fn ${concat($fmt_fn, _small)}(n: $T, is_nonnegative: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            const MAX_DEC_N: usize = $T::MAX.ilog(10) as usize + 1;
+            const MAX_DEC_N: usize = $T::MAX.ilog10() as usize + 1;
             let mut buf = [MaybeUninit::<u8>::uninit(); MAX_DEC_N];
 
             let offset = ${concat($fmt_fn, _in_buf_small)}(n, &mut buf);
@@ -758,7 +758,7 @@ impl u128 {
     /// ```
     #[stable(feature = "int_format_into", since = "CURRENT_RUSTC_VERSION")]
     pub fn format_into(self, buf: &mut NumBuffer<Self>) -> &str {
-        let diff = buf.capacity() - U128_MAX_DEC_N;
+        let diff = buf.buf.len() - U128_MAX_DEC_N;
         // FIXME: Once const generics are better, use `NumberBufferTrait::BUF_SIZE` as generic const
         // for `fmt_u128_inner`.
         //
@@ -790,7 +790,7 @@ impl i128 {
     /// ```
     #[stable(feature = "int_format_into", since = "CURRENT_RUSTC_VERSION")]
     pub fn format_into(self, buf: &mut NumBuffer<Self>) -> &str {
-        let diff = buf.capacity() - U128_MAX_DEC_N;
+        let diff = buf.buf.len() - U128_MAX_DEC_N;
         // FIXME: Once const generics are better, use `NumberBufferTrait::BUF_SIZE` as generic const
         // for `fmt_u128_inner`.
         //

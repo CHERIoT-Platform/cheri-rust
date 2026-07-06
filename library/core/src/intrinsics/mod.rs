@@ -821,19 +821,19 @@ pub const fn forget<T: ?Sized>(_: T);
 ///
 /// // This is how the standard library does it. This is the best method, if
 /// // you need to do something like this
-/// fn split_at_stdlib<T>(slice: &mut [T], mid: usize)
+/// fn split_at_stdlib<T>(to_split: &mut [T], mid: usize)
 ///                       -> (&mut [T], &mut [T]) {
-///     let len = slice.len();
+///     let len = to_split.len();
 ///     assert!(mid <= len);
 ///     unsafe {
-///         let ptr = slice.as_mut_ptr();
-///         // This now has three mutable references pointing at the same
-///         // memory. `slice`, the rvalue ret.0, and the rvalue ret.1.
-///         // `slice` is never used after `let ptr = ...`, and so one can
-///         // treat it as "dead", and therefore, you only have two real
-///         // mutable slices.
-///         (slice::from_raw_parts_mut(ptr, mid),
-///          slice::from_raw_parts_mut(ptr.add(mid), len - mid))
+///         let ptr = to_split.as_mut_ptr();
+///         let fst = slice::from_raw_parts_mut(ptr, mid);
+///         let snd = slice::from_raw_parts_mut(ptr.add(mid), len - mid);
+///         // The function now has three mutable references to overlapping memory:
+///         // `to_split`, `fst`, and `snd`.
+///         // `to_split` is never used after `let ptr = ...` so it can be treated as "dead".
+///         // This leaves two "live" mutable slice references, `fst` and `snd`, with no overlap.
+///         (fst, snd)
 ///     }
 /// }
 /// ```
@@ -3644,6 +3644,10 @@ pub const unsafe fn va_arg<T: VaArgSafe>(ap: &mut VaList<'_>) -> T;
 #[rustc_intrinsic]
 #[rustc_nounwind]
 pub const fn va_copy<'f>(src: &VaList<'f>) -> VaList<'f> {
+    // This fallback body exploits the fact that our codegen backends all just use
+    // a plain memcpy to duplicate VaList. This assumption is wrong for Miri.
+    assert!(!cfg!(miri), "fallback body is incorrect under Miri");
+
     src.duplicate()
 }
 

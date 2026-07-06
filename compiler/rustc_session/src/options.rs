@@ -727,7 +727,25 @@ fn build_options<O: Default>(
                 }
                 if let Some(tmod) = *tmod {
                     let v = value.map_or(String::new(), ToOwned::to_owned);
-                    collected_options.target_modifiers.insert(tmod, v);
+
+                    // Accumulate all the -Zsanitizer flags into a single target modifier.
+                    match tmod {
+                        OptionsTargetModifiers::UnstableOptions(
+                            UnstableOptionsTargetModifiers::Sanitizer,
+                        ) => {
+                            collected_options
+                                .target_modifiers
+                                .entry(tmod)
+                                .and_modify(|existing| {
+                                    existing.push(',');
+                                    existing.push_str(&v);
+                                })
+                                .or_insert(v);
+                        }
+                        _ => {
+                            collected_options.target_modifiers.insert(tmod, v);
+                        }
+                    }
                 }
                 if let Some(mitigation) = mitigation {
                     collected_options.mitigations.reset_mitigation(*mitigation, index);
@@ -766,7 +784,7 @@ mod desc {
     pub(crate) const parse_passes: &str = "a space-separated list of passes, or `all`";
     pub(crate) const parse_panic_strategy: &str = "either `unwind`, `abort`, or `immediate-abort`";
     pub(crate) const parse_on_broken_pipe: &str = "either `kill`, `error`, or `inherit`";
-    pub(crate) const parse_patchable_function_entry: &str = "either two comma separated integers (total_nops,prefix_nops), with prefix_nops <= total_nops, or one integer (total_nops)";
+    pub(crate) const parse_patchable_function_entry: &str = "a comma separated list of (prefix_nops,total_nops,section_name), (prefix_nops,total_nops), or (total_nops). Where prefix_nops <= total_nops where 0 < total_nops <= 255 and prefix_nops <= total_nops";
     pub(crate) const parse_opt_panic_strategy: &str = parse_panic_strategy;
     pub(crate) const parse_relro_level: &str = "one of: `full`, `partial`, or `off`";
     pub(crate) const parse_sanitizers: &str = "comma separated list of sanitizers: `address`, `cfi`, `dataflow`, `hwaddress`, `kcfi`, `kernel-address`, `kernel-hwaddress`, `leak`, `memory`, `memtag`, `safestack`, `shadow-call-stack`, `thread`, or 'realtime'";
@@ -786,6 +804,8 @@ mod desc {
     pub(crate) const parse_coverage_options: &str = "`block` | `branch` | `condition`";
     pub(crate) const parse_codegen_retag_options: &str =
         "either no value or a comma-separated list of settings: `no-precise-im`, `no-precise-pin`";
+    pub(crate) const parse_instrument_mcount: &str =
+        "either a boolean (`yes`, `no`, `on`, `off`, etc), or `fentry` on supported targets.";
     pub(crate) const parse_instrument_xray: &str = "either a boolean (`yes`, `no`, `on`, `off`, etc), or a comma separated list of settings: `always` or `never` (mutually exclusive), `ignore-loops`, `instruction-threshold=N`, `skip-entry`, `skip-exit`";
     pub(crate) const parse_unpretty: &str = "`string` or `string=string`";
     pub(crate) const parse_treat_err_as_bug: &str = "either no value or a non-negative number";
@@ -1186,20 +1206,24 @@ pub mod parse {
     ) -> bool {
         let mut total_nops = 0;
         let mut prefix_nops = 0;
+        let mut section = None;
 
         if !parse_number(&mut total_nops, v) {
-            let parts = v.and_then(|v| v.split_once(',')).unzip();
-            if !parse_number(&mut total_nops, parts.0) {
+            let parts: Vec<_> = v.unwrap_or("").split(',').collect();
+            if parts.len() < 2 || parts.len() > 3 {
                 return false;
             }
-            if !parse_number(&mut prefix_nops, parts.1) {
+
+            if !parse_number(&mut total_nops, Some(parts[0])) {
                 return false;
             }
+            if !parse_number(&mut prefix_nops, Some(parts[1])) {
+                return false;
+            }
+            section = parts.get(2).map(|x| x.to_string());
         }
 
-        if let Some(pfe) =
-            PatchableFunctionEntry::from_total_and_prefix_nops(total_nops, prefix_nops)
-        {
+        if let Some(pfe) = PatchableFunctionEntry::from_parts(total_nops, prefix_nops, section) {
             *slot = pfe;
             return true;
         }
@@ -1565,6 +1589,19 @@ pub mod parse {
         true
     }
 
+    pub(crate) fn parse_instrument_mcount(slot: &mut InstrumentMcount, v: Option<&str>) -> bool {
+        let mut use_mcount = false;
+        if parse_bool(&mut use_mcount, v) {
+            *slot = if use_mcount { InstrumentMcount::Mcount } else { InstrumentMcount::Disabled };
+            true
+        } else if let Some("fentry") = v {
+            *slot = InstrumentMcount::Fentry;
+            true
+        } else {
+            false
+        }
+    }
+
     pub(crate) fn parse_instrument_xray(
         slot: &mut Option<InstrumentXRay>,
         v: Option<&str>,
@@ -1584,7 +1621,7 @@ pub mod parse {
         let mut seen_instruction_threshold = false;
         let mut seen_skip_entry = false;
         let mut seen_skip_exit = false;
-        for option in v.into_iter().flat_map(|v| v.split(',')) {
+        for option in v.map(|v| v.split(',')).into_flat_iter() {
             match option {
                 "always" if !seen_always && !seen_never => {
                     options.always = true;
@@ -2261,6 +2298,8 @@ options! {
         `=LooseTypes`
         `=Inline`
         Multiple options can be combined with commas."),
+    autodiff_post_passes: Option<String> = (None, parse_opt_string, [TRACKED],
+        "set llvm passes to run after enzyme (no passes run when it is empty)"),
     #[rustc_lint_opt_deny_field_access("use `Session::binary_dep_depinfo` instead of this field")]
     binary_dep_depinfo: bool = (false, parse_bool, [TRACKED],
         "include artifacts (sysroot, crate dependencies) used during compilation in dep-info \
@@ -2400,6 +2439,8 @@ options! {
         "allow deducing higher-ranked outlives assumptions from coroutines when proving auto traits"),
     hint_mostly_unused: bool = (false, parse_bool, [TRACKED],
         "hint that most of this crate will go unused, to minimize work for uncalled functions"),
+    hint_msrv: Option<RustcVersion> = (None, parse_rust_version, [TRACKED],
+        "control the minimum rust version for lints"),
     human_readable_cgu_names: bool = (false, parse_bool, [TRACKED],
         "generate human-readable, predictable names for codegen units (default: no)"),
     identify_regions: bool = (false, parse_bool, [UNTRACKED],
@@ -2433,7 +2474,7 @@ options! {
         "a default MIR inlining threshold (default: 50)"),
     input_stats: bool = (false, parse_bool, [UNTRACKED],
         "print some statistics about AST and HIR (default: no)"),
-    instrument_mcount: bool = (false, parse_bool, [TRACKED],
+    instrument_mcount: InstrumentMcount = (InstrumentMcount::Disabled, parse_instrument_mcount, [TRACKED],
         "insert function instrument code for mcount-based tracing (default: no)"),
     instrument_xray: Option<InstrumentXRay> = (None, parse_instrument_xray, [TRACKED],
         "insert function instrument code for XRay-based tracing (default: no)
@@ -2468,8 +2509,6 @@ options! {
         "lint LLVM IR (default: no)"),
     lint_mir: bool = (false, parse_bool, [UNTRACKED],
         "lint MIR before and after each transformation"),
-    lint_rust_version: Option<RustcVersion> = (None, parse_rust_version, [TRACKED],
-        "control the minimum rust version for lints"),
     llvm_module_flag: Vec<(String, u32, String)> = (Vec::new(), parse_llvm_module_flag, [TRACKED],
         "a list of module flags to pass to LLVM (space separated)"),
     llvm_plugins: Vec<String> = (Vec::new(), parse_list, [TRACKED],
@@ -2617,6 +2656,7 @@ options! {
         "use the given `.prof` file for sampled profile-guided optimization (also known as AutoFDO)"),
     profiler_runtime: String = (String::from("profiler_builtins"), parse_string, [TRACKED],
         "name of the profiler runtime crate to automatically inject (default: `profiler_builtins`)"),
+    ptrauth_elf_got: bool = (false, parse_bool, [TRACKED], "enable signing of ELF GOT entries"),
     query_dep_graph: bool = (false, parse_bool, [UNTRACKED],
         "enable queries of the dependency graph for regression testing (default: no)"),
     randomize_layout: bool = (false, parse_bool, [TRACKED],
@@ -2636,6 +2676,8 @@ options! {
     remark_dir: Option<PathBuf> = (None, parse_opt_pathbuf, [UNTRACKED],
         "directory into which to write optimization remarks (if not specified, they will be \
 written to standard error output)"),
+    renormalize_rigid_aliases: bool = (false, parse_bool, [TRACKED],
+        "do not skip rigid aliases in normalization for internal debugging"),
     retpoline: bool = (false, parse_bool, [TRACKED] { TARGET_MODIFIER: Retpoline },
         "enables retpoline-indirect-branches and retpoline-indirect-calls target features (default: no)"),
     retpoline_external_thunk: bool = (false, parse_bool, [TRACKED] { TARGET_MODIFIER: RetpolineExternalThunk },

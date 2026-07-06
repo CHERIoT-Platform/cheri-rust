@@ -992,7 +992,7 @@ crate::target_spec_enum! {
         /// On PowerPC only: build for SPE.
         PowerPcSpe = "powerpc-spe",
         /// On x86-32/64, aarch64, and S390x: do not use any FPU or SIMD registers for the ABI.
-        Softfloat = "softfloat", "x86-softfloat",
+        Softfloat = "softfloat",
     }
 
     parse_error_type = "rustc abi";
@@ -1489,6 +1489,7 @@ supported_targets! {
     ("armv7-unknown-linux-musleabihf", armv7_unknown_linux_musleabihf),
     ("aarch64-unknown-linux-gnu", aarch64_unknown_linux_gnu),
     ("aarch64-unknown-linux-musl", aarch64_unknown_linux_musl),
+    ("aarch64-unknown-linux-pauthtest", aarch64_unknown_linux_pauthtest),
     ("aarch64_be-unknown-linux-musl", aarch64_be_unknown_linux_musl),
     ("x86_64-unknown-linux-musl", x86_64_unknown_linux_musl),
     ("i686-unknown-linux-musl", i686_unknown_linux_musl),
@@ -1687,6 +1688,7 @@ supported_targets! {
     ("riscv32im-unknown-none-elf", riscv32im_unknown_none_elf),
     ("riscv32ima-unknown-none-elf", riscv32ima_unknown_none_elf),
     ("riscv32imc-unknown-none-elf", riscv32imc_unknown_none_elf),
+    ("riscv32imfc-unknown-none-elf", riscv32imfc_unknown_none_elf),
     ("riscv32imc-esp-espidf", riscv32imc_esp_espidf),
     ("riscv32imac-esp-espidf", riscv32imac_esp_espidf),
     ("riscv32imafc-esp-espidf", riscv32imafc_esp_espidf),
@@ -1793,10 +1795,10 @@ supported_targets! {
     ("aarch64-unknown-nto-qnx700", aarch64_unknown_nto_qnx700),
     ("aarch64-unknown-nto-qnx710", aarch64_unknown_nto_qnx710),
     ("aarch64-unknown-nto-qnx710_iosock", aarch64_unknown_nto_qnx710_iosock),
-    ("aarch64-unknown-nto-qnx800", aarch64_unknown_nto_qnx800),
+    ("aarch64-unknown-qnx", aarch64_unknown_qnx),
     ("x86_64-pc-nto-qnx710", x86_64_pc_nto_qnx710),
     ("x86_64-pc-nto-qnx710_iosock", x86_64_pc_nto_qnx710_iosock),
-    ("x86_64-pc-nto-qnx800", x86_64_pc_nto_qnx800),
+    ("x86_64-pc-qnx", x86_64_pc_qnx),
     ("i686-pc-nto-qnx700", i686_pc_nto_qnx700),
 
     ("aarch64-unknown-linux-ohos", aarch64_unknown_linux_ohos),
@@ -1827,6 +1829,12 @@ supported_targets! {
     ("x86_64-unknown-linux-gnuasan", x86_64_unknown_linux_gnuasan),
     ("x86_64-unknown-linux-gnumsan", x86_64_unknown_linux_gnumsan),
     ("x86_64-unknown-linux-gnutsan", x86_64_unknown_linux_gnutsan),
+
+    ("aarch64-oe-linux-gnu", aarch64_oe_linux_gnu),
+    ("armv7-oe-linux-gnueabihf", armv7_oe_linux_gnueabihf),
+    ("i686-oe-linux-gnu", i686_oe_linux_gnu),
+    ("riscv64-oe-linux-gnu", riscv64_oe_linux_gnu),
+    ("x86_64-oe-linux-gnu", x86_64_oe_linux_gnu),
 }
 
 /// Cow-Vec-Str: Cow<'static, [Cow<'static, str>]>
@@ -1998,6 +2006,7 @@ crate::target_spec_enum! {
         OpenBsd = "openbsd",
         Psp = "psp",
         Psx = "psx",
+        Qnx = "qnx",
         Qurt = "qurt",
         Redox = "redox",
         Rtems = "rtems",
@@ -2038,7 +2047,6 @@ crate::target_spec_enum! {
         Nto70 = "nto70",
         Nto71 = "nto71",
         Nto71IoSock = "nto71_iosock",
-        Nto80 = "nto80",
         Ohos = "ohos",
         Relibc = "relibc",
         Sgx = "sgx",
@@ -2077,6 +2085,7 @@ crate::target_spec_enum! {
         Ilp32e = "ilp32e",
         Llvm = "llvm",
         MacAbi = "macabi",
+        Pauthtest = "pauthtest",
         Sim = "sim",
         SoftFloat = "softfloat",
         Spe = "spe",
@@ -2118,6 +2127,8 @@ crate::target_spec_enum! {
         // PowerPC
         ElfV1 = "elfv1",
         ElfV2 = "elfv2",
+        // Pointer authentication: Pauthtest
+        Pauthtest = "pauthtest",
 
         Unspecified = "",
     }
@@ -2710,6 +2721,9 @@ pub struct TargetOptions {
     /// Default value is `CanonAbi::C`
     pub entry_abi: CanonAbi,
 
+    /// Whether the target supports fentry instrumentation.
+    pub supports_fentry: bool,
+
     /// Whether the target supports XRay instrumentation.
     pub supports_xray: bool,
 
@@ -2953,6 +2967,7 @@ impl Default for TargetOptions {
             supports_stack_protector: true,
             entry_name: "main".into(),
             entry_abi: CanonAbi::C,
+            supports_fentry: false,
             supports_xray: false,
             default_address_space: rustc_abi::AddressSpace::ZERO,
             small_data_threshold_support: SmallDataThresholdSupport::DefaultForArch,
@@ -3429,9 +3444,10 @@ impl Target {
                 )
             }
             Arch::AArch64 => {
-                check!(
-                    self.llvm_abiname == LlvmAbi::Unspecified,
-                    "`llvm_abiname` is unused on aarch64"
+                check_matches!(
+                    self.llvm_abiname,
+                    LlvmAbi::Unspecified | LlvmAbi::Pauthtest,
+                    "invalid llvm ABI for aarch64"
                 );
                 check!(self.llvm_floatabi.is_none(), "`llvm_floatabi` is unused on aarch64");
                 // FIXME: Ensure that target_abi = "ilp32" correlates with actually using that ABI.
@@ -3444,6 +3460,7 @@ impl Target {
                             CfgAbi::Ilp32
                                 | CfgAbi::Llvm
                                 | CfgAbi::MacAbi
+                                | CfgAbi::Pauthtest
                                 | CfgAbi::Sim
                                 | CfgAbi::Uwp
                                 | CfgAbi::Unspecified
