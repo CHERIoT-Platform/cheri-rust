@@ -186,9 +186,13 @@ pub fn check_crate(tcx: TyCtxt<'_>) {
             }
             _ => (),
         }
-        // Skip `AnonConst`s because we feed their `type_of`.
+        // Skip `AnonConst`s and type system `InlineConst`s because we feed their `type_of` in
+        // `feed_anon_const_type`.
         // Also skip items for which typeck forwards to parent typeck.
-        if !(matches!(def_kind, DefKind::AnonConst) || def_kind.is_typeck_child()) {
+        if !(def_kind == DefKind::AnonConst
+            || def_kind == DefKind::InlineConst && tcx.is_type_system_inline_const(item_def_id)
+            || tcx.is_typeck_child(item_def_id.to_def_id()))
+        {
             tcx.ensure_ok().typeck(item_def_id);
         }
         // Ensure we generate the new `DefId` before finishing `check_crate`.
@@ -202,6 +206,7 @@ pub fn check_crate(tcx: TyCtxt<'_>) {
         tcx.sess.time("dumping_rustc_attr_data", || {
             outlives::dump::inferred_outlives(tcx);
             variance::dump::variances(tcx);
+            collect::dump::generics(tcx);
             collect::dump::opaque_hidden_types(tcx);
             collect::dump::predicates_and_item_bounds(tcx);
             collect::dump::def_parents(tcx);

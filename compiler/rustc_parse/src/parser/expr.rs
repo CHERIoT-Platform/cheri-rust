@@ -1304,8 +1304,10 @@ impl<'a> Parser<'a> {
         let err_span = self.prev_token.span.to(self.token.span);
         let mut args = thin_vec![self.mk_expr_err(err_span, guar)];
         while !self.token.kind.is_close_delim_or_eof() {
-            if self.eat(exp!(Comma)) && !self.token.kind.is_close_delim_or_eof() {
-                args.push(self.mk_expr_err(self.prev_token.span.shrink_to_hi(), guar));
+            if self.eat(exp!(Comma)) {
+                if !self.token.kind.is_close_delim_or_eof() {
+                    args.push(self.mk_expr_err(self.prev_token.span.shrink_to_hi(), guar));
+                }
             } else {
                 self.parse_token_tree();
             }
@@ -3086,18 +3088,41 @@ impl<'a> Parser<'a> {
     }
 
     fn error_missing_in_for_loop(&mut self) {
-        let (span, sub): (_, fn(_) -> _) = if self.token.is_ident_named(sym::of) {
+        let (span, sub) = if self.token.is_ident_named(sym::of) {
             // Possibly using JS syntax (#75311).
             let span = self.token.span;
             self.bump();
-            (span, errors::MissingInInForLoopSub::InNotOf)
+            (span, Some(errors::MissingInInForLoopSub::InNotOf(span)))
         } else if self.eat(exp!(Eq)) {
-            (self.prev_token.span, errors::MissingInInForLoopSub::InNotEq)
+            let span = self.prev_token.span;
+            (span, Some(errors::MissingInInForLoopSub::InNotEq(span)))
         } else {
-            (self.prev_token.span.between(self.token.span), errors::MissingInInForLoopSub::AddIn)
+            let span = self.prev_token.span.between(self.token.span);
+            let sub = (!self.for_loop_head_has_in())
+                .then_some(errors::MissingInInForLoopSub::AddIn(span));
+            (span, sub)
         };
 
-        self.dcx().emit_err(errors::MissingInInForLoop { span, sub: sub(span) });
+        self.dcx().emit_err(errors::MissingInInForLoop { span, sub });
+    }
+
+    /// Whether the `for` loop header already contains an `in` before its body.
+    /// If it does, the binding is malformed (e.g. `for i i in 0..10`) rather
+    /// than missing `in`, so suggesting another `in` would just be invalid too.
+    fn for_loop_head_has_in(&self) -> bool {
+        let mut dist = 0;
+        loop {
+            let (is_in, is_end) = self.look_ahead(dist, |t| {
+                (t.is_keyword(kw::In), matches!(t.kind, token::OpenBrace | token::Eof))
+            });
+            if is_in {
+                return true;
+            }
+            if is_end {
+                return false;
+            }
+            dist += 1;
+        }
     }
 
     /// Parses a `while` or `while let` expression (`while` token already eaten).

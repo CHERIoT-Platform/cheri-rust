@@ -1199,7 +1199,7 @@ pub trait LintStoreExpand {
 
 type LintStoreExpandDyn<'a> = Option<&'a (dyn LintStoreExpand + 'a)>;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct ModuleData {
     /// Path to the module starting from the crate name, like `my_crate::foo::bar`.
     pub mod_path: Vec<Ident>,
@@ -1376,7 +1376,7 @@ impl<'a> ExtCtxt<'a> {
     pub fn std_path(&self, components: &[Symbol]) -> Vec<Ident> {
         let def_site = self.with_def_site_ctxt(DUMMY_SP);
         iter::once(Ident::new(kw::DollarCrate, def_site))
-            .chain(components.iter().map(|&s| Ident::with_dummy_span(s)))
+            .chain(components.iter().map(|&s| Ident::new(s, def_site)))
             .collect()
     }
     pub fn def_site_path(&self, components: &[Symbol]) -> Vec<Ident> {

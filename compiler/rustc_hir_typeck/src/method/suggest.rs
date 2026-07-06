@@ -34,8 +34,8 @@ use rustc_middle::ty::print::{
 use rustc_middle::ty::{self, GenericArgKind, IsSuggestable, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::def_id::DefIdSet;
 use rustc_span::{
-    DUMMY_SP, DesugaringKind, ErrorGuaranteed, ExpnKind, FileName, Ident, MacroKind, Span, Symbol,
-    edit_distance, kw, sym,
+    DUMMY_SP, ErrorGuaranteed, ExpnKind, FileName, Ident, MacroKind, Span, Symbol, edit_distance,
+    kw, sym,
 };
 use rustc_trait_selection::error_reporting::traits::DefIdOrName;
 use rustc_trait_selection::infer::InferCtxtExt;
@@ -178,7 +178,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
             ty::Slice(..)
             | ty::Adt(..)
-            | ty::Alias(ty::AliasTy { kind: ty::Opaque { .. }, .. }) => {
+            | ty::Alias(_, ty::AliasTy { kind: ty::Opaque { .. }, .. }) => {
                 for unsatisfied in unsatisfied_predicates.iter() {
                     if is_iterator_predicate(unsatisfied.0) {
                         return true;
@@ -1952,8 +1952,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                             _ => false,
                         }
                     });
-                    if sized_pred && let Some(DesugaringKind::DefaultBound { def }) = cause_span.desugaring_kind() {
-                        if let Some(param) = generics.params.iter().find(|p| p.def_id.to_def_id() == def) {
+                    for param in generics.params {
+                        if param.span == cause_span && sized_pred {
                             let (sp, sugg) = match param.colon_span {
                                 Some(sp) => (sp.shrink_to_hi(), " ?Sized +"),
                                 None => (param.span.shrink_to_hi(), ": ?Sized"),
@@ -3759,10 +3759,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         | ty::Float(_)
                         | ty::Adt(_, _)
                         | ty::Str
-                        | ty::Alias(ty::AliasTy {
-                            kind: ty::Projection { .. } | ty::Inherent { .. },
-                            ..
-                        })
+                        | ty::Alias(
+                            _,
+                            ty::AliasTy {
+                                kind: ty::Projection { .. } | ty::Inherent { .. }, ..
+                            },
+                        )
                         | ty::Param(_) => format!("{deref_ty}"),
                         // we need to test something like  <&[_]>::len or <(&[u32])>::len
                         // and Vec::function();
@@ -3878,7 +3880,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         span: Span,
         return_type: Option<Ty<'tcx>>,
     ) {
-        let Some(output_ty) = self.err_ctxt().get_impl_future_output_ty(ty) else { return };
+        let Some(output_ty) = self.tcx.get_impl_future_output_ty(ty) else { return };
         let output_ty = self.resolve_vars_if_possible(output_ty);
         let method_exists =
             self.method_exists_for_diagnostic(item_name, output_ty, call.hir_id, return_type);

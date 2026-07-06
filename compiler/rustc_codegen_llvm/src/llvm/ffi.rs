@@ -2162,6 +2162,8 @@ unsafe extern "C" {
         IsVolatile: bool,
     ) -> &'a Value;
 
+    pub(crate) fn LLVMRustBuildVScale<'a>(B: &Builder<'a>, Ty: &'a Type) -> &'a Value;
+
     pub(crate) fn LLVMRustTimeTraceProfilerInitialize();
 
     pub(crate) fn LLVMRustTimeTraceProfilerFinishThread();
@@ -2668,4 +2670,12 @@ unsafe extern "C" {
         Aliasee: &Value,
         Name: *const c_char,
     ) -> &'ll Value;
+
+    pub(crate) fn LLVMRustConstPtrAuth(
+        ptr: *const Value,
+        key: u32,
+        disc: u64,
+        addr_diversity: *const Value,
+        deactivation_symbol: *const Value,
+    ) -> *const Value;
 }
