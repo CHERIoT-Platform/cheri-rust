@@ -71,7 +71,7 @@ use crate::parser::{
 };
 use crate::session_diagnostics::{
     AttributeParseError, AttributeParseErrorReason, AttributeParseErrorSuggestions,
-    ParsedDescription,
+    ParsedDescription, UnusedDuplicate,
 };
 use crate::target_checking::AllowedTargets;
 use crate::{AttrSuggestionStyle, AttributeParser, AttributeTemplate, EmitAttribute};
@@ -85,7 +85,7 @@ pub(super) struct GroupTypeInner {
 pub(super) struct GroupTypeInnerAccept {
     pub(super) template: AttributeTemplate,
     pub(super) accept_fn: AcceptFn,
-    pub(super) allowed_targets: AllowedTargets,
+    pub(super) allowed_targets: AllowedTargets<'static>,
     pub(super) safety: AttributeSafety,
     pub(super) stability: AttributeStability,
     pub(super) finalizer: FinalizeFn,
@@ -283,6 +283,7 @@ attribute_parsers!(
         Single<WithoutArgs<RustcDenyExplicitImplParser>>,
         Single<WithoutArgs<RustcDoNotConstCheckParser>>,
         Single<WithoutArgs<RustcDumpDefParentsParser>>,
+        Single<WithoutArgs<RustcDumpGenericsParser>>,
         Single<WithoutArgs<RustcDumpHiddenTypeOfOpaquesParser>>,
         Single<WithoutArgs<RustcDumpInferredOutlivesParser>>,
         Single<WithoutArgs<RustcDumpItemBoundsParser>>,
@@ -436,11 +437,7 @@ impl<'f, 'sess: 'f> SharedContext<'f, 'sess> {
     pub(crate) fn warn_unused_duplicate(&mut self, used_span: Span, unused_span: Span) {
         self.emit_lint(
             rustc_session::lint::builtin::UNUSED_ATTRIBUTES,
-            rustc_errors::lints::UnusedDuplicate {
-                this: unused_span,
-                other: used_span,
-                warning: false,
-            },
+            UnusedDuplicate { this: unused_span, other: used_span, warning: false },
             unused_span,
         )
     }
@@ -452,11 +449,7 @@ impl<'f, 'sess: 'f> SharedContext<'f, 'sess> {
     ) {
         self.emit_lint(
             rustc_session::lint::builtin::UNUSED_ATTRIBUTES,
-            rustc_errors::lints::UnusedDuplicate {
-                this: unused_span,
-                other: used_span,
-                warning: true,
-            },
+            UnusedDuplicate { this: unused_span, other: used_span, warning: true },
             unused_span,
         )
     }

@@ -255,6 +255,17 @@ pub enum AnnotateMoves {
     Enabled(Option<u64>),
 }
 
+/// The different settings that the `-Z Instrument-mcount` flag can have.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub enum InstrumentMcount {
+    /// `-Z instrument-mcount=no`
+    Disabled,
+    /// `-Z instrument-mcount=yes`
+    Mcount,
+    /// `-Z instrument-mcount=fentry`
+    Fentry,
+}
+
 /// Settings for `-Z instrument-xray` flag.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct InstrumentXRay {
@@ -3085,11 +3096,11 @@ pub(crate) mod dep_tracking {
     use super::{
         AnnotateMoves, AutoDiff, BranchProtection, CFGuard, CFProtection, CodegenRetagOptions,
         CoverageOptions, CrateType, DebugInfo, DebugInfoCompression, ErrorOutputType, FmtDebug,
-        FunctionReturn, InliningThreshold, InstrumentCoverage, InstrumentXRay, LinkerPluginLto,
-        LocationDetail, LtoCli, MirStripDebugInfo, NextSolverConfig, Offload, OptLevel,
-        OutFileName, OutputType, OutputTypes, PatchableFunctionEntry, Polonius, ResolveDocLinks,
-        SourceFileHashAlgorithm, SplitDwarfKind, SwitchWithOptPath, SymbolManglingVersion,
-        WasiExecModel,
+        FunctionReturn, InliningThreshold, InstrumentCoverage, InstrumentMcount, InstrumentXRay,
+        LinkerPluginLto, LocationDetail, LtoCli, MirStripDebugInfo, NextSolverConfig, Offload,
+        OptLevel, OutFileName, OutputType, OutputTypes, PatchableFunctionEntry, Polonius,
+        ResolveDocLinks, SourceFileHashAlgorithm, SplitDwarfKind, SwitchWithOptPath,
+        SymbolManglingVersion, WasiExecModel,
     };
     use crate::lint;
     use crate::utils::NativeLib;
@@ -3151,6 +3162,7 @@ pub(crate) mod dep_tracking {
         TlsModel,
         InstrumentCoverage,
         CoverageOptions,
+        InstrumentMcount,
         InstrumentXRay,
         CrateType,
         MergeFunctions,
@@ -3330,23 +3342,29 @@ impl DumpMonoStatsFormat {
 
 /// `-Z patchable-function-entry` representation - how many nops to put before and after function
 /// entry.
-#[derive(Clone, Copy, PartialEq, Hash, Debug, Default)]
+#[derive(Clone, PartialEq, Hash, Debug, Default)]
 pub struct PatchableFunctionEntry {
     /// Nops before the entry
     prefix: u8,
     /// Nops after the entry
     entry: u8,
+    /// An optional section name to record the entry location
+    section: Option<String>,
 }
 
 impl PatchableFunctionEntry {
-    pub fn from_total_and_prefix_nops(
+    pub fn from_parts(
         total_nops: u8,
         prefix_nops: u8,
+        section: Option<String>,
     ) -> Option<PatchableFunctionEntry> {
         if total_nops < prefix_nops {
             None
+        // Section name cannot contain null characters.
+        } else if section.as_ref().map(|x| x.contains('\0') || x.is_empty()).unwrap_or(false) {
+            None
         } else {
-            Some(Self { prefix: prefix_nops, entry: total_nops - prefix_nops })
+            Some(Self { prefix: prefix_nops, entry: total_nops - prefix_nops, section })
         }
     }
     pub fn prefix(&self) -> u8 {
@@ -3354,6 +3372,9 @@ impl PatchableFunctionEntry {
     }
     pub fn entry(&self) -> u8 {
         self.entry
+    }
+    pub fn section(&self) -> Option<&str> {
+        self.section.as_ref().map(|x| x.as_str())
     }
 }
 

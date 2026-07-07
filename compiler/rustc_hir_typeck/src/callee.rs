@@ -9,11 +9,11 @@ use rustc_hir::{self as hir, HirId, LangItem, find_attr};
 use rustc_hir_analysis::autoderef::Autoderef;
 use rustc_infer::infer::BoundRegionConversionTime;
 use rustc_infer::traits::{Obligation, ObligationCause, ObligationCauseCode};
+use rustc_middle::bug;
 use rustc_middle::ty::adjustment::{
     Adjust, Adjustment, AllowTwoPhase, AutoBorrow, AutoBorrowMutability,
 };
 use rustc_middle::ty::{self, FnSig, GenericArgsRef, Ty, TyCtxt, TypeVisitableExt, Unnormalized};
-use rustc_middle::{bug, span_bug};
 use rustc_span::def_id::LocalDefId;
 use rustc_span::{Ident, Span, sym};
 use rustc_target::spec::{AbiMap, AbiMapping};
@@ -58,9 +58,13 @@ pub(crate) fn check_legal_trait_for_method_call(
     tcx.ensure_result().coherent_trait(trait_id)
 }
 
+/// State machine for typechecking a call, based on the callee type.
 #[derive(Debug)]
 enum CallStep<'tcx> {
+    /// Typecheck a call to a function definition or pointer.
+    /// Includes functions with splatted arguments.
     Builtin(Ty<'tcx>),
+    /// Deferred closure Fn* trait typechecking, when the callee is a closure.
     DeferredClosure(LocalDefId, ty::FnSig<'tcx>),
     /// Call overloading when callee implements one of the Fn* traits.
     Overloaded(MethodCallee<'tcx>),
@@ -544,7 +548,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         arg_exprs: &'tcx [hir::Expr<'tcx>],
         expected: Expectation<'tcx>,
     ) -> Ty<'tcx> {
-        let (fn_sig, def_id) = match *callee_ty.kind() {
+        let (fn_sig, def_id, callee_generic_args) = match *callee_ty.kind() {
             ty::FnDef(def_id, args) => {
                 self.enforce_context_effects(Some(call_expr.hir_id), call_expr.span, def_id, args);
                 let fn_sig = self.tcx.fn_sig(def_id).instantiate(self.tcx, args).skip_norm_wip();
@@ -573,11 +577,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                             .emit();
                     }
                 }
-                (fn_sig, Some(def_id))
+                (fn_sig, Some(def_id), Some(args))
             }
 
             // FIXME(const_trait_impl): these arms should error because we can't enforce them
-            ty::FnPtr(sig_tys, hdr) => (sig_tys.with(hdr), None),
+            ty::FnPtr(sig_tys, hdr) => (sig_tys.with(hdr), None, None),
 
             _ => unreachable!(),
         };
@@ -595,12 +599,21 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let fn_sig = self.normalize(call_expr.span, Unnormalized::new_wip(fn_sig));
 
         self.check_argument_types_maybe_method_like(
-            &fn_sig, call_expr, arg_exprs, expected, def_id,
+            &fn_sig,
+            call_expr,
+            arg_exprs,
+            expected,
+            TupleArgumentsFlag::with_fn_sig_kind(fn_sig.fn_sig_kind, false),
+            def_id,
+            callee_generic_args,
         );
 
+        // Splatting is currently incompatible with RustCall.
         if fn_sig.abi() == rustc_abi::ExternAbi::RustCall {
             let sp = arg_exprs.last().map_or(call_expr.span, |expr| expr.span);
-            if let Some(ty) = fn_sig.inputs().last().copied() {
+            if let Some(ty) = fn_sig.inputs().last().copied()
+                && fn_sig.splatted().is_none()
+            {
                 self.register_bound(
                     ty,
                     self.tcx.require_lang_item(hir::LangItem::Tuple, sp),
@@ -627,7 +640,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         call_expr: &'tcx hir::Expr<'tcx>,
         arg_exprs: &'tcx [hir::Expr<'tcx>],
         expected: Expectation<'tcx>,
+        tuple_arguments_flag: TupleArgumentsFlag,
         def_id: Option<DefId>,
+        callee_generic_args: Option<GenericArgsRef<'tcx>>,
     ) {
         let do_check = || {
             self.check_argument_types(
@@ -638,8 +653,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 expected,
                 arg_exprs,
                 fn_sig.c_variadic(),
-                TupleArgumentsFlag::DontTupleArguments,
+                tuple_arguments_flag,
                 def_id,
+                callee_generic_args,
             );
         };
 
@@ -1009,9 +1025,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             fn_sig.output(),
             expected,
             arg_exprs,
-            fn_sig.c_variadic(),
-            TupleArgumentsFlag::TupleArguments,
+            fn_sig.fn_sig_kind.c_variadic(),
+            TupleArgumentsFlag::rust_fn_trait_call(),
             Some(closure_def_id.to_def_id()),
+            None,
         );
 
         fn_sig.output()
@@ -1092,6 +1109,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expected: Expectation<'tcx>,
         method: MethodCallee<'tcx>,
     ) -> Ty<'tcx> {
+        // FIXME(splat): if we ever support splatting here, decrement the splatted index, because
+        // the receiver argument is removed below.
+        assert_eq!(
+            method.sig.fn_sig_kind.splatted(),
+            None,
+            "splatting is not supported on RustCall tuples",
+        );
         self.check_argument_types(
             call_expr.span,
             call_expr,
@@ -1099,9 +1123,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             method.sig.output(),
             expected,
             arg_exprs,
-            method.sig.c_variadic(),
-            TupleArgumentsFlag::TupleArguments,
+            method.sig.fn_sig_kind.c_variadic(),
+            TupleArgumentsFlag::rust_fn_trait_call(),
             Some(method.def_id),
+            None,
         );
 
         self.write_method_call_and_enforce_effects(call_expr.hir_id, call_expr.span, method);
@@ -1161,11 +1186,16 @@ impl<'a, 'tcx> DeferredCallResolution<'tcx> {
                 );
             }
             None => {
-                span_bug!(
-                    self.call_expr.span,
-                    "Expected to find a suitable `Fn`/`FnMut`/`FnOnce` implementation for `{}`",
-                    self.closure_ty
-                )
+                let guar = fcx.tainted_by_errors().unwrap_or_else(|| {
+                    fcx.dcx().span_delayed_bug(
+                        self.call_expr.span,
+                        format!(
+                            "Expected to find a suitable `Fn`/`FnMut`/`FnOnce` implementation for `{}`",
+                            self.closure_ty
+                        ),
+                    )
+                });
+                fcx.write_resolution(self.call_expr.hir_id, Err(guar));
             }
         }
     }

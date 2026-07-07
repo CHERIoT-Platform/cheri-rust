@@ -399,7 +399,7 @@ impl<'a, Ty> ArgAbi<'a, Ty> {
             BackendRepr::Scalar(scalar) => PassMode::Direct(scalar_attrs(scalar, Size::ZERO)),
             BackendRepr::ScalarPair(a, b) => PassMode::Pair(
                 scalar_attrs(a, Size::ZERO),
-                scalar_attrs(b, a.in_memory_size(cx).align_to(b.align(cx).abi)),
+                scalar_attrs(b, a.in_memory_size(cx).align_to(b.default_align(cx).abi)),
             ),
             BackendRepr::SimdVector { .. } => PassMode::Direct(ArgAttributes::new()),
             BackendRepr::Memory { .. } => Self::indirect_pass_mode(&layout),
@@ -829,6 +829,9 @@ impl<'a, Ty> FnAbi<'a, Ty> {
                             ArgAttribute::default()
                         };
                         arg.cast_to_with_attrs(Reg { kind: RegKind::Integer, size }, attr.into());
+                    } else if self.conv == CanonAbi::RustTail {
+                        assert!(arg.layout.is_sized(), "extern \"tail\" arguments must be sized");
+                        arg.pass_by_stack_offset(None);
                     }
                 }
 

@@ -325,8 +325,11 @@ impl<'tcx> LayoutGccExt<'tcx> for TyAndLayout<'tcx> {
             return cx.type_i1();
         }
 
-        let offset =
-            if index == 0 { Size::ZERO } else { a.in_memory_size(cx).align_to(b.align(cx).abi) };
+        let offset = if index == 0 {
+            Size::ZERO
+        } else {
+            a.in_memory_size(cx).align_to(b.default_align(cx).abi)
+        };
         self.scalar_gcc_type_at(cx, scalar, offset)
     }
 
