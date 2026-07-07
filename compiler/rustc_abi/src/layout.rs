@@ -477,12 +477,14 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
             Ok(Some((repr, _))) => match repr {
                 // Mismatched alignment (e.g. union is #[repr(packed)]): disable opt
                 BackendRepr::Scalar(_) | BackendRepr::ScalarPair(_, _)
-                    if repr.scalar_align(dl).unwrap() != align =>
+                    if repr.scalar_platform_align(dl).unwrap() != align =>
                 {
                     BackendRepr::Memory { sized: true }
                 }
                 // Vectors require at least element alignment, else disable the opt
-                BackendRepr::SimdVector { element, count: _ } if element.align(dl).abi > align => {
+                BackendRepr::SimdVector { element, count: _ }
+                    if element.default_align(dl).abi > align =>
+                {
                     BackendRepr::Memory { sized: true }
                 }
                 // the alignment tests passed and we can use this
@@ -987,7 +989,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
                         (p @ Primitive::Pointer(_), i @ Primitive::Int(..))
                         | (i @ Primitive::Int(..), p @ Primitive::Pointer(_))
                             if p.in_memory_size(dl) == i.in_memory_size(dl)
-                                && p.align(dl) == i.align(dl) =>
+                                && p.default_align(dl) == i.default_align(dl) =>
                         {
                             p
                         }

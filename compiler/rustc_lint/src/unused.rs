@@ -338,7 +338,7 @@ trait UnusedDelimLint {
                 && !snip.starts_with(' ')
             {
                 " "
-            } else if let Ok(snip) = sm.span_to_prev_source(value_span)
+            } else if let Ok(snip) = sm.span_to_next_source(value_span)
                 && snip.starts_with(|c: char| c.is_alphanumeric())
             {
                 " "
@@ -975,7 +975,7 @@ impl EarlyLintPass for UnusedParens {
         self.in_no_bounds_pos.clear();
     }
 
-    fn enter_where_predicate(&mut self, _: &EarlyContext<'_>, pred: &ast::WherePredicate) {
+    fn check_where_predicate(&mut self, _: &EarlyContext<'_>, pred: &ast::WherePredicate) {
         use rustc_ast::{WhereBoundPredicate, WherePredicateKind};
         if let WherePredicateKind::BoundPredicate(WhereBoundPredicate {
             bounded_ty,
@@ -989,7 +989,7 @@ impl EarlyLintPass for UnusedParens {
         }
     }
 
-    fn exit_where_predicate(&mut self, _: &EarlyContext<'_>, _: &ast::WherePredicate) {
+    fn check_where_predicate_post(&mut self, _: &EarlyContext<'_>, _: &ast::WherePredicate) {
         assert!(!self.with_self_ty_parens);
     }
 }

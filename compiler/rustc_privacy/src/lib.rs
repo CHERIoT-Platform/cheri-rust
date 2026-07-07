@@ -215,6 +215,7 @@ where
                 }
             }
             ty::Alias(
+                _,
                 data @ ty::AliasTy {
                     kind:
                         kind @ (ty::Inherent { def_id }
@@ -274,7 +275,7 @@ where
                     try_visit!(self.def_id_visitor.visit_def_id(def_id, "trait", &trait_ref));
                 }
             }
-            ty::Alias(ty::AliasTy { kind: ty::Opaque { def_id }, .. }) => {
+            ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id }, .. }) => {
                 // Skip repeated `Opaque`s to avoid infinite recursion.
                 if self.visited_tys.insert(ty) {
                     // The intent is to treat `impl Trait1 + Trait2` identically to
@@ -947,7 +948,8 @@ impl<'tcx> NamePrivacyVisitor<'tcx> {
 
         // definition of the field
         let ident = Ident::new(sym::dummy, use_ctxt);
-        let (_, def_id) = self.tcx.adjust_ident_and_get_scope(ident, def.did(), hir_id);
+        let (_, def_id) =
+            self.tcx.adjust_ident_and_get_scope(ident, def.did(), hir_id.owner.def_id);
         !field.vis.is_accessible_from(def_id, self.tcx)
     }
 

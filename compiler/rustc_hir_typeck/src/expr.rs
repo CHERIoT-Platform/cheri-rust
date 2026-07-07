@@ -1463,16 +1463,23 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             Ok(method) => {
                 self.write_method_call_and_enforce_effects(expr.hir_id, expr.span, method);
 
+                // Handle splatted method arguments
+                // self is already handled as `rcvr`, so it's never splatted here
+                let method_inputs = &method.sig.inputs()[1..];
+                let method_tuple_args_flag =
+                    TupleArgumentsFlag::with_fn_sig_kind(method.sig.fn_sig_kind, true);
+
                 self.check_argument_types(
                     segment.ident.span,
                     expr,
-                    &method.sig.inputs()[1..],
+                    method_inputs,
                     method.sig.output(),
                     expected,
                     args,
-                    method.sig.c_variadic(),
-                    TupleArgumentsFlag::DontTupleArguments,
+                    method.sig.fn_sig_kind.c_variadic(),
+                    method_tuple_args_flag,
                     Some(method.def_id),
+                    Some(method.args),
                 );
 
                 self.check_call_abi(method.sig.abi(), expr.span);
@@ -1495,6 +1502,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     false,
                     TupleArgumentsFlag::DontTupleArguments,
                     None,
+                    Some(GenericArgsRef::default()),
                 );
 
                 err_output
@@ -2756,9 +2764,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         return Ty::new_error(self.tcx(), guar);
                     }
 
-                    let fn_body_hir_id = self.tcx.local_def_id_to_hir_id(self.body_id);
                     let (ident, def_scope) =
-                        self.tcx.adjust_ident_and_get_scope(field, base_def.did(), fn_body_hir_id);
+                        self.tcx.adjust_ident_and_get_scope(field, base_def.did(), self.body_id);
 
                     if let Some((idx, field)) = self.find_adt_field(*base_def, ident) {
                         self.write_field_index(expr.hir_id, idx);
@@ -2910,7 +2917,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         base: &'tcx hir::Expr<'tcx>,
         ty: Ty<'tcx>,
     ) {
-        let Some(output_ty) = self.err_ctxt().get_impl_future_output_ty(ty) else {
+        let Some(output_ty) = self.tcx.get_impl_future_output_ty(ty) else {
             err.span_label(field_ident.span, "unknown field");
             return;
         };
@@ -2976,7 +2983,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 err.span_label(ident.span, "unknown field");
                 self.point_at_param_definition(&mut err, param_ty);
             }
-            ty::Alias(ty::AliasTy { kind: ty::Opaque { .. }, .. }) => {
+            ty::Alias(_, ty::AliasTy { kind: ty::Opaque { .. }, .. }) => {
                 self.suggest_await_on_field_access(&mut err, ident, base, base_ty.peel_refs());
             }
             _ => {
@@ -3159,6 +3166,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     fn suggest_first_deref_field(&self, err: &mut Diag<'_>, base: &hir::Expr<'_>, field: Ident) {
         err.span_label(field.span, "unknown field");
+        if base.span.from_expansion() || field.span.from_expansion() {
+            return;
+        }
         let val = if let Ok(base) = self.tcx.sess.source_map().span_to_snippet(base.span)
             && base.len() < 20
         {
@@ -3578,6 +3588,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 self.param_env,
                 Unnormalized::new(Ty::new_projection_from_args(
                     self.tcx,
+                    ty::IsRigid::No,
                     index_trait_output_def_id,
                     impl_trait_ref.args,
                 )),
@@ -3756,9 +3767,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
             match container.kind() {
                 ty::Adt(container_def, args) if container_def.is_enum() => {
-                    let block = self.tcx.local_def_id_to_hir_id(self.body_id);
-                    let (ident, _def_scope) =
-                        self.tcx.adjust_ident_and_get_scope(field, container_def.did(), block);
+                    let ident = self.tcx.adjust_ident(field, container_def.did());
 
                     if !self.tcx.features().offset_of_enum() {
                         rustc_session::errors::feature_err(
@@ -3794,7 +3803,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         break;
                     };
                     let (subident, sub_def_scope) =
-                        self.tcx.adjust_ident_and_get_scope(subfield, variant.def_id, block);
+                        self.tcx.adjust_ident_and_get_scope(subfield, variant.def_id, self.body_id);
 
                     let Some((subindex, field)) = variant
                         .fields
@@ -3842,9 +3851,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     continue;
                 }
                 ty::Adt(container_def, args) => {
-                    let block = self.tcx.local_def_id_to_hir_id(self.body_id);
-                    let (ident, def_scope) =
-                        self.tcx.adjust_ident_and_get_scope(field, container_def.did(), block);
+                    let (ident, def_scope) = self.tcx.adjust_ident_and_get_scope(
+                        field,
+                        container_def.did(),
+                        self.body_id,
+                    );
 
                     let fields = &container_def.non_enum_variant().fields;
                     if let Some((index, field)) = fields

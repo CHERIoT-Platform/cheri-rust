@@ -3,24 +3,16 @@
 use std::cmp::Ordering;
 use std::mem;
 
-use itertools::Itertools;
-use rustc_ast::{Item, NodeId};
-use rustc_attr_parsing::AttributeParser;
+use rustc_ast::NodeId;
 use rustc_data_structures::fx::{FxHashSet, FxIndexSet};
 use rustc_data_structures::intern::Interned;
-use rustc_errors::codes::*;
-use rustc_errors::{
-    Applicability, BufferedEarlyLint, Diagnostic, MultiSpan, pluralize, struct_span_code_err,
-};
+use rustc_errors::{Applicability, BufferedEarlyLint, Diagnostic};
 use rustc_expand::base::SyntaxExtensionKind;
-use rustc_hir::Attribute;
-use rustc_hir::attrs::AttributeKind;
-use rustc_hir::attrs::diagnostic::{CustomDiagnostic, Directive, FormatArgs};
 use rustc_hir::def::{self, DefKind, PartialRes};
 use rustc_hir::def_id::{DefId, LocalDefId, LocalDefIdMap};
 use rustc_middle::metadata::{AmbigModChild, ModChild, Reexport};
 use rustc_middle::span_bug;
-use rustc_middle::ty::{TyCtxt, Visibility};
+use rustc_middle::ty::Visibility;
 use rustc_session::errors::feature_err;
 use rustc_session::lint::LintId;
 use rustc_session::lint::builtin::{
@@ -39,8 +31,8 @@ use crate::diagnostics::{
     CannotGlobImportAllCrates, ConsiderAddingMacroExport, ConsiderMarkingAsPub,
     ConsiderMarkingAsPubCrate,
 };
-use crate::error_helper::{DiagMode, Suggestion, import_candidates};
-use crate::ref_mut::CmCell;
+use crate::error_helper::{OnUnknownData, Suggestion};
+use crate::ref_mut::{CmCell, CmRefCell};
 use crate::{
     AmbiguityError, BindingKey, CmResolver, Decl, DeclData, DeclKind, Determinacy, Finalize,
     IdentKey, ImportSuggestion, ImportSummary, LocalModule, ModuleOrUniformRoot, ParentScope,
@@ -77,7 +69,6 @@ impl<'ra> PendingDecl<'ra> {
 }
 
 /// Contains data for specific kinds of imports.
-#[derive(Clone)]
 pub(crate) enum ImportKind<'ra> {
     Single {
         /// `source` in `use prefix::source as target`.
@@ -164,30 +155,8 @@ impl<'ra> std::fmt::Debug for ImportKind<'ra> {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub(crate) struct OnUnknownData {
-    directive: Box<Directive>,
-}
-
-impl OnUnknownData {
-    pub(crate) fn from_attrs<'tcx>(tcx: TyCtxt<'tcx>, item: &Item) -> Option<OnUnknownData> {
-        if tcx.features().diagnostic_on_unknown()
-            && let Some(Attribute::Parsed(AttributeKind::OnUnknown { directive, .. })) =
-                AttributeParser::parse_limited(
-                    tcx.sess,
-                    &item.attrs,
-                    &[sym::diagnostic, sym::on_unknown],
-                )
-        {
-            Some(Self { directive: directive? })
-        } else {
-            None
-        }
-    }
-}
-
 /// One import.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct ImportData<'ra> {
     pub kind: ImportKind<'ra>,
 
@@ -310,7 +279,7 @@ impl<'ra> ImportData<'ra> {
 }
 
 /// Records information about the resolution of a name in a namespace of a module.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct NameResolution<'ra> {
     /// Single imports that may define the name in the namespace.
     /// Imports are arena-allocated, so it's ok to use pointers as keys.
@@ -321,6 +290,8 @@ pub(crate) struct NameResolution<'ra> {
     pub glob_decl: Option<Decl<'ra>> = None,
     pub orig_ident_span: Span,
 }
+
+pub(crate) type NameResolutionRef<'ra> = Interned<'ra, CmRefCell<NameResolution<'ra>>>;
 
 impl<'ra> NameResolution<'ra> {
     pub(crate) fn new(orig_ident_span: Span) -> Self {
@@ -350,19 +321,72 @@ impl<'ra> NameResolution<'ra> {
     }
 }
 
+// module to keep the TLS private and only accessible through the function `enter_cycle_detector`.
+pub(crate) mod cycle_detection {
+    use std::ptr;
+
+    use crate::{BindingKey, CacheRefCell, LocalModule};
+
+    thread_local!(
+        /// During import resolution, recursive imports can form cycles.
+        /// This set stores the active resolution stack for the current thread.
+        /// By keeping track of the module and `BindingKey` pair that identifies
+        /// the specific resolution.
+        ///
+        /// The pointer is the interned address of a `Interned<'ra, ModuleData>` allocated
+        /// in the `Resolver Arenas` (lifetime `'ra`), it is thus stable and allows casting
+        /// to a `*const ()` for comparison. This is done because we can't use lifetimes
+        /// other than `'static` in thread local storage.
+        static ACTIVE_RESOLUTIONS: CacheRefCell<Vec<(*const (), BindingKey)>> = Default::default();
+    );
+
+    pub(crate) struct ActiveResolutionGuard {
+        key: (*const (), BindingKey),
+    }
+
+    impl Drop for ActiveResolutionGuard {
+        fn drop(&mut self) {
+            ACTIVE_RESOLUTIONS.with_borrow_mut(|ar| {
+                // Only this guard is allowed to remove this key.
+                assert!(
+                    Some(self.key) == ar.pop(),
+                    "This guard should be the only one removing this key"
+                );
+            });
+        }
+    }
+
+    /// Returns `Err(())` if a cycle is detected, otherwise this returns a
+    /// guard that will remove the resolution when dropped.
+    pub(crate) fn enter_cycle_detector<'ra>(
+        module: LocalModule<'ra>,
+        binding_key: BindingKey,
+    ) -> Result<ActiveResolutionGuard, ()> {
+        let module_key = ptr::from_ref(module.0.0).cast();
+        let key = (module_key, binding_key);
+        ACTIVE_RESOLUTIONS.with_borrow_mut(|ar| {
+            if ar.contains(&key) {
+                return Err(());
+            }
+            ar.push(key);
+            Ok(ActiveResolutionGuard { key })
+        })
+    }
+}
+
 /// An error that may be transformed into a diagnostic later. Used to combine multiple unresolved
 /// import errors within the same use tree into a single diagnostic.
-#[derive(Debug, Clone)]
-struct UnresolvedImportError {
-    span: Span,
-    label: Option<String>,
-    note: Option<String>,
-    suggestion: Option<Suggestion>,
-    candidates: Option<Vec<ImportSuggestion>>,
-    segment: Option<Ident>,
+#[derive(Debug)]
+pub(crate) struct UnresolvedImportError {
+    pub(crate) span: Span,
+    pub(crate) label: Option<String>,
+    pub(crate) note: Option<String>,
+    pub(crate) suggestion: Option<Suggestion>,
+    pub(crate) candidates: Option<Vec<ImportSuggestion>>,
+    pub(crate) segment: Option<Ident>,
     /// comes from `PathRes::Failed { module }`
-    module: Option<DefId>,
-    on_unknown_attr: Option<OnUnknownData>,
+    pub(crate) module: Option<DefId>,
+    pub(crate) on_unknown_attr: Option<OnUnknownData>,
 }
 
 // Reexports of the form `pub use foo as bar;` where `foo` is `extern crate foo;`
@@ -371,7 +395,7 @@ fn pub_use_of_private_extern_crate_hack(
     import: ImportSummary,
     decl: Decl<'_>,
 ) -> Option<LocalDefId> {
-    match (import.is_single, decl.kind) {
+    match (import.is_single, &decl.kind) {
         (true, DeclKind::Import { import: decl_import, .. })
             if let ImportKind::ExternCrate { def_id, .. } = decl_import.kind
                 && import.vis.is_public() =>
@@ -670,6 +694,7 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
         let (binding, t) = {
             let resolution = &mut *self
                 .resolution_or_default(module.to_module(), key, orig_ident_span)
+                .0
                 .borrow_mut(self);
             let old_decl = resolution.determined_decl();
             let old_vis = old_decl.map(|d| d.vis());
@@ -809,7 +834,7 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
                         match import_decls[ns] {
                             PendingDecl::Ready(Some(import_decl)) => {
                                 if import_decl.is_assoc_item()
-                                    && !this.tcx.features().import_trait_associated_functions()
+                                    && !this.features.import_trait_associated_functions()
                                 {
                                     feature_err(
                                         this.tcx.sess,
@@ -852,8 +877,7 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
                         continue;
                     };
 
-                    if module.is_trait() && !self.tcx.features().import_trait_associated_functions()
-                    {
+                    if module.is_trait() && !self.features.import_trait_associated_functions() {
                         feature_err(
                             self.tcx.sess,
                             sym::import_trait_associated_functions,
@@ -1077,141 +1101,6 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
                     );
                 }
             }
-        }
-    }
-
-    fn throw_unresolved_import_error(
-        &mut self,
-        mut errors: Vec<(Import<'_>, UnresolvedImportError)>,
-        glob_error: bool,
-    ) {
-        errors.retain(|(_import, err)| match err.module {
-            // Skip `use` errors for `use foo::Bar;` if `foo.rs` has unrecovered parse errors.
-            Some(def_id) if self.mods_with_parse_errors.contains(&def_id) => false,
-            // If we've encountered something like `use _;`, we've already emitted an error stating
-            // that `_` is not a valid identifier, so we ignore that resolve error.
-            _ => err.segment.map(|s| s.name) != Some(kw::Underscore),
-        });
-        if errors.is_empty() {
-            self.tcx.dcx().delayed_bug("expected a parse or \"`_` can't be an identifier\" error");
-            return;
-        }
-
-        let span = MultiSpan::from_spans(errors.iter().map(|(_, err)| err.span).collect());
-
-        let paths = errors
-            .iter()
-            .map(|(import, err)| {
-                let path = import_path_to_string(
-                    &import.module_path.iter().map(|seg| seg.ident).collect::<Vec<_>>(),
-                    &import.kind,
-                    err.span,
-                );
-                format!("`{path}`")
-            })
-            .collect::<Vec<_>>();
-        let default_message =
-            format!("unresolved import{} {}", pluralize!(paths.len()), paths.join(", "),);
-        let (message, label, notes) =
-            // Feature gating for `on_unknown_attr` happens initialization of the field
-            if let Some(directive) = errors[0].1.on_unknown_attr.as_ref().map(|a| &a.directive) {
-                let this = errors.iter().map(|(_import, err)| {
-
-                    // Is this unwrap_or reachable?
-                    err.segment.map(|s|s.name).unwrap_or(kw::Underscore)
-                }).join(", ");
-
-                let args = FormatArgs {
-                    this,
-                    ..
-                };
-                let CustomDiagnostic { message, label, notes, .. } = directive.eval(None, &args);
-
-                (message, label, notes)
-            } else {
-                (None, None, Vec::new())
-            };
-        let has_custom_message = message.is_some();
-        let message = message.as_deref().unwrap_or(default_message.as_str());
-
-        let mut diag = struct_span_code_err!(self.dcx(), span, E0432, "{message}");
-        if has_custom_message {
-            diag.note(default_message);
-        }
-
-        if !notes.is_empty() {
-            for note in notes {
-                diag.note(note);
-            }
-        } else if let Some((_, UnresolvedImportError { note: Some(note), .. })) =
-            errors.iter().last()
-        {
-            diag.note(note.clone());
-        }
-
-        /// Upper limit on the number of `span_label` messages.
-        const MAX_LABEL_COUNT: usize = 10;
-
-        for (import, err) in errors.into_iter().take(MAX_LABEL_COUNT) {
-            let label_span = match err.segment {
-                Some(segment) => segment.span,
-                None => err.span,
-            };
-            if let Some(label) = &label {
-                diag.span_label(label_span, label.clone());
-            } else if let Some(label) = &err.label {
-                diag.span_label(label_span, label.clone());
-            }
-
-            if let Some((suggestions, msg, applicability)) = err.suggestion {
-                if suggestions.is_empty() {
-                    diag.help(msg);
-                    continue;
-                }
-                diag.multipart_suggestion(msg, suggestions, applicability);
-            }
-
-            if let Some(candidates) = &err.candidates {
-                match &import.kind {
-                    ImportKind::Single { nested: false, source, target, .. } => import_candidates(
-                        self.tcx,
-                        &mut diag,
-                        Some(err.span),
-                        candidates,
-                        DiagMode::Import { append: false, unresolved_import: true },
-                        (source != target)
-                            .then(|| format!(" as {target}"))
-                            .as_deref()
-                            .unwrap_or(""),
-                    ),
-                    ImportKind::Single { nested: true, source, target, .. } => {
-                        import_candidates(
-                            self.tcx,
-                            &mut diag,
-                            None,
-                            candidates,
-                            DiagMode::Normal,
-                            (source != target)
-                                .then(|| format!(" as {target}"))
-                                .as_deref()
-                                .unwrap_or(""),
-                        );
-                    }
-                    _ => {}
-                }
-            }
-
-            if matches!(import.kind, ImportKind::Single { .. })
-                && let Some(segment) = err.segment
-                && let Some(module) = err.module
-            {
-                self.find_cfg_stripped(&mut diag, &segment.name, module)
-            }
-        }
-
-        let guar = diag.emit();
-        if glob_error {
-            self.glob_error = Some(guar);
         }
     }
 
@@ -1652,7 +1541,7 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
 
                 // If importing of trait asscoiated items is enabled, an also find an
                 // `Enum`, then note that inherent associated items cannot be imported.
-                let note = if self.tcx.features().import_trait_associated_functions()
+                let note = if self.features.import_trait_associated_functions()
                     && let PathResult::Module(ModuleOrUniformRoot::Module(m)) = path_res
                     && let Some(Res::Def(DefKind::Enum, _)) = m.res()
                 {
@@ -2029,7 +1918,11 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
     }
 }
 
-fn import_path_to_string(names: &[Ident], import_kind: &ImportKind<'_>, span: Span) -> String {
+pub(crate) fn import_path_to_string(
+    names: &[Ident],
+    import_kind: &ImportKind<'_>,
+    span: Span,
+) -> String {
     let pos = names.iter().position(|p| span == p.span && p.name != kw::PathRoot);
     let global = !names.is_empty() && names[0].name == kw::PathRoot;
     if let Some(pos) = pos {

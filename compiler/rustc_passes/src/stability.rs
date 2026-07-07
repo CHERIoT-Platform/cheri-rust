@@ -818,7 +818,7 @@ impl<'tcx> Visitor<'tcx> for Checker<'tcx> {
                                 self.tcx.check_stability_allow_unstable(
                                     def_id,
                                     None,
-                                    path.span,
+                                    path_segment.ident.span,
                                     None,
                                     if is_unstable_reexport(self.tcx, id) {
                                         AllowUnstable::Yes
@@ -1112,8 +1112,7 @@ pub fn check_unused_or_stable_features(tcx: TyCtxt<'_>) {
                 .iter()
                 .flat_map(|&cnum| {
                     find_attr!(tcx, cnum.as_def_id(), UnstableRemoved(rem_features) => rem_features)
-                        .into_iter()
-                        .flatten()
+                        .into_flat_iter()
                 })
                 .collect::<Vec<_>>();
 
