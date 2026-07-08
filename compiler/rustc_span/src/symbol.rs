@@ -757,6 +757,8 @@ symbols! {
         crate_name,
         crate_type,
         crate_visibility_modifier,
+        // FIXME(lewis-belsten-revill): This should be yreg once rvy lands?
+        creg,
         crt_dash_static: "crt-static",
         csky,
         csky_target_feature,

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt;
 
 use rustc_data_structures::fx::FxIndexSet;
@@ -9,6 +10,7 @@ use crate::spec::{RelocModel, Target};
 def_reg_class! {
     RiscV RiscVInlineAsmRegClass {
         reg,
+        creg,
         freg,
         vreg,
     }
@@ -47,6 +49,13 @@ impl RiscVInlineAsmRegClass {
                     types! { _: I8, I16, I32, F16, F32; }
                 }
             }
+            Self::creg => {
+                if arch == InlineAsmArch::RiscV64 {
+                    types! { _: I8, I16, I32, I64, I128, F16, F32, F64; }
+                } else {
+                    types! { _: I8, I16, I32, I64, F16, F32, F64; }
+                }
+            }
             // FIXME(f128): Add `q: F128;` once LLVM support the `Q` extension.
             Self::freg => types! { f: F16, F32; d: F64; },
             Self::vreg => &[],
@@ -69,6 +78,20 @@ fn not_e(
         Err("register can't be used with the `e` target feature")
     } else {
         Ok(())
+    }
+}
+
+fn is_cheri(
+    _arch: InlineAsmArch,
+    _reloc_model: RelocModel,
+    _target_features: &FxIndexSet<Symbol>,
+    target: &Target,
+    _is_clobber: bool,
+) -> Result<(), &'static str> {
+    if target.families.contains(&Cow::Borrowed("cheri")) {
+        Ok(())
+    } else {
+        Err("register can only be used for a CHERI-enabled target")
     }
 }
 
@@ -100,6 +123,32 @@ def_regs! {
         x29: reg = ["x29", "t4"] % not_e,
         x30: reg = ["x30", "t5"] % not_e,
         x31: reg = ["x31", "t6"] % not_e,
+        c1: reg = ["c1", "cra"] % is_cheri,
+        c5: reg = ["c5", "ct0"] % is_cheri,
+        c6: reg = ["c6", "ct1"] % is_cheri,
+        c7: reg = ["c7", "ct2"] % is_cheri,
+        c10: reg = ["c10", "ca0"] % is_cheri,
+        c11: reg = ["c11", "ca1"] % is_cheri,
+        c12: reg = ["c12", "ca2"] % is_cheri,
+        c13: reg = ["c13", "ca3"] % is_cheri,
+        c14: reg = ["c14", "ca4"] % is_cheri,
+        c15: reg = ["c15", "ca5"] % is_cheri,
+        c16: reg = ["c16", "ca6"] % is_cheri,
+        c17: reg = ["c17", "ca7"] % is_cheri,
+        c18: reg = ["c18", "cs2"] % is_cheri,
+        c19: reg = ["c19", "cs3"] % is_cheri,
+        c20: reg = ["c20", "cs4"] % is_cheri,
+        c21: reg = ["c21", "cs5"] % is_cheri,
+        c22: reg = ["c22", "cs6"] % is_cheri,
+        c23: reg = ["c23", "cs7"] % is_cheri,
+        c24: reg = ["c24", "cs8"] % is_cheri,
+        c25: reg = ["c25", "cs9"] % is_cheri,
+        c26: reg = ["c26", "cs10"] % is_cheri,
+        c27: reg = ["c27", "cs11"] % is_cheri,
+        c28: reg = ["c28", "ct3"] % is_cheri,
+        c29: reg = ["c29", "ct4"] % is_cheri,
+        c30: reg = ["c30", "ct5"] % is_cheri,
+        c31: reg = ["c31", "ct6"] % is_cheri,
         f0: freg = ["f0", "ft0"],
         f1: freg = ["f1", "ft1"],
         f2: freg = ["f2", "ft2"],
@@ -164,17 +213,17 @@ def_regs! {
         v29: vreg = ["v29"],
         v30: vreg = ["v30"],
         v31: vreg = ["v31"],
-        #error = ["x9", "s1"] =>
+        #error = ["x9", "s1", "c9", "cs1"] =>
             "s1 is used internally by LLVM and cannot be used as an operand for inline asm",
-        #error = ["x8", "s0", "fp"] =>
+        #error = ["x8", "s0", "fp", "c8", "cs0"] =>
             "the frame pointer cannot be used as an operand for inline asm",
-        #error = ["x2", "sp"] =>
+        #error = ["x2", "sp", "c2", "csp"] =>
             "the stack pointer cannot be used as an operand for inline asm",
-        #error = ["x3", "gp"] =>
+        #error = ["x3", "gp", "c3", "cgp"] =>
             "the global pointer cannot be used as an operand for inline asm",
-        #error = ["x4", "tp"] =>
+        #error = ["x4", "tp", "c4", "ctp"] =>
             "the thread pointer cannot be used as an operand for inline asm" ,
-        #error = ["x0", "zero"] =>
+        #error = ["x0", "zero", "c0", "cnull"] =>
             "the zero register cannot be used as an operand for inline asm",
     }
 }
