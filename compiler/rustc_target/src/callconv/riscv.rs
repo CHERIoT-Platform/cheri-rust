@@ -420,11 +420,11 @@ where
     C: HasDataLayout + HasTargetSpec,
 {
     let flen = match &cx.target_spec().llvm_abiname {
-        LlvmAbi::Ilp32f | LlvmAbi::Lp64f => 32,
-        LlvmAbi::Ilp32d | LlvmAbi::Lp64d => 64,
+        LlvmAbi::Ilp32f | LlvmAbi::Lp64f | LlvmAbi::Il32pc64f | LlvmAbi::L64pc128f => 32,
+        LlvmAbi::Ilp32d | LlvmAbi::Lp64d | LlvmAbi::Il32pc64d | LlvmAbi::L64pc128d => 64,
         _ => 0,
     };
-    let xlen = cx.data_layout().pointer_size().bits();
+    let xlen = cx.data_layout().address_size().bits();
 
     let mut avail_gprs = 8;
     let mut avail_fprs = 8;

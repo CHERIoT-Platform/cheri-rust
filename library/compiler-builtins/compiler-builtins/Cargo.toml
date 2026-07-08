@@ -31,7 +31,7 @@ doc = false
 core = { path = "../../core", optional = true }
 
 [build-dependencies]
-cc = { version = "1.2", optional = true }
+cc = { optional = true, git = "https://github.com/lewis-belsten-revill/cc-rs.git", branch = "bakewell" }
 
 [features]
 default = ["arch"]

@@ -1223,6 +1223,12 @@ impl Target {
                         // a program while the rest doesn't know they even exist.
                         FeatureConstraints { required: &[], incompatible: &["d"] }
                     }
+                    LlvmAbi::L64pc128d | LlvmAbi::Il32pc64d => {
+                        FeatureConstraints { required: &["d"], incompatible: &["e"] }
+                    }
+                    LlvmAbi::Il32pc64f | LlvmAbi::L64pc128f => {
+                        FeatureConstraints { required: &["f"], incompatible: &["e"] }
+                    }
                     LlvmAbi::Lp64e => {
                         // As above, `e` is not required.
                         NOTHING
