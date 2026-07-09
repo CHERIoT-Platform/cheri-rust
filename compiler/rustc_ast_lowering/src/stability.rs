@@ -144,6 +144,18 @@ pub fn extern_abi_stability(abi: ExternAbi) -> Result<(), UnstableAbi> {
             feature: sym::cmse_nonsecure_entry,
             explain: GateReason::Experimental,
         }),
+        ExternAbi::CHERIoTCompartmentCall | ExternAbi::CHERIoTCompartmentCallee => {
+            Err(UnstableAbi {
+                abi,
+                feature: sym::abi_cheriot_compartment_call,
+                explain: GateReason::Experimental,
+            })
+        }
+        ExternAbi::CHERIoTLibraryCall => Err(UnstableAbi {
+            abi,
+            feature: sym::abi_cheriot_library_call,
+            explain: GateReason::Experimental,
+        }),
         ExternAbi::Custom => {
             Err(UnstableAbi { abi, feature: sym::abi_custom, explain: GateReason::Experimental })
         }

@@ -472,6 +472,10 @@ pub enum CallConvention {
     CCmseNonSecureCall,
     CCmseNonSecureEntry,
 
+    CHERIoTCompartmentCall,
+    CHERIoTCompartmentCallee,
+    CHERIoTLibraryCall,
+
     Msp430Intr,
 
     PtxKernel,

@@ -1,0 +1,19 @@
+error[E0570]: "cheriot-library-call" is not a supported ABI for the current target
+  --> $DIR/feature-gate-abi-cheriot-library-call.rs:16:8
+   |
+LL | extern "cheriot-library-call" fn f() {}
+   |        ^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0658]: the extern "cheriot-library-call" ABI is experimental and subject to change
+  --> $DIR/feature-gate-abi-cheriot-library-call.rs:16:8
+   |
+LL | extern "cheriot-library-call" fn f() {}
+   |        ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add `#![feature(abi_cheriot_library_call)]` to the crate attributes to enable
+   = note: this compiler was built on YYYY-MM-DD; consider upgrading it if it is out of date
+
+error: aborting due to 2 previous errors
+
+Some errors have detailed explanations: E0570, E0658.
+For more information about an error, try `rustc --explain E0570`.

@@ -39,6 +39,8 @@ pub enum CanonAbi {
 
     /// ABIs relevant to 32-bit Arm targets
     Arm(ArmCall),
+    /// ABIs relevant to CHERIoT targets
+    CHERIoT(CHERIoTCall),
     /// ABI relevant to GPUs: the entry point for a GPU kernel
     GpuKernel,
 
@@ -68,6 +70,7 @@ impl CanonAbi {
             | CanonAbi::Custom
             | CanonAbi::Swift
             | CanonAbi::Arm(_)
+            | CanonAbi::CHERIoT(_)
             | CanonAbi::GpuKernel
             | CanonAbi::Interrupt(_)
             | CanonAbi::X86(_) => false,
@@ -92,6 +95,11 @@ impl fmt::Display for CanonAbi {
                 ArmCall::Aapcs => ExternAbi::Aapcs { unwind: false },
                 ArmCall::CCmseNonSecureCall => ExternAbi::CmseNonSecureCall,
                 ArmCall::CCmseNonSecureEntry => ExternAbi::CmseNonSecureEntry,
+            },
+            CanonAbi::CHERIoT(cheriot_call) => match cheriot_call {
+                CHERIoTCall::CompartmentCall => ExternAbi::CHERIoTCompartmentCall,
+                CHERIoTCall::CompartmentCallee => ExternAbi::CHERIoTCompartmentCallee,
+                CHERIoTCall::LibraryCall => ExternAbi::CHERIoTLibraryCall,
             },
             CanonAbi::GpuKernel => ExternAbi::GpuKernel,
             CanonAbi::Interrupt(interrupt_kind) => match interrupt_kind {
@@ -157,4 +165,14 @@ pub enum ArmCall {
     Aapcs,
     CCmseNonSecureCall,
     CCmseNonSecureEntry,
+}
+
+/// ABIs defined for CHERIoT
+#[derive(Copy, Clone, Debug)]
+#[derive(PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "nightly", derive(StableHash))]
+pub enum CHERIoTCall {
+    CompartmentCall,
+    CompartmentCallee,
+    LibraryCall,
 }

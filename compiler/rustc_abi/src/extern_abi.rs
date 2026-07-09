@@ -81,6 +81,15 @@ pub enum ExternAbi {
     /// extremely constrained barely-C ABI for TrustZone
     CmseNonSecureEntry,
 
+    /* cheriot */
+    /// Calling convention used for CHERIoT when crossing a protection boundary.
+    CHERIoTCompartmentCall,
+    /// Calling convention used for the callee of CHERIoTCompartmentCall. Ignores the first two
+    /// capability arguments and the first integer argument, zeroes all unused return registers on return.
+    CHERIoTCompartmentCallee,
+    /// Calling convention used for CHERIoT for cross-library calls to a stateless compartment.
+    CHERIoTLibraryCall,
+
     /* gpu */
     /// An entry-point function called by the GPU's host
     GpuKernel,
@@ -189,6 +198,9 @@ abi_impls! {
             AvrNonBlockingInterrupt =><= "avr-non-blocking-interrupt",
             Cdecl { unwind: false } =><= "cdecl",
             Cdecl { unwind: true } =><= "cdecl-unwind",
+            CHERIoTCompartmentCall =><= "cheriot-compartment-call",
+            CHERIoTCompartmentCallee =><= "cheriot-compartment-callee",
+            CHERIoTLibraryCall =><= "cheriot-library-call",
             CmseNonSecureCall =><= "cmse-nonsecure-call",
             CmseNonSecureEntry =><= "cmse-nonsecure-entry",
             Custom =><= "custom",
@@ -324,6 +336,12 @@ impl ExternAbi {
             Self::CmseNonSecureCall | Self::CmseNonSecureEntry => {
                 // See https://godbolt.org/z/9jhdeqErv. The CMSE calling conventions clear registers
                 // before returning, and hence cannot guarantee a tail call.
+                false
+            }
+            Self::CHERIoTCompartmentCall
+            | Self::CHERIoTCompartmentCallee
+            | Self::CHERIoTLibraryCall => {
+                // We can support tail calls for libcalls, but we cannot guarantee them.
                 false
             }
             Self::AvrInterrupt
