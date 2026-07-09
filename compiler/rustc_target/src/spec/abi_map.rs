@@ -1,6 +1,6 @@
-use rustc_abi::{ArmCall, CanonAbi, ExternAbi, InterruptKind, X86Call};
+use rustc_abi::{ArmCall, CHERIoTCall, CanonAbi, ExternAbi, InterruptKind, X86Call};
 
-use crate::spec::{Arch, Target};
+use crate::spec::{Arch, LlvmAbi, Target};
 
 /// Mapping for ExternAbi to CanonAbi according to a Target
 ///
@@ -59,7 +59,13 @@ impl AbiMap {
             Arch::LoongArch32 | Arch::LoongArch64 => ArchKind::LoongArch,
             Arch::Msp430 => ArchKind::Msp430,
             Arch::Nvptx64 => ArchKind::Nvptx,
-            Arch::RiscV32 | Arch::RiscV64 => ArchKind::Riscv,
+            Arch::RiscV32 | Arch::RiscV64 => {
+                ArchKind::Riscv(if target.llvm_abiname == LlvmAbi::CHERIoT {
+                    RiscvSpec::CHERIoT
+                } else {
+                    RiscvSpec::Other
+                })
+            }
             Arch::X86 => ArchKind::X86,
             Arch::X86_64 => ArchKind::X86_64,
             _ => ArchKind::Other,
@@ -126,7 +132,7 @@ impl AbiMap {
             (ExternAbi::EfiApi, ArchKind::X86_64) => CanonAbi::X86(X86Call::Win64),
             (
                 ExternAbi::EfiApi,
-                ArchKind::Aarch64 | ArchKind::LoongArch | ArchKind::Riscv | ArchKind::X86,
+                ArchKind::Aarch64 | ArchKind::LoongArch | ArchKind::Riscv(_) | ArchKind::X86,
             ) => CanonAbi::C,
             (ExternAbi::EfiApi, _) => return AbiMapping::Invalid,
 
@@ -185,18 +191,31 @@ impl AbiMap {
             (ExternAbi::Msp430Interrupt, ArchKind::Msp430) => {
                 CanonAbi::Interrupt(InterruptKind::Msp430)
             }
-            (ExternAbi::RiscvInterruptM, ArchKind::Riscv) => {
+            (ExternAbi::RiscvInterruptM, ArchKind::Riscv(_)) => {
                 CanonAbi::Interrupt(InterruptKind::RiscvMachine)
             }
-            (ExternAbi::RiscvInterruptS, ArchKind::Riscv) => {
+            (ExternAbi::RiscvInterruptS, ArchKind::Riscv(_)) => {
                 CanonAbi::Interrupt(InterruptKind::RiscvSupervisor)
             }
             (ExternAbi::X86Interrupt, ArchKind::X86 | ArchKind::X86_64) => {
                 CanonAbi::Interrupt(InterruptKind::X86)
             }
+            (ExternAbi::CHERIoTCompartmentCall, ArchKind::Riscv(RiscvSpec::CHERIoT)) => {
+                CanonAbi::CHERIoT(CHERIoTCall::CompartmentCall)
+            }
+            (ExternAbi::CHERIoTCompartmentCallee, ArchKind::Riscv(RiscvSpec::CHERIoT)) => {
+                CanonAbi::CHERIoT(CHERIoTCall::CompartmentCallee)
+            }
+            (ExternAbi::CHERIoTLibraryCall, ArchKind::Riscv(RiscvSpec::CHERIoT)) => {
+                CanonAbi::CHERIoT(CHERIoTCall::LibraryCall)
+            }
+
             (
                 ExternAbi::AvrInterrupt
                 | ExternAbi::AvrNonBlockingInterrupt
+                | ExternAbi::CHERIoTCompartmentCall
+                | ExternAbi::CHERIoTCompartmentCallee
+                | ExternAbi::CHERIoTLibraryCall
                 | ExternAbi::Msp430Interrupt
                 | ExternAbi::RiscvInterruptM
                 | ExternAbi::RiscvInterruptS
@@ -218,7 +237,7 @@ enum ArchKind {
     LoongArch,
     Msp430,
     Nvptx,
-    Riscv,
+    Riscv(RiscvSpec),
     X86,
     X86_64,
     /// Architectures which don't need other considerations for ABI lowering
@@ -236,5 +255,11 @@ enum OsKind {
 #[derive(Debug, PartialEq, Copy, Clone)]
 enum ArmVer {
     ThumbV8M,
+    Other,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+enum RiscvSpec {
+    CHERIoT,
     Other,
 }

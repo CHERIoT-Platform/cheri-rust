@@ -211,6 +211,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             | CanonAbi::RustTail
             | CanonAbi::Swift
             | CanonAbi::Arm(_)
+            | CanonAbi::CHERIoT(_)
             | CanonAbi::X86(_) => {}
         }
     }
