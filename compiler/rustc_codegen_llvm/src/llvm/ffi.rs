@@ -1102,6 +1102,13 @@ unsafe extern "C" {
     pub(crate) fn LLVMSetDLLStorageClass(V: &Value, C: DLLStorageClass);
     pub(crate) fn LLVMGlobalGetValueType(Global: &Value) -> &Type;
 
+    /* Named like this to respect the `LLVMRustAddFunctionAttributes` and `LLVMRustAddCallSiteAttributes` names */
+    pub(crate) fn LLVMRustAddGlobalVariableAttributes<'a>(
+        Global: &'a Value,
+        Attrs: *const &'a Attribute,
+        AttrsLen: size_t,
+    );
+
     // Operations on global variables
     pub(crate) safe fn LLVMIsAGlobalVariable(GlobalVar: &Value) -> Option<&Value>;
     pub(crate) fn LLVMAddGlobal<'a>(M: &'a Module, Ty: &'a Type, Name: *const c_char) -> &'a Value;

@@ -504,6 +504,20 @@ static inline void AddAttributes(T *t, unsigned Index, LLVMAttributeRef *Attrs,
   t->setAttributes(PALNew);
 }
 
+extern "C" void LLVMRustAddGlobalVariableAttributes(LLVMValueRef Gv,
+                                                    LLVMAttributeRef *Attrs,
+                                                    size_t AttrsLen) {
+  GlobalVariable *t = unwrap<GlobalVariable>(Gv);
+
+  auto PAL = t->getAttributes();
+  auto B = AttrBuilder(t->getContext());
+  for (LLVMAttributeRef Attr : ArrayRef<LLVMAttributeRef>(Attrs, AttrsLen))
+    B.addAttribute(unwrap(Attr));
+  auto PALNew =
+      PAL.addAttributes(t->getContext(), AttributeSet::get(t->getContext(), B));
+  t->setAttributes(PALNew);
+}
+
 extern "C" bool LLVMRustHasAttributeAtIndex(LLVMValueRef Fn, unsigned Index,
                                             LLVMRustAttributeKind RustAttr) {
   Function *F = unwrap<Function>(Fn);

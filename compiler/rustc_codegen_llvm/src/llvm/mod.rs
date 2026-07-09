@@ -33,6 +33,12 @@ impl LLVMRustResult {
     }
 }
 
+pub(crate) fn AddGlobalVariableAttributes<'ll>(llglobal: &'ll Value, attrs: &[&'ll Attribute]) {
+    unsafe {
+        LLVMRustAddGlobalVariableAttributes(llglobal, attrs.as_ptr(), attrs.len());
+    }
+}
+
 pub(crate) fn AddFunctionAttributes<'ll>(
     llfn: &'ll Value,
     idx: AttributePlace,
