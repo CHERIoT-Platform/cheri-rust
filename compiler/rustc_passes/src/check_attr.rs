@@ -45,6 +45,7 @@ use rustc_session::lint::builtin::{
 };
 use rustc_span::edition::Edition;
 use rustc_span::{DUMMY_SP, Ident, Span, Symbol, sym};
+use rustc_target::spec::HasTargetSpec;
 use rustc_trait_selection::error_reporting::InferCtxtErrorExt;
 use rustc_trait_selection::infer::{TyCtxtInferExt, ValuePairs};
 use rustc_trait_selection::traits::ObligationCtxt;
@@ -242,6 +243,8 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
             AttributeKind::OnTypeError { directive, .. } => {
                 self.check_diagnostic_on_type_error(hir_id, directive.as_deref())
             }
+
+            AttributeKind::CheriotMMIO { .. } => self.check_cheriot_mmio(hir_id, attr, span),
 
             // All of the following attributes have no specific checks.
             // tidy-alphabetical-start
@@ -1624,6 +1627,72 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         {
             self.dcx()
                 .emit_err(diagnostics::BothOptimizeNoneAndInline { optimize_span, inline_span });
+        }
+    }
+
+    fn check_cheriot_mmio(&self, _hir_id: HirId, attr: &AttributeKind, attr_span: Span) {
+        if self.tcx.target_spec().llvm_abiname != rustc_target::spec::LlvmAbi::CHERIoT {
+            self.dcx()
+                .emit_err(diagnostics::NotCHERIoTTarget { span: attr_span, attr: "cheriot_mmio" });
+        }
+
+        let AttributeKind::CheriotMMIO(rustc_hir::attrs::CheriotMMIOAttr {
+            permissions,
+            permissions_span,
+            ..
+        }) = attr
+        else {
+            unreachable!()
+        };
+        self.check_cheriot_cap_import_permission_coherence(*permissions_span, permissions.as_str());
+    }
+
+    fn check_cheriot_cap_import_permission_coherence(&self, span: Span, permissions: &str) {
+        use rustc_hir::attrs::CheriotPermissionsAttr as Perms;
+        let has_read = permissions.contains(Perms::READ_SYM);
+        let has_write = permissions.contains(Perms::WRITE_SYM);
+        let has_cap = permissions.contains(Perms::CAP_SYM);
+        let has_mut = permissions.contains(Perms::MUT_SYM);
+        let has_glob = permissions.contains(Perms::GLOB_SYM);
+
+        if has_mut && !(has_read && has_cap) {
+            self.dcx().emit_err(diagnostics::CHERIoTCapImportPermissionsCoherence {
+                span,
+                suggestion: &format!("add the missing permissions"),
+                permissions,
+                reason: &format!(
+                    "as they contain load mut (`{}`) but don't contain both read (`{}`) and cap (`{}`)",
+                    Perms::MUT_SYM, Perms::READ_SYM, Perms::CAP_SYM
+                ),
+            });
+            return;
+        }
+
+        if has_glob && !(has_read && has_cap) {
+            self.dcx().emit_err(diagnostics::CHERIoTCapImportPermissionsCoherence {
+                span,
+                suggestion: &format!("add the missing permissions"),
+                permissions,
+                reason: &format!(
+                    "as they contain load global (`{}`) but don't contain both read (`{}`) and cap (`{}`)",
+                    Perms::GLOB_SYM, Perms::READ_SYM, Perms::CAP_SYM
+                ),
+            });
+            return;
+        }
+
+        if !has_read && !has_write {
+            self.dcx().emit_err(diagnostics::CHERIoTCapImportPermissionsCoherence {
+                span,
+                suggestion: &format!("add `{}` or `{}`", Perms::READ_SYM, Perms::WRITE_SYM),
+                permissions,
+                reason: &format!(
+                    "as they don't contain either `{}` (read) or `{}` (write)",
+                    Perms::READ_SYM,
+                    Perms::WRITE_SYM
+                ),
+            });
+            return;
         }
     }
 }

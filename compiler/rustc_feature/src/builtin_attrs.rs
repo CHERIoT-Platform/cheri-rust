@@ -225,6 +225,9 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
     // - https://github.com/rust-lang/rust/issues/157081
     sym::instrument_fn,
 
+    // CHERIoT-specific attributes.
+    sym::cheriot_mmio,
+
     // ==========================================================================
     // Internal attributes: Stability, deprecation, and unsafe:
     // ==========================================================================

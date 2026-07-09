@@ -949,6 +949,42 @@ pub struct UnstableRemovedFeature {
     pub since: RustcVersion,
 }
 
+/// Successfully-parsed value of a `#[cheriot_mmio(..)]` attribute.
+#[derive(Copy, Debug, Eq, PartialEq, Encodable, Decodable, Clone)]
+#[derive(StableHash, PrintAttribute)]
+pub struct CheriotMMIOAttr {
+    pub name: Symbol,
+    pub name_span: Span,
+    pub permissions: Symbol,
+    pub permissions_span: Span,
+    pub attr_span: Span,
+}
+
+/// A placeholder to hold types and functions for the `permissions = ...` part of a `cheriot_mmio` attribute.
+pub struct CheriotPermissionsAttr {}
+
+impl CheriotPermissionsAttr {
+    pub const READ_SYM: char = 'R';
+    pub const WRITE_SYM: char = 'W';
+    pub const CAP_SYM: char = 'c';
+    pub const MUT_SYM: char = 'm';
+    pub const GLOB_SYM: char = 'g';
+    /// The sequence of valid symbols in the permission representation.
+    /// The order matters.
+    pub const VALID_SYMBOLS: [char; 5] =
+        [Self::READ_SYM, Self::WRITE_SYM, Self::CAP_SYM, Self::MUT_SYM, Self::GLOB_SYM];
+
+    const NO_PERM_SYM: char = '-';
+
+    pub fn make_cap_import_attribute(domain: &str, ty: &str, perms: &str) -> String {
+        let mut ret = format!("{domain},{ty},");
+        for c in Self::VALID_SYMBOLS {
+            ret.push(if perms.contains(c) { c } else { Self::NO_PERM_SYM });
+        }
+        ret
+    }
+}
+
 /// Represents parsed *built-in* inert attributes.
 ///
 /// ## Overview
@@ -1020,6 +1056,9 @@ pub enum AttributeKind {
     CfiEncoding {
         encoding: Symbol,
     },
+
+    /// Represents `#[cheriot_mmio]`
+    CheriotMMIO(CheriotMMIOAttr),
 
     /// Represents `#[cold]`.
     Cold,
