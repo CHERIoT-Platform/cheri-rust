@@ -3,10 +3,10 @@ use std::ops::Range;
 use rustc_abi::{Align, ExternAbi, HasDataLayout, Primitive, Scalar, Size, WrappingRange};
 use rustc_codegen_ssa::common;
 use rustc_codegen_ssa::traits::*;
-use rustc_hir::LangItem;
-use rustc_hir::attrs::Linkage;
+use rustc_hir::attrs::{AttributeKind, CheriotMMIOAttr, CheriotPermissionsAttr, Linkage};
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
+use rustc_hir::{Attribute, LangItem};
 use rustc_middle::middle::codegen_fn_attrs::{CodegenFnAttrFlags, CodegenFnAttrs};
 use rustc_middle::mir::interpret::{
     Allocation, ConstAllocation, ErrorHandled, InitChunk, Pointer, Scalar as InterpScalar,
@@ -411,7 +411,41 @@ impl<'ll> CodegenCx<'ll, '_> {
         } else if let Some(methname) = fn_attrs.objc_selector {
             self.get_objc_selref(methname)
         } else {
-            check_and_apply_linkage(self, fn_attrs, llty, sym, def_id)
+            let g = check_and_apply_linkage(self, fn_attrs, llty, sym, def_id);
+
+            /* CHERIoT-specific: foreign statics with the MMIO attribute need special lowering */
+
+            if let Some(local) = def_id.as_local() {
+                let hir_id = self.tcx.local_def_id_to_hir_id(local);
+
+                if let Some(mmio) = self
+                    .tcx
+                    .hir_attrs(hir_id)
+                    .iter()
+                    .find(|v| matches!(v, Attribute::Parsed(AttributeKind::CheriotMMIO(..))))
+                {
+                    let Attribute::Parsed(AttributeKind::CheriotMMIO(CheriotMMIOAttr {
+                        name,
+                        permissions,
+                        ..
+                    })) = mmio
+                    else {
+                        unreachable!()
+                    };
+
+                    let llattr = llvm::CreateAttrStringValue(
+                        &self.llcx,
+                        "cheriot_global_cap_import",
+                        &CheriotPermissionsAttr::make_cap_import_attribute(
+                            "mem",
+                            name.as_str(),
+                            permissions.as_str(),
+                        ),
+                    );
+                    llvm::AddGlobalVariableAttributes(g, &[llattr]);
+                }
+            }
+            g
         };
 
         // Thread-local statics in some other crate need to *always* be linked
