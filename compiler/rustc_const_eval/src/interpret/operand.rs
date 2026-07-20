@@ -84,7 +84,7 @@ impl<Prov: Provenance> Immediate<Prov> {
     pub fn to_scalar(self) -> Scalar<Prov> {
         match self {
             Immediate::Scalar(val) => val,
-            Immediate::ScalarPair(..) => bug!("Got a scalar pair where a scalar was expected"),
+            Immediate::ScalarPair { .. } => bug!("Got a scalar pair where a scalar was expected"),
             Immediate::Uninit => bug!("Got uninit where a scalar was expected"),
         }
     }
@@ -141,7 +141,10 @@ impl<Prov: Provenance> Immediate<Prov> {
                     );
                 }
             }
-            (Immediate::ScalarPair(a_val, b_val), BackendRepr::ScalarPair(a, b)) => {
+            (
+                Immediate::ScalarPair(a_val, b_val),
+                BackendRepr::ScalarPair { a, b, b_offset: _ },
+            ) => {
                 let a_desired_size = match a.primitive() {
                     rustc_abi::Primitive::Pointer(_) => match a_val {
                         Scalar::Int(..) => a.capacity(cx),
@@ -149,7 +152,6 @@ impl<Prov: Provenance> Immediate<Prov> {
                     },
                     _ => a.capacity(cx),
                 };
-
                 assert_eq!(
                     a_val.in_memory_size(),
                     a_desired_size,
@@ -294,7 +296,7 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
     #[inline]
     pub fn from_scalar_pair(a: Scalar<Prov>, b: Scalar<Prov>, layout: TyAndLayout<'tcx>) -> Self {
         debug_assert!(
-            matches!(layout.backend_repr, BackendRepr::ScalarPair(..)),
+            matches!(layout.backend_repr, BackendRepr::ScalarPair { .. }),
             "`ImmTy::from_scalar_pair` on non-scalar-pair layout"
         );
         let imm = Immediate::ScalarPair(a, b);
@@ -307,7 +309,7 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
         debug_assert!(
             match (imm, layout.backend_repr) {
                 (Immediate::Scalar(..), BackendRepr::Scalar(..)) => true,
-                (Immediate::ScalarPair(..), BackendRepr::ScalarPair(..)) => true,
+                (Immediate::ScalarPair { .. }, BackendRepr::ScalarPair { .. }) => true,
                 (Immediate::Uninit, _) if layout.is_sized() => true,
                 _ => false,
             },
@@ -446,14 +448,15 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
                 **self
             }
             // extract fields from types with `ScalarPair` ABI
-            (Immediate::ScalarPair(a_val, b_val), BackendRepr::ScalarPair(a, b)) => {
-                Immediate::from(if offset.bytes() == 0 {
-                    a_val
-                } else {
-                    assert_eq!(offset, a.in_memory_size(cx).align_to(b.default_align(cx).abi));
-                    b_val
-                })
-            }
+            (
+                Immediate::ScalarPair(a_val, b_val),
+                BackendRepr::ScalarPair { a: _, b: _, b_offset },
+            ) => Immediate::from(if offset.bytes() == 0 {
+                a_val
+            } else {
+                assert_eq!(offset, b_offset);
+                b_val
+            }),
             // everything else is a bug
             _ => bug!(
                 "invalid field access on immediate {} at offset {}, original layout {:#?}",
@@ -640,15 +643,15 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                 )?;
                 Some(ImmTy::from_scalar(scalar, mplace.layout))
             }
-            BackendRepr::ScalarPair(
-                abi::Scalar::Initialized { value: a, .. },
-                abi::Scalar::Initialized { value: b, .. },
-            ) => {
+            BackendRepr::ScalarPair {
+                a: abi::Scalar::Initialized { value: a, .. },
+                b: abi::Scalar::Initialized { value: b, .. },
+                b_offset,
+            } => {
                 // We checked `ptr_align` above, so all fields will have the alignment they need.
                 // We would anyway check against `ptr_align.restrict_for_offset(b_offset)`,
                 // which `ptr.offset(b_offset)` cannot possibly fail to satisfy.
                 let (a_size, b_size) = (a.capacity(self), b.capacity(self));
-                let b_offset = a.in_memory_size(self).align_to(b.default_align(self).abi);
                 assert!(b_offset.bytes() > 0); // in `operand_field` we use the offset to tell apart the fields
                 let a_val = alloc.read_scalar(
                     alloc_range(Size::ZERO, a_size),
@@ -702,10 +705,11 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
         if !matches!(
             op.layout().backend_repr,
             BackendRepr::Scalar(abi::Scalar::Initialized { .. })
-                | BackendRepr::ScalarPair(
-                    abi::Scalar::Initialized { .. },
-                    abi::Scalar::Initialized { .. }
-                )
+                | BackendRepr::ScalarPair {
+                    a: abi::Scalar::Initialized { .. },
+                    b: abi::Scalar::Initialized { .. },
+                    b_offset: _,
+                }
         ) {
             span_bug!(self.cur_span(), "primitive read not possible for type: {}", op.layout().ty);
         }

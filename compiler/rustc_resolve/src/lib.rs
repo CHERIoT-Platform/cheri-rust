@@ -29,7 +29,6 @@ use std::{fmt, mem};
 
 use diagnostics::{ParamKindInEnumDiscriminant, ParamKindInNonTrivialAnonConst};
 use effective_visibilities::EffectiveVisibilitiesVisitor;
-use error_helper::{ImportSuggestion, LabelSuggestion, StructCtor, Suggestion};
 use hygiene::Macros20NormalizedSyntaxContext;
 use imports::{Import, ImportData, ImportKind, NameResolution, PendingDecl};
 use late::{
@@ -47,7 +46,7 @@ use rustc_ast::{
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap, FxIndexSet, default};
 use rustc_data_structures::intern::Interned;
 use rustc_data_structures::steal::Steal;
-use rustc_data_structures::sync::{FreezeReadGuard, FreezeWriteGuard};
+use rustc_data_structures::sync::{FreezeReadGuard, FreezeWriteGuard, WorkerLocal};
 use rustc_data_structures::unord::{UnordItems, UnordMap, UnordSet};
 use rustc_errors::{Applicability, Diag, ErrCode, ErrorGuaranteed, LintBuffer};
 use rustc_expand::base::{DeriveResolution, SyntaxExtension, SyntaxExtensionKind};
@@ -77,7 +76,9 @@ use rustc_span::{DUMMY_SP, Ident, Span, Symbol, kw, sym};
 use smallvec::{SmallVec, smallvec};
 use tracing::{debug, instrument};
 
-use crate::error_helper::OnUnknownData;
+use crate::diagnostics::impls::{
+    ImportSuggestion, LabelSuggestion, OnUnknownData, StructCtor, Suggestion,
+};
 use crate::imports::NameResolutionRef;
 use crate::ref_mut::{CmCell, CmRefCell};
 
@@ -86,7 +87,6 @@ mod check_unused;
 mod def_collector;
 mod diagnostics;
 mod effective_visibilities;
-mod error_helper;
 mod ident;
 mod imports;
 mod late;
@@ -683,8 +683,8 @@ struct ModuleData<'ra> {
     self_decl: Option<Decl<'ra>>,
 }
 
-/// All modules are unique and allocated on a same arena,
-/// so we can use referential equality to compare them.
+/// `Interned` is used because values of this type have "identity" and compare as unequal even if
+/// they have the same contents.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[rustc_pass_by_value]
 struct Module<'ra>(Interned<'ra, ModuleData<'ra>>);
@@ -698,19 +698,6 @@ struct LocalModule<'ra>(Interned<'ra, ModuleData<'ra>>);
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[rustc_pass_by_value]
 struct ExternModule<'ra>(Interned<'ra, ModuleData<'ra>>);
-
-// Allows us to use Interned without actually enforcing (via Hash/PartialEq/...) uniqueness of the
-// contained data.
-// FIXME: We may wish to actually have at least debug-level assertions that Interned's guarantees
-// are upheld.
-impl std::hash::Hash for ModuleData<'_> {
-    fn hash<H>(&self, _: &mut H)
-    where
-        H: std::hash::Hasher,
-    {
-        unreachable!()
-    }
-}
 
 impl<'ra> ModuleData<'ra> {
     fn new(
@@ -916,6 +903,7 @@ impl<'ra> LocalModule<'ra> {
         assert!(kind.is_local());
         let parent = parent.map(|m| m.to_module());
         let data = ModuleData::new(parent, kind, expn_id, span, no_implicit_prelude, vis, arenas);
+        // SAFETY: `Interned` is valid because values of this type have "identity".
         LocalModule(Interned::new_unchecked(arenas.modules.alloc(data)))
     }
 
@@ -937,6 +925,7 @@ impl<'ra> ExternModule<'ra> {
         assert!(!kind.is_local());
         let parent = parent.map(|m| m.to_module());
         let data = ModuleData::new(parent, kind, expn_id, span, no_implicit_prelude, vis, arenas);
+        // SAFETY: `Interned` is valid because values of this type have "identity".
         ExternModule(Interned::new_unchecked(arenas.modules.alloc(data)))
     }
 
@@ -1001,22 +990,9 @@ struct DeclData<'ra> {
     parent_module: Option<Module<'ra>>,
 }
 
-/// All name declarations are unique and allocated on a same arena,
-/// so we can use referential equality to compare them.
+/// `Interned` is used because values of this type have "identity" and compare as unequal even if
+/// they have the same contents.
 type Decl<'ra> = Interned<'ra, DeclData<'ra>>;
-
-// Allows us to use Interned without actually enforcing (via Hash/PartialEq/...) uniqueness of the
-// contained data.
-// FIXME: We may wish to actually have at least debug-level assertions that Interned's guarantees
-// are upheld.
-impl std::hash::Hash for DeclData<'_> {
-    fn hash<H>(&self, _: &mut H)
-    where
-        H: std::hash::Hasher,
-    {
-        unreachable!()
-    }
-}
 
 /// Name declaration kind.
 #[derive(Debug)]
@@ -1412,7 +1388,7 @@ pub struct Resolver<'ra, 'tcx> {
     /// Crate-local macro expanded `macro_export` referred to by a module-relative path.
     macro_expanded_macro_export_errors: BTreeSet<(Span, Span)> = BTreeSet::new(),
 
-    arenas: &'ra ResolverArenas<'ra>,
+    arenas: &'ra WorkerLocal<ResolverArenas<'ra>>,
     dummy_decl: Decl<'ra>,
     builtin_type_decls: FxHashMap<Symbol, Decl<'ra>>,
     builtin_attr_decls: FxHashMap<Symbol, Decl<'ra>>,
@@ -1585,15 +1561,16 @@ impl<'ra> ResolverArenas<'ra> {
     }
 
     fn alloc_decl(&'ra self, data: DeclData<'ra>) -> Decl<'ra> {
+        // SAFETY: `Interned` is valid because values of this type have "identity".
         Interned::new_unchecked(self.dropless.alloc(data))
     }
     fn alloc_import(&'ra self, import: ImportData<'ra>) -> Import<'ra> {
+        // SAFETY: `Interned` is valid because values of this type have "identity".
         Interned::new_unchecked(self.imports.alloc(import))
     }
-    fn alloc_name_resolution(&'ra self, orig_ident_span: Span) -> NameResolutionRef<'ra> {
-        Interned::new_unchecked(
-            self.name_resolutions.alloc(CmRefCell::new(NameResolution::new(orig_ident_span))),
-        )
+    fn alloc_name_resolution(&'ra self, resolution: NameResolution<'ra>) -> NameResolutionRef<'ra> {
+        // SAFETY: `Interned` is valid because values of this type have "identity".
+        Interned::new_unchecked(self.name_resolutions.alloc(CmRefCell::new(resolution)))
     }
     fn alloc_macro_rules_scope(&'ra self, scope: MacroRulesScope<'ra>) -> MacroRulesScopeRef<'ra> {
         self.dropless.alloc(CacheCell::new(scope))
@@ -1763,7 +1740,7 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
         attrs: &[ast::Attribute],
         crate_span: Span,
         current_crate_outer_attr_insert_span: Span,
-        arenas: &'ra ResolverArenas<'ra>,
+        arenas: &'ra WorkerLocal<ResolverArenas<'ra>>,
     ) -> Resolver<'ra, 'tcx> {
         let root_def_id = CRATE_DEF_ID.to_def_id();
         let graph_root = LocalModule::new(
@@ -2195,7 +2172,9 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
     fn resolutions(&self, module: Module<'ra>) -> &'ra Resolutions<'ra> {
         if module.populate_on_access.get() {
             module.populate_on_access.set(false);
-            self.build_reduced_graph_external(module.expect_extern());
+            // unchecked because extern
+            *module.lazy_resolutions.borrow_mut_unchecked() =
+                self.build_reduced_graph_external(module.expect_extern());
         }
         &module.0.0.lazy_resolutions
     }
@@ -2214,11 +2193,9 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
         key: BindingKey,
         orig_ident_span: Span,
     ) -> NameResolutionRef<'ra> {
-        *self
-            .resolutions(module)
-            .borrow_mut_unchecked()
-            .entry(key)
-            .or_insert_with(|| self.arenas.alloc_name_resolution(orig_ident_span))
+        *self.resolutions(module).borrow_mut(self).entry(key).or_insert_with(|| {
+            self.arenas.alloc_name_resolution(NameResolution::new(orig_ident_span))
+        })
     }
 
     /// Test if AmbiguityError ambi is any identical to any one inside ambiguity_errors

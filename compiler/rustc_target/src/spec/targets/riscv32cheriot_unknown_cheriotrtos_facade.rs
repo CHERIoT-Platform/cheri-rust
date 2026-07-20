@@ -13,6 +13,8 @@ pub(crate) fn target() -> Target {
     target.executables = true;
     // Avoid any confusion.
     target.entry_name = "rust_main".into();
+    // Set it as singlethread for now.
+    target.singlethread = true;
 
     target
 }

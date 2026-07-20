@@ -6,7 +6,7 @@ use rustc_ast::{self as ast, NodeId};
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir::def::{DefKind, MacroKinds, Namespace, NonMacroAttrKind, PartialRes, PerNS};
 use rustc_middle::{bug, span_bug};
-use rustc_session::errors::feature_err;
+use rustc_session::diagnostics::feature_err;
 use rustc_session::lint::builtin::PROC_MACRO_DERIVE_RESOLUTION_FALLBACK;
 use rustc_span::edition::Edition;
 use rustc_span::hygiene::{ExpnId, ExpnKind, LocalExpnId, MacroKind, SyntaxContext};
@@ -1155,6 +1155,8 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
             resolution.as_ref().and_then(|r| r.non_glob_decl).filter(|b| Some(*b) != ignore_decl);
 
         if let Some(finalize) = finalize {
+            // finalize implies that the module is fully expanded
+            assert!(!module.has_unexpanded_invocations());
             return self.get_mut().finalize_module_binding(
                 ident,
                 orig_ident_span,
@@ -1219,6 +1221,8 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
             resolution.as_ref().and_then(|r| r.glob_decl).filter(|b| Some(*b) != ignore_decl);
 
         if let Some(finalize) = finalize {
+            // finalize implies that the module is fully expanded
+            assert!(!module.has_unexpanded_invocations());
             return self.get_mut().finalize_module_binding(
                 ident,
                 orig_ident_span,

@@ -4,7 +4,7 @@
 //! However, this contains ~all test parts we expect people to be able to build and run locally.
 
 // (This file should be split up, but having tidy block all changes is not helpful.)
-// ignore-tidy-filelength
+// ignore-tidy-file-filelength
 
 use std::collections::HashSet;
 use std::env::split_paths;
@@ -12,8 +12,6 @@ use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, fs, iter};
-
-use build_helper::exit;
 
 use crate::core::build_steps::compile::{ArtifactKeepMode, Std, run_cargo};
 use crate::core::build_steps::doc::{DocumentationFormat, prepare_doc_compiler};
@@ -44,7 +42,7 @@ use crate::utils::helpers::{
     up_to_date,
 };
 use crate::utils::render_tests::{add_flags_and_try_run_tests, try_run_tests};
-use crate::{CLang, CodegenBackendKind, GitRepo, Mode, PathSet, TestTarget, envify};
+use crate::{CLang, CodegenBackendKind, GitRepo, Mode, PathSet, TestTarget, envify, exit};
 
 mod compiletest;
 pub mod failed_tests;
@@ -1087,10 +1085,12 @@ impl Step for IntrinsicTest {
         cmd.env("CFLAGS", cflags);
         // intrinsic-test shells out to `cargo` and `rustfmt` make bootstrap's
         // managed binaries findable by prepending their dirs to PATH.
-        let rustfmt_path = builder.config.initial_rustfmt.clone().unwrap_or_else(|| {
-            eprintln!("intrinsic-test: rustfmt is required but not available on this channel");
-            crate::exit!(1);
-        });
+        let Some(rustfmt_path) = builder.config.initial_rustfmt.clone() else {
+            eprintln!(
+                "WARNING: intrinsic-test skipped because rustfmt is required but not available on this channel"
+            );
+            return;
+        };
 
         let mut path_dirs: Vec<PathBuf> = Vec::new();
         if let Some(cargo_dir) = builder.initial_cargo.parent() {
@@ -1977,6 +1977,12 @@ impl Step for Coverage {
         for mode in Self::ALL_MODES {
             run = run.alias(mode.as_str());
         }
+
+        // Allow `./x test --skip=tests` to properly skip the coverage tests,
+        // by not treating the `coverage-map` and `coverage-run` aliases as
+        // implied command-line arguments.
+        run = run.default_to_suites_only();
+
         run
     }
 
@@ -2017,13 +2023,6 @@ impl Step for Coverage {
         modes.retain(|mode| {
             !run.builder.config.skip.iter().any(|skip| skip == Path::new(mode.as_str()))
         });
-
-        // FIXME(Zalathar): Make these commands skip all coverage tests, as expected:
-        // - `./x test --skip=tests`
-        // - `./x test --skip=tests/coverage`
-        // - `./x test --skip=coverage`
-        // Skip handling currently doesn't have a way to know that skipping the coverage
-        // suite should also skip the `coverage-map` and `coverage-run` aliases.
 
         for mode in modes {
             run.builder.ensure(Coverage { compiler, target, mode });
@@ -2682,9 +2681,9 @@ Please disable assertions with `rust.debug-assertions = false`.
         // Only pass correct values for these flags for the `run-make` suite as it
         // requires that a C++ compiler was configured which isn't always the case.
         if !builder.config.dry_run() && mode == CompiletestMode::RunMake {
-            let mut cflags = builder.cc_handled_clags(target, CLang::C);
+            let mut cflags = builder.cc_handled_cflags(target, CLang::C);
             cflags.extend(builder.cc_unhandled_cflags(target, GitRepo::Rustc, CLang::C));
-            let mut cxxflags = builder.cc_handled_clags(target, CLang::Cxx);
+            let mut cxxflags = builder.cc_handled_cflags(target, CLang::Cxx);
             cxxflags.extend(builder.cc_unhandled_cflags(target, GitRepo::Rustc, CLang::Cxx));
             cmd.arg("--cc")
                 .arg(builder.cc(target))

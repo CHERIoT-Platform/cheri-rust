@@ -10,7 +10,7 @@ use crate::diagnostics::TidyCtx;
 const ALLOWED_SOURCES: &[&str] = &[
     r#""registry+https://github.com/rust-lang/crates.io-index""#,
     // This is `rust_team_data` used by `site` in src/tools/rustc-perf,
-    r#""git+https://github.com/rust-lang/team#a5260e76d3aa894c64c56e6ddc8545b9a98043ec""#,
+    r#""git+https://github.com/rust-lang/team#db2c1ed9fbc0216e533db954cd249045c01c7406""#,
     // FIXME: remove this when all the needed patches to the crates are upstreamed.
     // CHERI(oT)-specific patches to the `object` crate.
     r#""git+https://github.com/cheri-rust-patches/object.git?branch=0.37.4-add-risc-v-cheri-e-flags#e03ff40d4f6a963282ada858571e4159039feadf""#,

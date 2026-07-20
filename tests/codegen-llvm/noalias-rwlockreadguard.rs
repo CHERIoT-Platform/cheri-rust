@@ -1,4 +1,4 @@
-//@ compile-flags: -Copt-level=3 -C no-prepopulate-passes -Z mutable-noalias=yes
+//@ compile-flags: -Copt-level=3 -C no-prepopulate-passes
 //@ ignore-riscv32cheriot-unknown-cheriotrtos See CHERIoT-Platform/cheri-rust/issues/74
 
 #![crate_type = "lib"]
