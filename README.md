@@ -18,10 +18,13 @@ or by opening a new discussion in this repository.
 
 ### The state of this project
 
-As of late November 2025, we have a `rustc` that can produce
+As of late July 2026, we have a `rustc` that can produce
 programs for the CHERIoT platform. This `rustc` can then compile the
 `compiler-builtins`, `core` and `alloc` libraries. We are currently in the
-process of testing the functionalities exposed by these libraries.
+process of testing the functionalities exposed by these libraries. Our tests
+mainly involve the `codegen-llvm` and `coretests` test suites. For the latest
+updates and numbers, please refer to the output of the CI job we run for every PR
+and each push to the `main` and `beta` branches.
 
 As of now, CHERIoT-specific bits such as accessing MMIO devices, shared
 objects, defining compartments and using specific calling conventions are
@@ -70,6 +73,17 @@ As of now, the process of getting a final image for CHERIoT will entail
 5. Flashing and/or running the resulting image with a [CHERIoT simulator](https://github.com/CHERIoT-Platform/cheriot-sail) or a [Sonata](https://lowrisc.github.io/sonata-software/doc/getting-started.html) board.
 
 For an example of all the steps above, take a look at the [cheri/examples/hello_world](./cheri/examples/hello_world) directory. 
+
+
+### Contributions
+Contributions are welcome. If you are planning to add a new CHERI-like target to this project,
+please reach out to us beforehand so that we can plan the best way to do it together.
+Otherwise, we will try to find the time to review your PR!
+
+> [!IMPORTANT]
+> Concerning AI contributions: for most CHERIoT things, we have a policy of zero LLM contributions. 
+> This also ensures that we're compliant with the (draft) [upstream policy](https://github.com/rust-lang/rust-forge/pull/1040)
+> on LLM use, which is important to ensure we can upstream our changes in the future.
 
 <p align="center">
 </br></br>
