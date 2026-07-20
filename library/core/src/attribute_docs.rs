@@ -349,3 +349,99 @@ mod deprecated_attribute {}
 /// [`deny`]: ./attribute.deny.html
 /// [`forbid`]: ./attribute.forbid.html
 mod warn_attribute {}
+
+#[doc(attribute = "no_std")]
+//
+/// Prevents automatically linking the standard library.
+///
+/// Written as an inner attribute at the top of the crate root, the `no_std` attribute stops
+/// the compiler from linking [`std`] into the crate, and only links [`core`].
+///
+/// The attribute also swaps which prelude gets inserted, with the [`core`] prelude replacing
+/// the [`std`] prelude. Items like [`Option`], [`Result`], and the primitive types remain
+/// available from [`core`] without any imports needed:
+///
+/// ```rust,ignore (no_std)
+/// #![no_std]
+///
+/// fn halve(x: u32) -> Option<u32> {
+///     if x % 2 == 0 { Some(x / 2) } else { None }
+/// }
+/// ```
+///
+/// Anything that requires heap memory allocations is not part of [`core`]. Linking the [`alloc`]
+/// crate explicitly can be used to include these types:
+///
+/// ```rust,ignore (no_std + needs a global allocator to link)
+/// #![no_std]
+///
+/// extern crate alloc;
+///
+/// use alloc::vec::Vec;
+/// ```
+///
+/// A `no_std` binary also removes the startup routine and default panic handler `std`
+/// normally provides. It must define its own `#[panic_handler]`, and typically its own
+/// entry point by additionally using `#![no_main]`:
+///
+/// ```rust,ignore (no_std + needs more than no_main alone to link)
+/// #![no_std]
+/// #![no_main]
+///
+/// use core::panic::PanicInfo;
+///
+/// #[panic_handler]
+/// fn on_panic(_info: &PanicInfo) -> ! {
+///     loop {}
+/// }
+/// ```
+///
+/// For more information, see the Reference on [the `no_std` attribute].
+///
+/// [`std`]: ../std/index.html
+/// [`core`]: ../core/index.html
+/// [`alloc`]: ../alloc/index.html
+/// [`Option`]: option::Option
+/// [`Result`]: result::Result
+/// [the `no_std` attribute]: ../reference/names/preludes.html#the-no_std-attribute
+mod no_std_attribute {}
+
+#[doc(attribute = "inline")]
+//
+/// Suggest that the compiler inline a function at its call sites.
+///
+/// Inlining replaces a call with a copy of the called function's body, which can remove the
+/// overhead of the call. The `inline` attribute is only a hint: the compiler may ignore it, and
+/// it already inlines functions on its own when that looks worthwhile. Poor choices about what to
+/// inline can make a program larger or slower.
+///
+/// Where it does matter is inlining across crate boundaries. A non-generic function is not
+/// normally inlined into another crate, since the calling crate compiles against only its
+/// signature. Marking it `#[inline]` makes the body available to other crates so they can inline
+/// it too:
+///
+/// ```rust
+/// # #![allow(dead_code)]
+/// #[inline]
+/// pub fn square(x: i32) -> i32 {
+///     x * x
+/// }
+/// ```
+///
+/// Generic functions do not need this. They are instantiated in each crate that uses them, so
+/// their bodies are already available to inline.
+///
+/// The attribute applies to functions and has three forms:
+///
+/// - `#[inline]` suggests inlining the function.
+/// - `#[inline(always)]` suggests inlining it at every call site.
+/// - `#[inline(never)]` suggests never inlining it.
+///
+/// You should almost never need `#[inline(always)]`: prefer to let the compiler decide unless
+/// profiling shows a small, hot function that benefits from it. `#[inline(never)]` is useful to
+/// keep a rarely used path, such as a function that only reports an error, out of its caller.
+///
+/// For more information, see the Reference on [the `inline` attribute].
+///
+/// [the `inline` attribute]: ../reference/attributes/codegen.html#the-inline-attribute
+mod inline_attribute {}

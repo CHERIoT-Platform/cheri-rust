@@ -6,6 +6,7 @@
 //@ ignore-android does not use #[thread_local]
 //@ ignore-nto does not use #[thread_local]
 //@ ignore-riscv32cheriot-unknown-cheriotrtos See CHERIoT-Platform/cheri-rust/issues/89
+//@ ignore-qnx does not use #[thread_local]
 
 #![crate_type = "lib"]
 

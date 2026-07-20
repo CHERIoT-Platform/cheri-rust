@@ -19,9 +19,9 @@ cfg_select! {
         type GroupId = u16;
     }
     any(target_os = "nto", target_os = "qnx") => {
-        // Both IDs are signed, see `sys/target_nto.h` of the QNX Neutrino SDP.
+        // Both IDs are signed, see `sys/target_nto.h` of the QNX SDP.
         // Only positive values should be used, see e.g.
-        // https://www.qnx.com/developers/docs/7.1/#com.qnx.doc.neutrino.lib_ref/topic/s/setuid.html
+        // https://www.qnx.com/developers/docs/7.1/com.qnx.doc.neutrino.lib_ref/topic/s/setuid.html
         type UserId = i32;
         type GroupId = i32;
     }
@@ -102,7 +102,7 @@ pub impl(self) trait CommandExt {
     /// locations might not appear where intended.
     ///
     /// [POSIX fork() specification]:
-    ///     https://pubs.opengroup.org/onlinepubs/9699919799/functions/fork.html
+    ///     https://pubs.opengroup.org/onlinepubs/9799919799/functions/fork.html
     /// [`std::env`]: mod@crate::env
     /// [`Error::new`]: ../../../io/struct.Error.html#method.new
     /// [`Error::other`]: ../../../io/struct.Error.html#method.other

@@ -2,10 +2,12 @@ use std::assert_matches;
 use std::ops::Deref;
 
 use rustc_abi::{Align, Scalar, Size, WrappingRange};
+use rustc_ast::expand::typetree::{FncTree, TypeTree};
 use rustc_hir::attrs::AttributeKind;
 use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs;
 use rustc_middle::mir;
 use rustc_middle::ty::layout::{FnAbiOf, LayoutOf, TyAndLayout};
+use rustc_middle::ty::typetree::typetree_from_ty;
 use rustc_middle::ty::{AtomicOrdering, Instance, Ty};
 use rustc_session::config::OptLevel;
 use rustc_span::Span;
@@ -458,7 +460,7 @@ pub trait BuilderMethods<'a, 'tcx>:
         src_align: Align,
         size: Self::Value,
         flags: MemFlags,
-        tt: Option<rustc_ast::expand::typetree::FncTree>,
+        tt: Option<FncTree>,
         preserve_tags: PreserveCheriTags,
     );
     fn memmove(
@@ -521,6 +523,10 @@ pub trait BuilderMethods<'a, 'tcx>:
             let temp = self.load_operand(src.with_type(layout));
             temp.val.store_with_flags(self, dst.with_type(layout), flags);
         } else if !layout.is_zst() {
+            let tt = typetree_from_ty(self.tcx(), layout.ty);
+            // We seem to pass all values to memcpy with one more indirection.
+            let tt = tt.add_indirection();
+            let fnc_tree = FncTree { args: vec![tt.clone(), tt], ret: TypeTree::new() };
             let bytes = self.const_usize(layout.size.bytes());
             let bytes = if layout.peel_transparent_wrappers(self).ty.is_scalable_vector() {
                 let vscale = self.vscale(self.type_i64());
@@ -536,7 +542,7 @@ pub trait BuilderMethods<'a, 'tcx>:
                 src.align,
                 bytes,
                 flags,
-                None,
+                Some(fnc_tree),
                 PreserveCheriTags::Unknown,
             );
         }

@@ -1818,22 +1818,22 @@ pub const unsafe fn read<T>(src: *const T) -> T {
 pub const unsafe fn read_unaligned<T>(src: *const T) -> T {
     // Always true thanks to the repr, but to demonstrate
     const {
-        assert!(mem::offset_of!(Packed::<T>, 0) == 0);
-        assert!(size_of::<T>() == size_of::<Packed<T>>());
+        assert!(mem::offset_of!(Unaligned::<T>, 0) == 0);
+        assert!(size_of::<T>() == size_of::<Unaligned<T>>());
     }
 
-    let src = src.cast::<Packed<T>>();
+    let src = src.cast::<Unaligned<T>>();
     // SAFETY: the caller must guarantee that `src` is valid for reads.
-    // Reading it as `Packed<T>` instead of `T` reads those same bytes because
+    // Reading it as `Unaligned<T>` instead of `T` reads those same bytes because
     // it's the same size (thus zero offset), but with alignment 1 instead.
     //
     // Similarly, because it's the same bytes it's sound to transmute from the
-    // `Packed<T>` to `T`.  Transmute is a value-based (not a place-based)
+    // `Unaligned<T>` to `T`.  Transmute is a value-based (not a place-based)
     // operation that doesn't care about alignment.
     unsafe {
-        let packed = read(src);
+        let unaligned = read(src);
         // Can't just destructure because that's not allowed in const fn
-        mem::transmute_neo(packed)
+        mem::transmute_neo(unaligned)
     }
 }
 
@@ -2028,14 +2028,14 @@ pub const unsafe fn write<T>(dst: *mut T, src: T) {
 pub const unsafe fn write_unaligned<T>(dst: *mut T, src: T) {
     // Always true thanks to the repr, but to demonstrate
     const {
-        assert!(mem::offset_of!(Packed::<T>, 0) == 0);
-        assert!(size_of::<T>() == size_of::<Packed<T>>());
+        assert!(mem::offset_of!(Unaligned::<T>, 0) == 0);
+        assert!(size_of::<T>() == size_of::<Unaligned<T>>());
     }
 
-    let dst = dst.cast::<Packed<T>>();
-    let src = Packed(src);
+    let dst = dst.cast::<Unaligned<T>>();
+    let src = Unaligned(src);
     // SAFETY: the caller must guarantee that `dst` is valid for writes.
-    // Writing it as `Packed<T>` instead of `T` writes those same bytes because
+    // Writing it as `Unaligned<T>` instead of `T` writes those same bytes because
     // it's the same size (thus zero offset), but with alignment 1 instead.
     unsafe { write(dst, src) }
 }
@@ -2068,6 +2068,9 @@ pub const unsafe fn write_unaligned<T>(dst: *mut T, src: T) {
 ///   synchronization.
 ///
 /// Note that volatile memory operations where T is a zero-sized type are noops and may be ignored.
+///
+/// When invoked during const evaluation, this behaves like a regular read. In particular, such
+/// reads must always follow the first of the two cases above.
 ///
 /// [allocation]: crate::ptr#allocated-object
 /// [atomic]: crate::sync::atomic#memory-model-for-atomic-accesses
@@ -2124,9 +2127,10 @@ pub const unsafe fn write_unaligned<T>(dst: *mut T, src: T) {
 /// ```
 #[inline]
 #[stable(feature = "volatile", since = "1.9.0")]
+#[rustc_const_unstable(feature = "const_volatile", issue = "159094")]
 #[track_caller]
 #[rustc_diagnostic_item = "ptr_read_volatile"]
-pub unsafe fn read_volatile<T>(src: *const T) -> T {
+pub const unsafe fn read_volatile<T>(src: *const T) -> T {
     // SAFETY: the caller must uphold the safety contract for `volatile_load`.
     unsafe {
         ub_checks::assert_unsafe_precondition!(
@@ -2177,6 +2181,9 @@ pub unsafe fn read_volatile<T>(src: *const T) -> T {
 /// dropped when operating on Rust memory. Additionally, it does not drop `src`. Semantically, `src`
 /// is moved into the location pointed to by `dst`.
 ///
+/// When invoked during const evaluation, this behaves like a regular write. In particular, such
+/// reads must always follow the first of the two cases above.
+///
 /// [allocation]: crate::ptr#allocated-object
 /// [atomic]: crate::sync::atomic#memory-model-for-atomic-accesses
 ///
@@ -2226,9 +2233,10 @@ pub unsafe fn read_volatile<T>(src: *const T) -> T {
 /// ```
 #[inline]
 #[stable(feature = "volatile", since = "1.9.0")]
+#[rustc_const_unstable(feature = "const_volatile", issue = "159094")]
 #[rustc_diagnostic_item = "ptr_write_volatile"]
 #[track_caller]
-pub unsafe fn write_volatile<T>(dst: *mut T, src: T) {
+pub const unsafe fn write_volatile<T>(dst: *mut T, src: T) {
     // SAFETY: the caller must uphold the safety contract for `volatile_store`.
     unsafe {
         ub_checks::assert_unsafe_precondition!(
@@ -2828,5 +2836,7 @@ pub macro addr_of_mut($place:expr) {
     &raw mut $place
 }
 
-#[repr(C, packed)]
-struct Packed<T>(T);
+/// Used in [`read_unaligned`] and [`write_unaligned`] to load and store `T`
+/// with alignment 1 rather than its usual `align_of::<T>()` alignment.
+#[repr(Rust, packed)]
+struct Unaligned<T>(T);

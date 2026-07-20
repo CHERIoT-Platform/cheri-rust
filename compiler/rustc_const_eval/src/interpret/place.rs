@@ -725,7 +725,7 @@ where
                 alloc.write_scalar(alloc_range(Size::ZERO, scalar.data_size()), scalar)?;
             }
             Immediate::ScalarPair(a_val, b_val) => {
-                let BackendRepr::ScalarPair(a, b) = layout.backend_repr else {
+                let BackendRepr::ScalarPair { a, b, b_offset } = layout.backend_repr else {
                     span_bug!(
                         self.cur_span(),
                         "write_immediate_to_mplace: invalid ScalarPair layout: {:#?}",
@@ -733,7 +733,7 @@ where
                     )
                 };
                 let a_size = a.in_memory_size(&tcx);
-                let b_offset = a_size.align_to(b.default_align(&tcx).abi);
+                let b_size = b.in_memory_size(&tcx);
                 assert!(b_offset.bytes() > 0); // in `operand_field` we use the offset to tell apart the fields
 
                 // It is tempting to verify `b_offset` against `layout.fields.offset(1)`,
@@ -744,7 +744,7 @@ where
                 // destination now to ensure that no stray pointer fragments are being
                 // preserved (see <https://github.com/rust-lang/rust/issues/148470>).
                 // We can skip this if there is no padding (e.g. for wide pointers).
-                if !will_later_validate && a_size + b_val.in_memory_size() != layout.size {
+                if !will_later_validate && a_size + b_size != layout.size {
                     alloc.write_uninit_full();
                 }
 
@@ -902,7 +902,7 @@ where
         // padding in the target independent of layout choices.
         let src_has_padding = match src.layout().backend_repr {
             BackendRepr::Scalar(_) => false,
-            BackendRepr::ScalarPair(left, right)
+            BackendRepr::ScalarPair { a: left, b: right, b_offset: _ }
                 if matches!(src.layout().ty.kind(), ty::Ref(..) | ty::RawPtr(..))
                     && (self.data_layout().pointer_size() == self.data_layout().address_size()) =>
             {
@@ -913,10 +913,12 @@ where
                 );
                 false
             }
-            BackendRepr::ScalarPair(left, right) => {
+            BackendRepr::ScalarPair { a: left, b: right, b_offset: _ } => {
                 let left_size = left.in_memory_size(self);
                 let right_size = right.in_memory_size(self);
                 // We have padding if the sizes don't add up to the total.
+                // (Why don't we need to check the offset?  The scalars don't overlap so no padding
+                // implies `b_offset == left_size`, which would be superfluous to check explicitly.)
                 left_size + right_size != src.layout().size
             }
             // Everything else can only exist in memory anyway, so it doesn't matter.

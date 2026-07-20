@@ -13,7 +13,7 @@ use rustc_hir::def_id::{DefId, LocalDefId, LocalDefIdMap};
 use rustc_middle::metadata::{AmbigModChild, ModChild, Reexport};
 use rustc_middle::span_bug;
 use rustc_middle::ty::Visibility;
-use rustc_session::errors::feature_err;
+use rustc_session::diagnostics::feature_err;
 use rustc_session::lint::LintId;
 use rustc_session::lint::builtin::{
     AMBIGUOUS_GLOB_REEXPORTS, EXPORTED_PRIVATE_DEPENDENCIES, HIDDEN_GLOB_REEXPORTS,
@@ -25,13 +25,13 @@ use rustc_span::{Ident, Span, Symbol, kw, sym};
 use tracing::debug;
 
 use crate::Namespace::{self, *};
+use crate::diagnostics::impls::{OnUnknownData, Suggestion};
 use crate::diagnostics::{
     self, CannotBeReexportedCratePublic, CannotBeReexportedCratePublicNS,
     CannotBeReexportedPrivate, CannotBeReexportedPrivateNS, CannotDetermineImportResolution,
     CannotGlobImportAllCrates, ConsiderAddingMacroExport, ConsiderMarkingAsPub,
     ConsiderMarkingAsPubCrate,
 };
-use crate::error_helper::{OnUnknownData, Suggestion};
 use crate::ref_mut::{CmCell, CmRefCell};
 use crate::{
     AmbiguityError, BindingKey, CmResolver, Decl, DeclData, DeclKind, Determinacy, Finalize,
@@ -210,22 +210,9 @@ pub(crate) struct ImportData<'ra> {
     pub on_unknown_attr: Option<OnUnknownData>,
 }
 
-/// All imports are unique and allocated on a same arena,
-/// so we can use referential equality to compare them.
+/// `Interned` is used because values of this type have "identity" and compare as unequal even if
+/// they have the same contents.
 pub(crate) type Import<'ra> = Interned<'ra, ImportData<'ra>>;
-
-// Allows us to use Interned without actually enforcing (via Hash/PartialEq/...) uniqueness of the
-// contained data.
-// FIXME: We may wish to actually have at least debug-level assertions that Interned's guarantees
-// are upheld.
-impl std::hash::Hash for ImportData<'_> {
-    fn hash<H>(&self, _: &mut H)
-    where
-        H: std::hash::Hasher,
-    {
-        unreachable!()
-    }
-}
 
 impl<'ra> ImportData<'ra> {
     pub(crate) fn is_glob(&self) -> bool {
@@ -291,6 +278,8 @@ pub(crate) struct NameResolution<'ra> {
     pub orig_ident_span: Span,
 }
 
+/// `Interned` is used because values of this type have "identity" and compare as unequal even if
+/// they have the same contents.
 pub(crate) type NameResolutionRef<'ra> = Interned<'ra, CmRefCell<NameResolution<'ra>>>;
 
 impl<'ra> NameResolution<'ra> {
@@ -832,7 +821,9 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
                 ) => {
                     self.per_ns(|this, ns| {
                         match import_decls[ns] {
-                            PendingDecl::Ready(Some(import_decl)) => {
+                            PendingDecl::Ready(Some(decl)) => {
+                                // We need the `target`, `source` can be extracted.
+                                let import_decl = this.new_import_decl(decl, import);
                                 if import_decl.is_assoc_item()
                                     && !this.features.import_trait_associated_functions()
                                 {
@@ -1162,11 +1153,7 @@ impl<'ra, 'tcx> Resolver<'ra, 'tcx> {
                 Some(import),
             );
             let pending_decl = match binding_result {
-                Ok(binding) => {
-                    // We need the `target`, `source` can be extracted.
-                    let import_decl = this.new_import_decl(binding, import);
-                    PendingDecl::Ready(Some(import_decl))
-                }
+                Ok(binding) => PendingDecl::Ready(Some(binding)),
                 Err(Determinacy::Determined) => PendingDecl::Ready(None),
                 Err(Determinacy::Undetermined) => {
                     indeterminate_count += 1;
