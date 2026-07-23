@@ -9,6 +9,7 @@ macro_rules! libm_intrinsics {
     ($(fn $fun:ident($($iid:ident : $ity:ty),+) -> $oty:ty;)+) => {
         intrinsics! {
             $(
+                #[cheriot_libcall]
                 pub extern "C" fn $fun($($iid: $ity),+) -> $oty {
                     $crate::math::libm_math::$fun($($iid),+)
                 }

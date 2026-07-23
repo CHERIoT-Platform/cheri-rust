@@ -63,11 +63,6 @@ fn main() {
         maybe_build_c = false;
     }
 
-    // CHERIoT RTOS includes all the builtins
-    if cfg.target_os == "cheriotrtos" {
-        return;
-    }
-
     // OpenBSD provides compiler_rt by default, use it instead of rebuilding it from source
     if cfg.target_os == "openbsd" {
         println!("cargo:rustc-link-search=native=/usr/lib");

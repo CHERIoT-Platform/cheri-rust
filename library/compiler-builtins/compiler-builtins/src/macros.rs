@@ -182,6 +182,35 @@ macro_rules! intrinsics {
         intrinsics!($($rest)*);
     );
 
+    // Like aapcs above we recognize an attribute for the CHERIoT libcall ABI.
+    (
+        #[cheriot_libcall]
+        $(#[$($attr:tt)*])*
+        pub extern $abi:tt fn $name:ident( $($argname:ident:  $ty:ty),* ) $(-> $ret:ty)? {
+            $($body:tt)*
+        }
+
+        $($rest:tt)*
+    ) => (
+        #[cfg(target_os = "cheriotrtos")]
+        intrinsics! {
+            $(#[$($attr)*])*
+            pub extern "cheriot-library-call" fn $name( $($argname: $ty),* ) $(-> $ret)? {
+                $($body)*
+            }
+        }
+
+        #[cfg(not(target_os = "cheriotrtos"))]
+        intrinsics! {
+            $(#[$($attr)*])*
+            pub extern $abi fn $name( $($argname: $ty),* ) $(-> $ret)? {
+                $($body)*
+            }
+        }
+
+        intrinsics!($($rest)*);
+    );
+
     // Like aapcs above we recognize an attribute for the "unadjusted" abi on
     // win64 for some methods.
     (
