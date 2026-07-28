@@ -8,6 +8,9 @@ avr-interrupt
 avr-non-blocking-interrupt
 cdecl
 cdecl-unwind
+cheriot-compartment-call
+cheriot-compartment-callee
+cheriot-library-call
 cmse-nonsecure-call
 cmse-nonsecure-entry
 custom

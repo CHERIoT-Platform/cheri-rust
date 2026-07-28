@@ -2,7 +2,7 @@
 
 #![allow(rustc::usage_of_qualified_ty)]
 
-use rustc_abi::{ArmCall, CanonAbi, InterruptKind, X86Call};
+use rustc_abi::{ArmCall, CHERIoTCall, CanonAbi, InterruptKind, X86Call};
 use rustc_middle::ty;
 use rustc_public_bridge::Tables;
 use rustc_public_bridge::context::CompilerCtxt;
@@ -132,6 +132,11 @@ impl<'tcx> Stable<'tcx> for CanonAbi {
                 ArmCall::Aapcs => CallConvention::ArmAapcs,
                 ArmCall::CCmseNonSecureCall => CallConvention::CCmseNonSecureCall,
                 ArmCall::CCmseNonSecureEntry => CallConvention::CCmseNonSecureEntry,
+            },
+            CanonAbi::CHERIoT(cheriot_call) => match cheriot_call {
+                CHERIoTCall::CompartmentCall => CallConvention::CHERIoTCompartmentCall,
+                CHERIoTCall::CompartmentCallee => CallConvention::CHERIoTCompartmentCallee,
+                CHERIoTCall::LibraryCall => CallConvention::CHERIoTLibraryCall,
             },
             CanonAbi::GpuKernel => CallConvention::GpuKernel,
             CanonAbi::Interrupt(interrupt_kind) => match interrupt_kind {

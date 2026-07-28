@@ -560,6 +560,7 @@ impl<'a> AstValidator<'a> {
                     | CanonAbi::RustTail
                     | CanonAbi::Swift
                     | CanonAbi::Arm(_)
+                    | CanonAbi::CHERIoT(_)
                     | CanonAbi::X86(_) => { /* nothing to check */ }
 
                     CanonAbi::GpuKernel => {

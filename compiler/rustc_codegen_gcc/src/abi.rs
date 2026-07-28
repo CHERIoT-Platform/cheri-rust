@@ -256,6 +256,10 @@ pub fn conv_to_fn_attribute<'gcc>(sess: &Session, conv: CanonAbi) -> Option<FnAt
             // gcc/gccjit does not have anything for Swift's calling convention.
             sess.dcx().fatal("gcc/gccjit backend does not support Swift calling convention")
         }
+        CanonAbi::CHERIoT(_) => {
+            // gcc/gccjit does not have anything for CHERIoT's calling convention.
+            sess.dcx().fatal("gcc/gccjit backend does not support CHERIoT calling convention")
+        }
         CanonAbi::Arm(arm_call) => match arm_call {
             ArmCall::CCmseNonSecureCall => FnAttribute::ArmCmseNonsecureCall,
             ArmCall::CCmseNonSecureEntry => FnAttribute::ArmCmseNonsecureEntry,

@@ -181,6 +181,9 @@ pub(crate) enum CallConv {
     AvrNonBlockingInterrupt = 84,
     AvrInterrupt = 85,
     AmdgpuKernel = 91,
+    CHERIoTCompartmentCall = 125,
+    CHERIoTCompartmentCallee = 126,
+    CHERIoTLibraryCall = 127,
 }
 
 /// Must match the layout of `LLVMLinkage`.

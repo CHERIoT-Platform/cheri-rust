@@ -2,8 +2,8 @@ use std::cmp;
 
 use libc::c_uint;
 use rustc_abi::{
-    ArmCall, BackendRepr, CanonAbi, Float, HasDataLayout, Integer, InterruptKind, Primitive, Reg,
-    RegKind, Size, X86Call,
+    ArmCall, BackendRepr, CHERIoTCall, CanonAbi, Float, HasDataLayout, Integer, InterruptKind,
+    Primitive, Reg, RegKind, Size, X86Call,
 };
 use rustc_codegen_ssa::MemFlags;
 use rustc_codegen_ssa::common::PreserveCheriTags;
@@ -759,6 +759,13 @@ pub(crate) fn to_llvm_calling_convention(sess: &Session, abi: CanonAbi) -> llvm:
             ArmCall::Aapcs => llvm::ArmAapcsCallConv,
             ArmCall::CCmseNonSecureCall | ArmCall::CCmseNonSecureEntry => llvm::CCallConv,
         },
+
+        CanonAbi::CHERIoT(cheriot_call) => match cheriot_call {
+            CHERIoTCall::CompartmentCall => llvm::CHERIoTCompartmentCall,
+            CHERIoTCall::CompartmentCallee => llvm::CHERIoTCompartmentCallee,
+            CHERIoTCall::LibraryCall => llvm::CHERIoTLibraryCall,
+        },
+
         CanonAbi::X86(x86_call) => match x86_call {
             X86Call::Fastcall => llvm::X86FastcallCallConv,
             X86Call::Stdcall => llvm::X86StdcallCallConv,

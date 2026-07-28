@@ -235,7 +235,10 @@ declare_features! (
     // feature-group-start: internal feature gates (no tracking issue)
     // -------------------------------------------------------------------------
     // no-tracking-issue-start
-
+    /// Allows using the `cheriot-compartment-call` and `cheriot-compartment-callee` ABIs.
+    (internal, abi_cheriot_compartment_call, "CURRENT_RUSTC_VERSION", None),
+    /// Allows using the `cheriot-library-call` ABI.
+    (internal, abi_cheriot_library_call, "CURRENT_RUSTC_VERSION", None),
     /// Allows using the `unadjusted` ABI; perma-unstable.
     (internal, abi_unadjusted, "1.16.0", None),
     /// Allows using `#![needs_allocator]`, an implementation detail of `#[global_allocator]`.
