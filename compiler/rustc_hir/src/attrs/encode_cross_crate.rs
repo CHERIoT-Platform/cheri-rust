@@ -24,7 +24,7 @@ impl AttributeKind {
             CfgAttrTrace => Yes,
             CfgTrace(..) => Yes,
             CfiEncoding { .. } => Yes,
-            CheriotMMIO { .. } => Yes,
+            CheriotCapImport { .. } => Yes,
             Cold => No,
             CollapseDebugInfo(..) => Yes,
             CompilerBuiltins => No,

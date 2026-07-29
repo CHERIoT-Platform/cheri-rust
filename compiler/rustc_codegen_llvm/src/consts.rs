@@ -3,7 +3,7 @@ use std::ops::Range;
 use rustc_abi::{Align, ExternAbi, HasDataLayout, Primitive, Scalar, Size, WrappingRange};
 use rustc_codegen_ssa::common;
 use rustc_codegen_ssa::traits::*;
-use rustc_hir::attrs::{AttributeKind, CheriotMMIOAttr, CheriotPermissionsAttr, Linkage};
+use rustc_hir::attrs::{AttributeKind, CheriotCapImportAttr, CheriotPermissionsAttr, Linkage};
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
 use rustc_hir::{Attribute, LangItem};
@@ -418,26 +418,33 @@ impl<'ll> CodegenCx<'ll, '_> {
             if let Some(local) = def_id.as_local() {
                 let hir_id = self.tcx.local_def_id_to_hir_id(local);
 
-                if let Some(mmio) = self
-                    .tcx
-                    .hir_attrs(hir_id)
-                    .iter()
-                    .find(|v| matches!(v, Attribute::Parsed(AttributeKind::CheriotMMIO(..))))
+                if let Some(cap_import) =
+                    self.tcx.hir_attrs(hir_id).iter().find(|v| {
+                        matches!(v, Attribute::Parsed(AttributeKind::CheriotCapImport(..)))
+                    })
                 {
-                    let Attribute::Parsed(AttributeKind::CheriotMMIO(CheriotMMIOAttr {
+                    let Attribute::Parsed(AttributeKind::CheriotCapImport(CheriotCapImportAttr {
                         name,
                         permissions,
+                        import_kind,
                         ..
-                    })) = mmio
+                    })) = cap_import
                     else {
                         unreachable!()
+                    };
+
+                    let cap_import_kind = match import_kind {
+                        rustc_hir::attrs::CheriotCapImportKind::MMIO => "mem",
+                        rustc_hir::attrs::CheriotCapImportKind::SharedObject => {
+                            "cheriot_shared_object"
+                        }
                     };
 
                     let llattr = llvm::CreateAttrStringValue(
                         &self.llcx,
                         "cheriot_global_cap_import",
                         &CheriotPermissionsAttr::make_cap_import_attribute(
-                            "mem",
+                            cap_import_kind,
                             name.as_str(),
                             permissions.as_str(),
                         ),

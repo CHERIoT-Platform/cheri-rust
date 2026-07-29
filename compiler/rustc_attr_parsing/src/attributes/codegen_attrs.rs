@@ -10,10 +10,10 @@ use super::prelude::*;
 use crate::attributes::AttributeSafety;
 use crate::session_diagnostics::{
     CHERIoTCapImportPermissionsDuplicateSymbol, CHERIoTCapImportPermissionsUnknownSymbols,
-    CheriotMMIOMissingParameter, EmptyExportName, EmptySection, NakedFunctionIncompatibleAttribute,
-    NullOnExport, NullOnObjcClass, NullOnObjcSelector, NullOnSection,
-    ObjcClassExpectedStringLiteral, ObjcSelectorExpectedStringLiteral, SanitizeInvalidStatic,
-    TargetFeatureOnLangItem,
+    CheriotCapImportMissingParameter, EmptyExportName, EmptySection,
+    NakedFunctionIncompatibleAttribute, NullOnExport, NullOnObjcClass, NullOnObjcSelector,
+    NullOnSection, ObjcClassExpectedStringLiteral, ObjcSelectorExpectedStringLiteral,
+    SanitizeInvalidStatic, TargetFeatureOnLangItem,
 };
 use crate::target_checking::Policy::AllowSilent;
 
@@ -903,12 +903,48 @@ impl SingleAttributeParser for CheriotMMIOParser {
         template!(List: &["name = \"mmio_name\", permissions = \"permissions\""]);
 
     fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<AttributeKind> {
+        CheriotCapImportParser::convert(cx, args)
+    }
+}
+
+pub(crate) struct CheriotSharedObjectParser;
+
+impl SingleAttributeParser for CheriotSharedObjectParser {
+    const PATH: &[Symbol] = &[sym::cheriot_shared_object];
+
+    const STABILITY: AttributeStability = unstable!(cheriot_attributes);
+
+    const ALLOWED_TARGETS: AllowedTargets<'_> =
+        AllowedTargets::AllowList(&[Allow(Target::ForeignStatic)]);
+    const TEMPLATE: AttributeTemplate =
+        template!(List: &["name = \"import_name\", permissions = \"permissions\""]);
+
+    fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<AttributeKind> {
+        CheriotCapImportParser::convert(cx, args)
+    }
+}
+
+struct CheriotCapImportParser;
+
+impl CheriotCapImportParser {
+    fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<AttributeKind> {
         let meta_item_list = cx.expect_list(args, cx.attr_span)?;
 
         if meta_item_list.len() == 0 {
             cx.adcx().expected_at_least_one_argument(meta_item_list.span);
             return None;
         }
+
+        let (import_kind, attr_name) = if cx.attr_path.segments.contains(&sym::cheriot_mmio) {
+            (rustc_hir::attrs::CheriotCapImportKind::MMIO, sym::cheriot_mmio.to_string())
+        } else if cx.attr_path.segments.contains(&sym::cheriot_shared_object) {
+            (
+                rustc_hir::attrs::CheriotCapImportKind::SharedObject,
+                sym::cheriot_shared_object.to_string(),
+            )
+        } else {
+            unreachable!()
+        };
 
         let mut name = None;
         let mut permissions = None;
@@ -1000,13 +1036,17 @@ impl SingleAttributeParser for CheriotMMIOParser {
         }
 
         if name.is_none() || permissions.is_none() {
-            cx.emit_err(CheriotMMIOMissingParameter { attr_span: cx.attr_span });
+            cx.emit_err(CheriotCapImportMissingParameter {
+                attr_name: &attr_name,
+                attr_span: cx.attr_span,
+            });
             return None;
         }
 
         let (name, name_span) = name.unwrap();
         let (permissions, permissions_span) = permissions.unwrap();
-        Some(AttributeKind::CheriotMMIO(rustc_hir::attrs::CheriotMMIOAttr {
+        Some(AttributeKind::CheriotCapImport(rustc_hir::attrs::CheriotCapImportAttr {
+            import_kind,
             name,
             name_span,
             permissions,

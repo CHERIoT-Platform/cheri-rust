@@ -1235,3 +1235,14 @@ pub(crate) struct NotCHERIoTTarget<'a> {
     pub span: Span,
     pub attr: &'a str,
 }
+
+#[derive(Diagnostic)]
+#[diag("multiple CHERIoT capability import attributes used on the same item")]
+#[help(
+    "only a single capability import attribute (`#[cheriot_mmio]` or `#[cheriot_shared_object]`) is allowed on any item, remove the other ones"
+)]
+pub(crate) struct MultipleCHERIoTCapImportAttributes {
+    #[primary_span]
+    #[label("new attribute here")]
+    pub span: Span,
+}
