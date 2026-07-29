@@ -632,6 +632,7 @@ symbols! {
         cheri_without_provenance,
         cheriot_attributes,
         cheriot_mmio,
+        cheriot_shared_object,
         clflushopt_target_feature,
         client,
         clippy,

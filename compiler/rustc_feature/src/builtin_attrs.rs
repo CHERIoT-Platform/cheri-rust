@@ -227,6 +227,7 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
 
     // CHERIoT-specific attributes.
     sym::cheriot_mmio,
+    sym::cheriot_shared_object,
 
     // ==========================================================================
     // Internal attributes: Stability, deprecation, and unsafe:

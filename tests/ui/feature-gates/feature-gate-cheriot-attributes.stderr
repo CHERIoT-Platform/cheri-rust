@@ -9,10 +9,10 @@ LL |     #[cheriot_mmio(name = "uart", permissions = "R")]
    = note: this compiler was built on YYYY-MM-DD; consider upgrading it if it is out of date
 
 error: attribute `cheriot_mmio` can be used on CHERIoT targets only
-  --> $DIR/feature-gate-cheriot-attributes.rs:16:5
+  --> $DIR/feature-gate-cheriot-attributes.rs:15:5
    |
-LL |     pub static UART0: Uart;
-   |     ^^^^^^^^^^^^^^^^^^^^^^^
+LL |     #[cheriot_mmio(name = "uart", permissions = "R")]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: aborting due to 2 previous errors
 

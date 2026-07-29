@@ -17,8 +17,8 @@ use rustc_errors::{DiagCtxtHandle, IntoDiagArg, MultiSpan, msg};
 use rustc_feature::BUILTIN_ATTRIBUTE_MAP;
 use rustc_hir::attrs::diagnostic::Directive;
 use rustc_hir::attrs::{
-    AttributeKind, DocAttribute, DocInline, EiiDecl, EiiImpl, EiiImplResolution, InlineAttr,
-    OptimizeAttr, ReprAttr,
+    AttributeKind, CheriotCapImportAttr, CheriotCapImportKind, DocAttribute, DocInline, EiiDecl,
+    EiiImpl, EiiImplResolution, InlineAttr, OptimizeAttr, ReprAttr,
 };
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::LocalModDefId;
@@ -244,7 +244,19 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 self.check_diagnostic_on_type_error(hir_id, directive.as_deref())
             }
 
-            AttributeKind::CheriotMMIO { .. } => self.check_cheriot_mmio(hir_id, attr, span),
+            AttributeKind::CheriotCapImport(CheriotCapImportAttr {
+                import_kind: CheriotCapImportKind::MMIO,
+                attr_span,
+                ..
+            }) => self.check_cheriot_cap_import(hir_id, &sym::cheriot_mmio, attr, *attr_span),
+
+            AttributeKind::CheriotCapImport(CheriotCapImportAttr {
+                import_kind: CheriotCapImportKind::SharedObject,
+                attr_span,
+                ..
+            }) => {
+                self.check_cheriot_cap_import(hir_id, &sym::cheriot_shared_object, attr, *attr_span)
+            }
 
             // All of the following attributes have no specific checks.
             // tidy-alphabetical-start
@@ -1630,13 +1642,21 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         }
     }
 
-    fn check_cheriot_mmio(&self, _hir_id: HirId, attr: &AttributeKind, attr_span: Span) {
+    fn check_cheriot_cap_import(
+        &self,
+        hir_id: HirId,
+        sym: &Symbol,
+        attr: &AttributeKind,
+        attr_span: Span,
+    ) {
         if self.tcx.target_spec().llvm_abiname != rustc_target::spec::LlvmAbi::CHERIoT {
-            self.dcx()
-                .emit_err(diagnostics::NotCHERIoTTarget { span: attr_span, attr: "cheriot_mmio" });
+            self.dcx().emit_err(diagnostics::NotCHERIoTTarget {
+                span: attr_span,
+                attr: &sym.to_string(),
+            });
         }
 
-        let AttributeKind::CheriotMMIO(rustc_hir::attrs::CheriotMMIOAttr {
+        let AttributeKind::CheriotCapImport(rustc_hir::attrs::CheriotCapImportAttr {
             permissions,
             permissions_span,
             ..
@@ -1644,10 +1664,21 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         else {
             unreachable!()
         };
-        self.check_cheriot_cap_import_permission_coherence(*permissions_span, permissions.as_str());
-    }
 
-    fn check_cheriot_cap_import_permission_coherence(&self, span: Span, permissions: &str) {
+        let all_cap_import_attrs = self
+            .tcx
+            .hir_attrs(hir_id)
+            .iter()
+            .filter(|v| matches!(v, Attribute::Parsed(AttributeKind::CheriotCapImport(..))))
+            .collect::<Vec<&Attribute>>();
+
+        if all_cap_import_attrs.len() > 1 {
+            self.dcx()
+                .emit_err(diagnostics::MultipleCHERIoTCapImportAttributes { span: attr_span });
+            return;
+        }
+
+        let permissions = permissions.as_str();
         use rustc_hir::attrs::CheriotPermissionsAttr as Perms;
         let has_read = permissions.contains(Perms::READ_SYM);
         let has_write = permissions.contains(Perms::WRITE_SYM);
@@ -1657,7 +1688,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
 
         if has_mut && !(has_read && has_cap) {
             self.dcx().emit_err(diagnostics::CHERIoTCapImportPermissionsCoherence {
-                span,
+                span: *permissions_span,
                 suggestion: &format!("add the missing permissions"),
                 permissions,
                 reason: &format!(
@@ -1670,7 +1701,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
 
         if has_glob && !(has_read && has_cap) {
             self.dcx().emit_err(diagnostics::CHERIoTCapImportPermissionsCoherence {
-                span,
+                span: *permissions_span,
                 suggestion: &format!("add the missing permissions"),
                 permissions,
                 reason: &format!(
@@ -1683,7 +1714,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
 
         if !has_read && !has_write {
             self.dcx().emit_err(diagnostics::CHERIoTCapImportPermissionsCoherence {
-                span,
+                span: *permissions_span,
                 suggestion: &format!("add `{}` or `{}`", Perms::READ_SYM, Perms::WRITE_SYM),
                 permissions,
                 reason: &format!(

@@ -13,7 +13,7 @@ pub struct Uart {
 
 unsafe extern "Rust" {
     #[cheriot_mmio(name = "uart", permissions = "R")] //~ ERROR  the `#[cheriot_mmio]` attribute is an experimental feature
-    pub static UART0: Uart; //~ ERROR attribute `cheriot_mmio` can be used on CHERIoT targets only
+    pub static UART0: Uart; //~^ ERROR attribute `cheriot_mmio` can be used on CHERIoT targets only
 }
 
 pub fn main() {}

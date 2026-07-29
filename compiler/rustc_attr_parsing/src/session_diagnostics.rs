@@ -21,8 +21,9 @@ pub(crate) struct BothFfiConstAndPure {
 }
 
 #[derive(Diagnostic)]
-#[diag("`#[cheriot_mmio(name = \"...\", permissions = \"...\")]` requires two parameters")]
-pub(crate) struct CheriotMMIOMissingParameter {
+#[diag("`#[{$attr_name}(name = \"...\", permissions = \"...\")]` requires two parameters")]
+pub(crate) struct CheriotCapImportMissingParameter<'a> {
+    pub attr_name: &'a str,
     #[primary_span]
     pub attr_span: Span,
 }

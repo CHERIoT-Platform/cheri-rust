@@ -949,10 +949,19 @@ pub struct UnstableRemovedFeature {
     pub since: RustcVersion,
 }
 
-/// Successfully-parsed value of a `#[cheriot_mmio(..)]` attribute.
+/// Kinds of capability import attributes.
 #[derive(Copy, Debug, Eq, PartialEq, Encodable, Decodable, Clone)]
 #[derive(StableHash, PrintAttribute)]
-pub struct CheriotMMIOAttr {
+pub enum CheriotCapImportKind {
+    MMIO,
+    SharedObject,
+}
+
+/// Successfully-parsed value of a `#[cheriot_mmio(..)]` or `#[cheriot_shared_object(..)]` attribute.
+#[derive(Copy, Debug, Eq, PartialEq, Encodable, Decodable, Clone)]
+#[derive(StableHash, PrintAttribute)]
+pub struct CheriotCapImportAttr {
+    pub import_kind: CheriotCapImportKind,
     pub name: Symbol,
     pub name_span: Span,
     pub permissions: Symbol,
@@ -1057,8 +1066,8 @@ pub enum AttributeKind {
         encoding: Symbol,
     },
 
-    /// Represents `#[cheriot_mmio]`
-    CheriotMMIO(CheriotMMIOAttr),
+    /// Represents `#[cheriot_mmio]` or `#[cheriot_shared_object]`
+    CheriotCapImport(CheriotCapImportAttr),
 
     /// Represents `#[cold]`.
     Cold,
