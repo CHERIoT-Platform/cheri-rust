@@ -1,0 +1,19 @@
+error[E0658]: the `#[cheriot_mmio]` attribute is an experimental feature
+  --> $DIR/feature-gate-cheriot-attributes.rs:15:5
+   |
+LL |     #[cheriot_mmio(name = "uart", permissions = "R")]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: see issue #1 <https://github.com/rust-lang/rust/issues/1> for more information
+   = help: add `#![feature(cheriot_attributes)]` to the crate attributes to enable
+   = note: this compiler was built on YYYY-MM-DD; consider upgrading it if it is out of date
+
+error: attribute `cheriot_mmio` can be used on CHERIoT targets only
+  --> $DIR/feature-gate-cheriot-attributes.rs:16:5
+   |
+LL |     pub static UART0: Uart;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0658`.
