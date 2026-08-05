@@ -246,11 +246,19 @@ mod mem;
 mod net;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_nonzero"))]
 mod nonzero;
-#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_num",
+        feature = "test_num_f16",
+        feature = "test_num_f32",
+        feature = "test_num_f64",
+        feature = "test_num_f128",
+        feature = "test_num_ieee754",
+        feature = "test_num_rest"
+    )
+))]
 mod num;
-#[cfg(all(target_abi = "cheriot", feature = "test_num_rest"))]
-#[path = "num/rest.rs"]
-mod num_rest;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_ops"))]
 mod ops;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_option"))]

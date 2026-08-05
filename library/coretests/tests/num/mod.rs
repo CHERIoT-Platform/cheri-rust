@@ -1,60 +1,85 @@
+#![cfg_attr(target_abi = "cheriot", allow(unused_imports))]
 use core::fmt::Debug;
 use core::num::{IntErrorKind, ParseIntError, TryFromIntError, can_not_overflow};
 use core::ops::{Add, Div, Mul, Rem, Sub};
 use core::str::FromStr;
 
 #[macro_use]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod int_macros;
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod i128;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod i16;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod i32;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod i64;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod i8;
 
 #[macro_use]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod uint_macros;
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod u128;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod u16;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod u32;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod u64;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod u8;
 
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod bignum;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod carryless_mul;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): not checked
 mod cast;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod const_from;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+// FIXME(cheri/triage): rustc-LLVM ERROR: Cannot select: t117: i32 = fp_to_fp16 t18
+#[cfg(not(target_abi = "cheriot"))]
 mod dec2flt;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_ieee754"))]
 mod float_ieee754_flt2dec_dec2flt;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod float_iter_sum_identity;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_num_f16",
+        feature = "test_num_f32",
+        feature = "test_num_f64",
+        feature = "test_num_f128",
+        feature = "test_num_ieee754" // needs the macros
+    )
+))]
 mod floats;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+// FIXME(cheri/triage): rustc-LLVM ERROR: Cannot select: t99: i32 = fp_to_fp16 t16
+#[cfg(not(target_abi = "cheriot"))]
 mod flt2dec;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+// FIXME(cheri/triage): hangs, needs investigation
+#[cfg(not(target_abi = "cheriot"))]
 mod int_log;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod int_sqrt;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod midpoint;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod nan;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod niche_types;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod ops;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod wrapping;
 
-#[cfg(not(target_abi = "cheriot"))] // used by float_ieee754_flt2dec_dec2flt
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_ieee754"))]
 use floats::{assert_biteq, float_test};
 
 /// Adds the attribute to all items in the block.
@@ -101,6 +126,7 @@ fn ldexp_f64(a: f64, b: i32) -> f64 {
 }
 
 /// Helper function for testing numeric operations
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 pub fn test_num<T>(ten: T, two: T)
 where
     T: PartialEq
@@ -120,6 +146,7 @@ where
 }
 
 /// Helper function for asserting number parsing returns a specific error
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 fn test_parse<T>(num_str: &str, expected: Result<T, IntErrorKind>)
 where
     T: FromStr<Err = ParseIntError>,
@@ -129,6 +156,7 @@ where
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 fn from_str_issue7588() {
     let u: Option<u8> = u8::from_str_radix("1000", 10).ok();
     assert_eq!(u, None);
@@ -137,6 +165,7 @@ fn from_str_issue7588() {
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 #[should_panic = "radix must lie in the range `[2, 36]`"]
 fn from_ascii_radix_panic() {
     let radix = 1;
@@ -144,6 +173,7 @@ fn from_ascii_radix_panic() {
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 fn test_int_from_str_overflow() {
     test_parse::<i8>("127", Ok(127));
     test_parse::<i8>("128", Err(IntErrorKind::PosOverflow));
@@ -171,6 +201,7 @@ fn test_int_from_str_overflow() {
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 fn test_can_not_overflow() {
     fn can_overflow<T>(radix: u32, input: &str) -> bool
     where
@@ -245,12 +276,14 @@ fn test_can_not_overflow() {
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 fn test_leading_plus() {
     test_parse::<u8>("+127", Ok(127));
     test_parse::<i64>("+9223372036854775807", Ok(9223372036854775807));
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 fn test_invalid() {
     test_parse::<i8>("--129", Err(IntErrorKind::InvalidDigit));
     test_parse::<i8>("++129", Err(IntErrorKind::InvalidDigit));
@@ -263,11 +296,13 @@ fn test_invalid() {
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 fn test_empty() {
     test_parse::<u8>("", Err(IntErrorKind::Empty));
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 fn test_infallible_try_from_int_error() {
     let func = |x: i8| -> Result<i32, TryFromIntError> { Ok(x.try_into()?) };
 
@@ -287,6 +322,7 @@ const _TEST_CONST_PARSE: () = {
 macro_rules! test_impl_from {
     ($fn_name:ident, bool, $target: ty) => {
         #[test]
+        #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
         fn $fn_name() {
             let one: $target = 1;
             let zero: $target = 0;
@@ -296,6 +332,7 @@ macro_rules! test_impl_from {
     };
     ($fn_name: ident, $Small: ty, $Large: ty) => {
         #[test]
+        #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
         fn $fn_name() {
             let small_max = <$Small>::MAX;
             let small_min = <$Small>::MIN;
@@ -361,6 +398,7 @@ test_impl_from! { test_u32f64, u32, f64 }
 
 // Float -> Float
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 fn test_f32f64() {
     let max: f64 = f32::MAX.into();
     assert_eq!(max as f32, f32::MAX);
@@ -404,6 +442,7 @@ fn test_f32f64() {
 macro_rules! test_impl_try_from_integer_to_bool {
     ($fn_name:ident, $source:ty) => {
         #[test]
+        #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
         fn $fn_name() {
             let max: $source = <$source>::MAX;
             let min: $source = <$source>::MIN;
@@ -441,6 +480,7 @@ test_impl_try_from_integer_to_bool! { test_try_i128bool, i128 }
 macro_rules! test_impl_try_from_always_ok {
     ($fn_name:ident, $source:ty, $target: ty) => {
         #[test]
+        #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
         fn $fn_name() {
             let max = <$source>::MAX;
             let min = <$source>::MIN;
@@ -554,6 +594,7 @@ assume_usize_width! {
 macro_rules! test_impl_try_from_signed_to_unsigned_upper_ok {
     ($fn_name:ident, $source:ty, $target:ty) => {
         #[test]
+        #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
         fn $fn_name() {
             let max = <$source>::MAX;
             let min = <$source>::MIN;
@@ -625,6 +666,7 @@ assume_usize_width! {
 macro_rules! test_impl_try_from_unsigned_to_signed_upper_err {
     ($fn_name:ident, $source:ty, $target:ty) => {
         #[test]
+        #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
         fn $fn_name() {
             let max = <$source>::MAX;
             let min = <$source>::MIN;
@@ -689,6 +731,7 @@ assume_usize_width! {
 macro_rules! test_impl_try_from_same_sign_err {
     ($fn_name:ident, $source:ty, $target:ty) => {
         #[test]
+        #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
         fn $fn_name() {
             let max = <$source>::MAX;
             let min = <$source>::MIN;
@@ -784,6 +827,7 @@ assume_usize_width! {
 macro_rules! test_impl_try_from_signed_to_unsigned_err {
     ($fn_name:ident, $source:ty, $target:ty) => {
         #[test]
+        #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
         fn $fn_name() {
             let max = <$source>::MAX;
             let min = <$source>::MIN;
