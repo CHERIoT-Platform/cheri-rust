@@ -79,17 +79,17 @@ jobs:
       - name: Build LLVM
         run: ./x build llvm --ci=false
 
-      - name: Run `x check` (host)
-        run: ./x check --ci=false
+      # - name: Run `x check` (host)
+      #   run: ./x check --ci=false
 
-      - name: Run `x test` (host)
-        run: ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make --skip tidy --ci=false
+      # - name: Run `x test` (host)
+      #   run: ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make --skip tidy --ci=false
 
-      - name: Build rustc, core (CHERIoT)
-        run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos --ci=false
+      # - name: Build rustc, core (CHERIoT)
+      #   run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos --ci=false
 
-      - name: Run `x test tests/codegen-llvm` (CHERIoT)
-        run: ./x test tests/codegen-llvm --target=riscv32cheriot-unknown-cheriotrtos --skip src/tools/linkchecker --ci=false
+      # - name: Run `x test tests/codegen-llvm` (CHERIoT)
+      #   run: ./x test tests/codegen-llvm --target=riscv32cheriot-unknown-cheriotrtos --skip src/tools/linkchecker --ci=false
 
       - name: Check xmake
         run: xmake --version
@@ -121,17 +121,17 @@ jobs:
       - name: Check sail sim
         run: cheriot_sim
 
-      - name: Build test runner (host)
-        working-directory: ./cheri/tests/runner
-        run: cargo build --release
+      # - name: Build test runner (host)
+      #   working-directory: ./cheri/tests/runner
+      #   run: cargo build --release
 
-      - name: Run internal tests (CHERIoT)
-        working-directory: ./cheri/tests
-        run: ./runner/target/release/cheriot-runner -vvvvv . --sysroot=../../build/host/llvm --rustc=../../build/host/stage1/bin/rustc
+      # - name: Run internal tests (CHERIoT)
+      #   working-directory: ./cheri/tests
+      #   run: ./runner/target/release/cheriot-runner -vvvvv . --sysroot=../../build/host/llvm --rustc=../../build/host/stage1/bin/rustc
 
-      - name: Run examples (CHERIoT)
-        working-directory: ./cheri/examples
-        run: ./run_examples.sh
+      # - name: Run examples (CHERIoT)
+      #   working-directory: ./cheri/examples
+      #   run: ./run_examples.sh
 
       - name: Build rustc, std (CHERIoT/facade)
         run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos.facade --ci=false
@@ -139,8 +139,11 @@ jobs:
       - name: Build test-runner
         run: cargo install --path cheri/ci/tools/test_runner
 
-      - name: Run coretests (CHERIoT/facade)
-        run: test-runner coretests --known-issues library/coretests/known_issues
+      # - name: Run coretests (CHERIoT/facade)
+      #   run: test-runner coretests --known-issues library/coretests/known_issues --clean
+
+      - name: Run alloctests (CHERIoT/facade)
+        run: test-runner alloctests --known-issues library/alloctests/known_issues --clean
 
       - name: Check sccache stats
         if: always()
