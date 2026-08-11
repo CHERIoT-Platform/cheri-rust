@@ -28,11 +28,13 @@ impl Drop for DropCounter<'_> {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_small_vec_struct() {
     assert_eq!(size_of::<Vec<u8>>(), size_of::<usize>() * 3);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_double_drop() {
     struct TwoVec<T> {
@@ -58,6 +60,7 @@ fn test_double_drop() {
     assert_eq!(count_y, 1);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_reserve() {
     let mut v = Vec::new();
@@ -80,11 +83,13 @@ fn test_reserve() {
     assert!(v.capacity() >= 33)
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_zst_capacity() {
     assert_eq!(Vec::<()>::new().capacity(), usize::MAX);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_indexing() {
     let v: Vec<isize> = vec![10, 20];
@@ -98,6 +103,7 @@ fn test_indexing() {
     assert_eq!(v[x - 1], 10);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_debug_fmt() {
     let vec1: Vec<isize> = vec![];
@@ -110,6 +116,7 @@ fn test_debug_fmt() {
     assert_eq!("[4, 5]", format!("{slice:?}"));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_push() {
     let mut v = vec![];
@@ -121,6 +128,7 @@ fn test_push() {
     assert_eq!(v, [1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_extend() {
     let mut v = Vec::new();
@@ -166,6 +174,7 @@ fn test_extend() {
     assert_eq!(count_x, 1);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_extend_from_slice() {
     let a: Vec<isize> = vec![1, 2, 3, 4, 5];
@@ -178,6 +187,7 @@ fn test_extend_from_slice() {
     assert_eq!(v, [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_extend_ref() {
     let mut v = vec![1, 2];
@@ -193,6 +203,7 @@ fn test_extend_ref() {
     assert_eq!(v, [1, 2, 3, 4, 5, 6, 7]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_slice_from_ref() {
     let values = vec![1, 2, 3, 4, 5];
@@ -201,6 +212,7 @@ fn test_slice_from_ref() {
     assert_eq!(slice, [2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_slice_from_mut() {
     let mut values = vec![1, 2, 3, 4, 5];
@@ -215,6 +227,7 @@ fn test_slice_from_mut() {
     assert!(values == [1, 2, 5, 6, 7]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_slice_to_mut() {
     let mut values = vec![1, 2, 3, 4, 5];
@@ -229,6 +242,7 @@ fn test_slice_to_mut() {
     assert!(values == [2, 3, 3, 4, 5]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_split_at_mut() {
     let mut values = vec![1, 2, 3, 4, 5];
@@ -254,6 +268,7 @@ fn test_split_at_mut() {
     assert_eq!(values, [2, 3, 5, 6, 7]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_clone() {
     let v: Vec<i32> = vec![];
@@ -267,6 +282,7 @@ fn test_clone() {
     assert!(w.as_ptr() != z.as_ptr())
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_clone_from() {
     let mut v = vec![];
@@ -289,6 +305,7 @@ fn test_clone_from() {
     assert_eq!(v, three)
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_retain() {
     let mut vec = vec![1, 2, 3, 4];
@@ -296,6 +313,7 @@ fn test_retain() {
     assert_eq!(vec, [2, 4]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_retain_predicate_order() {
     for to_keep in [true, false] {
@@ -312,6 +330,7 @@ fn test_retain_predicate_order() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_retain_pred_panic_with_hole() {
@@ -330,6 +349,7 @@ fn test_retain_pred_panic_with_hole() {
     assert!(v.iter().all(|r| Rc::strong_count(r) == 1));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_retain_pred_panic_no_hole() {
@@ -346,6 +366,7 @@ fn test_retain_pred_panic_no_hole() {
     assert!(v.iter().all(|r| Rc::strong_count(r) == 1));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_retain_drop_panic() {
@@ -376,6 +397,7 @@ fn test_retain_drop_panic() {
     assert!(v.iter().all(|r| Rc::strong_count(r) == 1));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_retain_maybeuninits() {
     // This test aimed to be run under miri.
@@ -405,6 +427,7 @@ fn test_retain_maybeuninits() {
     assert_eq!(vec, [2, 4]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_dedup() {
     fn case(a: Vec<i32>, b: Vec<i32>) {
@@ -422,6 +445,7 @@ fn test_dedup() {
     case(vec![1, 1, 2, 2, 2, 3, 3], vec![1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_dedup_by_key() {
     fn case(a: Vec<i32>, b: Vec<i32>) {
@@ -439,6 +463,7 @@ fn test_dedup_by_key() {
     case(vec![10, 11, 20, 21, 22, 30, 31], vec![10, 20, 30]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_dedup_by() {
     let mut vec = vec!["foo", "bar", "Bar", "baz", "bar"];
@@ -457,6 +482,7 @@ fn test_dedup_by() {
     assert_eq!(vec, [("foo", 3), ("bar", 12)]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_dedup_unique() {
     let mut v0: Vec<Box<_>> = vec![Box::new(1), Box::new(1), Box::new(2), Box::new(3)];
@@ -469,6 +495,7 @@ fn test_dedup_unique() {
     // and/or rt should raise errors.
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn zero_sized_values() {
     let mut v = Vec::new();
@@ -502,6 +529,7 @@ fn zero_sized_values() {
     assert_eq!(v.iter_mut().count(), 0);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_partition() {
     assert_eq!([].into_iter().partition(|x: &i32| *x < 3), (vec![], vec![]));
@@ -510,6 +538,7 @@ fn test_partition() {
     assert_eq!([1, 2, 3].into_iter().partition(|x| *x < 0), (vec![], vec![1, 2, 3]));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_zip_unzip() {
     let z1 = vec![(1, 4), (2, 5), (3, 6)];
@@ -521,6 +550,7 @@ fn test_zip_unzip() {
     assert_eq!((3, 6), (left[2], right[2]));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_cmp() {
     let x: &[isize] = &[1, 2, 3, 4, 5];
@@ -544,6 +574,7 @@ fn test_cmp() {
     assert_eq!(&x[1..4], cmp);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_vec_truncate_drop() {
     struct_with_counted_drop!(Elem(i32), DROPS);
@@ -557,6 +588,7 @@ fn test_vec_truncate_drop() {
     assert_eq!(DROPS.get(), 5);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_vec_truncate_fail() {
@@ -574,12 +606,14 @@ fn test_vec_truncate_fail() {
     v.truncate(0);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_index() {
     let vec = vec![1, 2, 3];
     assert!(vec[1] == 2);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_index_out_of_bounds() {
@@ -587,6 +621,7 @@ fn test_index_out_of_bounds() {
     let _ = vec[3];
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_slice_out_of_bounds_1() {
@@ -594,6 +629,7 @@ fn test_slice_out_of_bounds_1() {
     let _ = &x[!0..];
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_slice_out_of_bounds_2() {
@@ -601,6 +637,7 @@ fn test_slice_out_of_bounds_2() {
     let _ = &x[..6];
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_slice_out_of_bounds_3() {
@@ -608,6 +645,7 @@ fn test_slice_out_of_bounds_3() {
     let _ = &x[!0..4];
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_slice_out_of_bounds_4() {
@@ -615,6 +653,7 @@ fn test_slice_out_of_bounds_4() {
     let _ = &x[1..6];
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_slice_out_of_bounds_5() {
@@ -622,6 +661,7 @@ fn test_slice_out_of_bounds_5() {
     let _ = &x[3..2];
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_swap_remove_empty() {
@@ -629,6 +669,7 @@ fn test_swap_remove_empty() {
     vec.swap_remove(0);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_try_remove() {
     let mut vec = vec![1, 2, 3];
@@ -644,6 +685,7 @@ fn test_try_remove() {
     assert!(v.try_remove(0).is_none());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_move_items() {
     let vec = vec![1, 2, 3];
@@ -654,6 +696,7 @@ fn test_move_items() {
     assert_eq!(vec2, [1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_move_items_reverse() {
     let vec = vec![1, 2, 3];
@@ -664,6 +707,7 @@ fn test_move_items_reverse() {
     assert_eq!(vec2, [3, 2, 1]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_move_items_zero_sized() {
     let vec = vec![(), (), ()];
@@ -674,6 +718,7 @@ fn test_move_items_zero_sized() {
     assert_eq!(vec2, [(), (), ()]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_empty_vec() {
     let mut vec: Vec<i32> = vec![];
@@ -685,6 +730,7 @@ fn test_drain_empty_vec() {
     assert!(vec2.is_empty());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_items() {
     let mut vec = vec![1, 2, 3];
@@ -696,6 +742,7 @@ fn test_drain_items() {
     assert_eq!(vec2, [1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_items_reverse() {
     let mut vec = vec![1, 2, 3];
@@ -707,6 +754,7 @@ fn test_drain_items_reverse() {
     assert_eq!(vec2, [3, 2, 1]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_items_zero_sized() {
     let mut vec = vec![(), (), ()];
@@ -718,6 +766,7 @@ fn test_drain_items_zero_sized() {
     assert_eq!(vec2, [(), (), ()]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_drain_out_of_bounds() {
@@ -725,6 +774,7 @@ fn test_drain_out_of_bounds() {
     v.drain(5..6);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_range() {
     let mut v = vec![1, 2, 3, 4, 5];
@@ -744,6 +794,7 @@ fn test_drain_range() {
     assert_eq!(v, &[(), ()]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_inclusive_range() {
     let mut v = vec!['a', 'b', 'c', 'd', 'e'];
@@ -767,6 +818,7 @@ fn test_drain_inclusive_range() {
     assert_eq!(v, &["1".to_string()]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_max_vec_size() {
     let mut v = Vec::<()>::with_capacity(usize::MAX);
@@ -784,6 +836,7 @@ fn test_drain_max_vec_size() {
     assert_eq!(v.len(), usize::MAX - 1);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_drain_index_overflow() {
@@ -794,6 +847,7 @@ fn test_drain_index_overflow() {
     v.drain(0..=usize::MAX);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_drain_inclusive_out_of_bounds() {
@@ -801,6 +855,7 @@ fn test_drain_inclusive_out_of_bounds() {
     v.drain(5..=5);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_drain_start_overflow() {
@@ -808,6 +863,7 @@ fn test_drain_start_overflow() {
     v.drain((Excluded(usize::MAX), Included(0)));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_drain_end_overflow() {
@@ -815,6 +871,7 @@ fn test_drain_end_overflow() {
     v.drain((Included(0), Included(usize::MAX)));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_drain_leak() {
@@ -839,6 +896,7 @@ fn test_drain_leak() {
     assert_eq!(v, vec![D(0, false), D(1, false), D(6, false),]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_keep_rest() {
     let mut v = vec![0, 1, 2, 3, 4, 5, 6];
@@ -851,6 +909,7 @@ fn test_drain_keep_rest() {
     assert_eq!(v, &[0, 3, 4, 6]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_keep_rest_all() {
     let mut v = vec![0, 1, 2, 3, 4, 5, 6];
@@ -858,6 +917,7 @@ fn test_drain_keep_rest_all() {
     assert_eq!(v, &[0, 1, 2, 3, 4, 5, 6]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_drain_keep_rest_none() {
     let mut v = vec![0, 1, 2, 3, 4, 5, 6];
@@ -869,6 +929,7 @@ fn test_drain_keep_rest_none() {
     assert_eq!(v, &[0, 6]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_splice() {
     let mut v = vec![1, 2, 3, 4, 5];
@@ -879,6 +940,7 @@ fn test_splice() {
     assert_eq!(v, &[1, 20, 11, 12, 5]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_splice_inclusive_range() {
     let mut v = vec![1, 2, 3, 4, 5];
@@ -891,6 +953,7 @@ fn test_splice_inclusive_range() {
     assert_eq!(t2, &[2, 10]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_splice_out_of_bounds() {
@@ -899,6 +962,7 @@ fn test_splice_out_of_bounds() {
     v.splice(5..6, a);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[should_panic]
 fn test_splice_inclusive_out_of_bounds() {
@@ -907,6 +971,7 @@ fn test_splice_inclusive_out_of_bounds() {
     v.splice(5..=5, a);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_splice_items_zero_sized() {
     let mut vec = vec![(), (), ()];
@@ -916,6 +981,7 @@ fn test_splice_items_zero_sized() {
     assert_eq!(t, &[()]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_splice_unbounded() {
     let mut vec = vec![1, 2, 3, 4, 5];
@@ -924,6 +990,7 @@ fn test_splice_unbounded() {
     assert_eq!(t, &[1, 2, 3, 4, 5]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_splice_forget() {
     let mut v = vec![1, 2, 3, 4, 5];
@@ -932,6 +999,7 @@ fn test_splice_forget() {
     assert_eq!(v, &[1, 2]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_boxed_slice() {
     let xs = vec![1, 2, 3];
@@ -939,6 +1007,7 @@ fn test_into_boxed_slice() {
     assert_eq!(&*ys, [1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_append() {
     let mut vec = vec![1, 2, 3];
@@ -948,6 +1017,7 @@ fn test_append() {
     assert_eq!(vec2, []);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_split_off() {
     let mut vec = vec![1, 2, 3, 4, 5, 6];
@@ -961,6 +1031,7 @@ fn test_split_off() {
     assert_eq!(vec.as_ptr(), orig_ptr);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_split_off_take_all() {
     // Allocate enough capacity that we can tell whether the split-off vector's
@@ -982,6 +1053,7 @@ fn test_split_off_take_all() {
     assert_ne!(split_off.as_ptr(), orig_ptr);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_as_slice() {
     let vec = vec!['a', 'b', 'c'];
@@ -994,6 +1066,7 @@ fn test_into_iter_as_slice() {
     assert_eq!(into_iter.as_slice(), &[]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_as_mut_slice() {
     let vec = vec!['a', 'b', 'c'];
@@ -1005,6 +1078,7 @@ fn test_into_iter_as_mut_slice() {
     assert_eq!(into_iter.as_slice(), &['y', 'c']);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_debug() {
     let vec = vec!['a', 'b', 'c'];
@@ -1013,11 +1087,13 @@ fn test_into_iter_debug() {
     assert_eq!(debug, "IntoIter(['a', 'b', 'c'])");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_count() {
     assert_eq!([1, 2, 3].into_iter().count(), 3);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_next_chunk() {
     let mut iter = b"lorem".to_vec().into_iter();
@@ -1027,6 +1103,7 @@ fn test_into_iter_next_chunk() {
     assert_eq!(iter.next_chunk::<4>().unwrap_err().as_slice(), &[]); // N is explicitly 4
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_next_chunk_back() {
     let mut iter = b"lorem".to_vec().into_iter();
@@ -1036,6 +1113,7 @@ fn test_into_iter_next_chunk_back() {
     assert_eq!(iter.next_chunk_back::<4>().unwrap_err().as_slice(), &[]); // N is explicitly 4
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_clone() {
     fn iter_equal<I: Iterator<Item = i32>>(it: I, slice: &[i32]) {
@@ -1054,6 +1132,7 @@ fn test_into_iter_clone() {
     assert_eq!(it.next(), None);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_into_iter_leak() {
@@ -1066,6 +1145,7 @@ fn test_into_iter_leak() {
     assert_eq!(DROPS.get(), 3);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_advance_by() {
     let mut i = vec![1, 2, 3, 4, 5].into_iter();
@@ -1087,6 +1167,7 @@ fn test_into_iter_advance_by() {
     assert_eq!(i.len(), 0);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_drop_allocator() {
     struct ReferenceCountedAllocator<'a>(#[allow(dead_code)] DropCounter<'a>);
@@ -1113,6 +1194,7 @@ fn test_into_iter_drop_allocator() {
     assert_eq!(drop_count, 2);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_into_iter_zst() {
     #[derive(Debug, Clone)]
@@ -1150,6 +1232,7 @@ fn test_into_iter_zst() {
     drop(it);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_from_iter_specialization() {
     let src: Vec<usize> = vec![0usize; 1];
@@ -1159,6 +1242,7 @@ fn test_from_iter_specialization() {
     assert_eq!(srcptr, sinkptr);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_from_iter_partially_drained_in_place_specialization() {
     let src: Vec<usize> = vec![0usize; 10];
@@ -1171,6 +1255,7 @@ fn test_from_iter_partially_drained_in_place_specialization() {
     assert_eq!(srcptr, sinkptr);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_from_iter_specialization_with_iterator_adapters() {
     fn assert_in_place_trait<T: InPlaceIterable>(_: &T) {}
@@ -1195,6 +1280,7 @@ fn test_from_iter_specialization_with_iterator_adapters() {
     assert_eq!(srcptr as *const usize, sinkptr as *const usize);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_in_place_specialization_step_up_down() {
     fn assert_in_place_trait<T: InPlaceIterable>(_: &T) {}
@@ -1226,6 +1312,7 @@ fn test_in_place_specialization_step_up_down() {
     assert!(sink.capacity() <= 25);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_from_iter_specialization_head_tail_drop() {
     let drop_count: Vec<_> = (0..=2).map(|_| Rc::new(())).collect();
@@ -1241,6 +1328,7 @@ fn test_from_iter_specialization_head_tail_drop() {
     assert_eq!(sink.len(), 1);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_from_iter_specialization_panic_during_iteration_drops() {
@@ -1266,6 +1354,7 @@ fn test_from_iter_specialization_panic_during_iteration_drops() {
     );
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_from_iter_specialization_panic_during_drop_doesnt_leak() {
@@ -1298,6 +1387,7 @@ fn test_from_iter_specialization_panic_during_drop_doesnt_leak() {
 // regression test for issue #85322. Peekable previously implemented InPlaceIterable,
 // but due to an interaction with IntoIter's current Clone implementation it failed to uphold
 // the contract.
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_collect_after_iterator_clone() {
     let v = vec![0; 5];
@@ -1310,6 +1400,7 @@ fn test_collect_after_iterator_clone() {
 
 // regression test for #135103, similar to the one above Flatten/FlatMap had an unsound InPlaceIterable
 // implementation.
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_flatten_clone() {
     const S: String = String::new();
@@ -1321,6 +1412,7 @@ fn test_flatten_clone() {
     assert_eq!(result, ["Hello World!", "", ""]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_cow_from() {
     let borrowed: &[_] = &["borrowed", "(slice)"];
@@ -1331,6 +1423,7 @@ fn test_cow_from() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn test_from_cow() {
     let borrowed: &[_] = &["borrowed", "(slice)"];
@@ -1349,6 +1442,7 @@ fn assert_covariance() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn from_into_inner() {
     let vec = vec![1, 2, 3];
@@ -1365,6 +1459,7 @@ fn from_into_inner() {
     assert!(ptr != vec.as_ptr());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_1"))]
 #[test]
 fn overaligned_allocations() {
     #[repr(align(256))]
@@ -1380,6 +1475,7 @@ fn overaligned_allocations() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn extract_if_empty() {
     let mut vec: Vec<i32> = vec![];
@@ -1396,6 +1492,7 @@ fn extract_if_empty() {
     assert_eq!(vec, vec![]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn extract_if_zst() {
     let mut vec = vec![(), (), (), (), ()];
@@ -1418,6 +1515,7 @@ fn extract_if_zst() {
     assert_eq!(vec, vec![]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn extract_if_false() {
     let mut vec = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -1440,6 +1538,7 @@ fn extract_if_false() {
     assert_eq!(vec, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn extract_if_true() {
     let mut vec = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -1463,6 +1562,7 @@ fn extract_if_true() {
     assert_eq!(vec, vec![]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn extract_if_ranges() {
     let mut vec = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -1481,6 +1581,7 @@ fn extract_if_ranges() {
     assert_eq!(vec, vec![0, 4, 5, 6, 7, 8, 9, 10]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[should_panic]
 fn extract_if_out_of_bounds() {
@@ -1488,6 +1589,7 @@ fn extract_if_out_of_bounds() {
     let _ = vec.extract_if(5.., |_| true).for_each(drop);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn extract_if_complex() {
     {
@@ -1557,6 +1659,7 @@ fn extract_if_complex() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn extract_if_consumed_panic() {
@@ -1608,6 +1711,7 @@ fn extract_if_consumed_panic() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn extract_if_unconsumed_panic() {
@@ -1658,6 +1762,7 @@ fn extract_if_unconsumed_panic() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn extract_if_unconsumed() {
     let mut vec = vec![1, 2, 3, 4];
@@ -1666,6 +1771,7 @@ fn extract_if_unconsumed() {
     assert_eq!(vec, [1, 2, 3, 4]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn extract_if_debug() {
     let mut vec = vec![1, 2, 3, 4, 5, 6, 7, 8];
@@ -1681,6 +1787,7 @@ fn extract_if_debug() {
     );
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_reserve_exact() {
     // This is all the same as test_reserve
@@ -1705,6 +1812,7 @@ fn test_reserve_exact() {
     assert!(v.capacity() >= 33)
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri does not support signalling OOM
 fn test_try_with_capacity() {
@@ -1716,6 +1824,7 @@ fn test_try_with_capacity() {
     assert!(Vec::<u16>::try_with_capacity(isize::MAX as usize + 1).is_err());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri does not support signalling OOM
 fn test_try_reserve() {
@@ -1811,6 +1920,7 @@ fn test_try_reserve() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri does not support signalling OOM
 fn test_try_reserve_exact() {
@@ -1900,6 +2010,7 @@ fn test_try_reserve_exact() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_stable_pointers() {
     /// Pull an element from the iterator, then drop it.
@@ -2003,6 +2114,7 @@ fn test_stable_pointers() {
 // … to call `RawVec::with_capacity_zeroed` for creating `Vec<*mut T>`,
 // which is incorrect for fat pointers since `<*mut T>::is_null` only looks at the data component.
 // That is, a fat pointer can be “null” without being made entirely of zero bits.
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn vec_macro_repeating_null_raw_fat_pointer() {
     let raw_dyn = &mut (|| ()) as &mut dyn Fn() as *mut dyn Fn();
@@ -2033,6 +2145,7 @@ fn vec_macro_repeating_null_raw_fat_pointer() {
 
 // This test will likely fail if you change the capacities used in
 // `RawVec::grow_amortized`.
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_push_growth_strategy() {
     // If the element size is 1, we jump from 0 to 8, then double.
@@ -2158,6 +2271,7 @@ macro_rules! generate_assert_eq_vec_and_prim {
 generate_assert_eq_vec_and_prim! { assert_eq_vec_and_slice  <B>(&[B])   }
 generate_assert_eq_vec_and_prim! { assert_eq_vec_and_array_3<B>([B; 3]) }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn partialeq_vec_and_prim() {
     assert_eq_vec_and_slice(vec![1, 2, 3], &[1, 2, 3]);
@@ -2177,6 +2291,7 @@ macro_rules! assert_partial_eq_valid {
     };
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn partialeq_vec_full() {
     let vec2: Vec<_> = vec![1, 2];
@@ -2200,6 +2315,7 @@ fn partialeq_vec_full() {
     assert_partial_eq_valid!(vec2,vec3; arrayref2[..],arrayref3[..]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_cycle() {
     #[derive(Debug)]
@@ -2238,6 +2354,7 @@ fn test_vec_cycle() {
     c3.v[1].set(Some(&c2));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_cycle_wrapped() {
     struct Refs<'a> {
@@ -2279,6 +2396,7 @@ fn test_vec_cycle_wrapped() {
     c3.refs.v[1].set(Some(&c2));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_zero_sized_capacity() {
     for len in [0, 1, 2, 4, 8, 16, 32, 64, 128, 256] {
@@ -2288,6 +2406,7 @@ fn test_zero_sized_capacity() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_zero_sized_vec_push() {
     const N: usize = 8;
@@ -2305,6 +2424,7 @@ fn test_zero_sized_vec_push() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_macro_repeat() {
     assert_eq!(vec![1; 3], vec![1, 1, 1]);
@@ -2318,6 +2438,7 @@ fn test_vec_macro_repeat() {
     assert_eq!(vec![el; n], vec![Box::new(1), Box::new(1), Box::new(1)]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_swap() {
     let mut a: Vec<isize> = vec![0, 1, 2, 3, 4, 5, 6];
@@ -2330,6 +2451,7 @@ fn test_vec_swap() {
     assert_eq!(n, 0);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_extend_from_within_clone() {
     let mut v = vec![String::from("sssss"), String::from("12334567890"), String::from("c")];
@@ -2338,6 +2460,7 @@ fn test_extend_from_within_clone() {
     assert_eq!(v, ["sssss", "12334567890", "c", "12334567890", "c"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_extend_from_within_complete_rande() {
     let mut v = vec![0, 1, 2, 3];
@@ -2346,6 +2469,7 @@ fn test_extend_from_within_complete_rande() {
     assert_eq!(v, [0, 1, 2, 3, 0, 1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_extend_from_within_empty_rande() {
     let mut v = vec![0, 1, 2, 3];
@@ -2354,6 +2478,7 @@ fn test_extend_from_within_empty_rande() {
     assert_eq!(v, [0, 1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[should_panic]
 fn test_extend_from_within_out_of_rande() {
@@ -2361,6 +2486,7 @@ fn test_extend_from_within_out_of_rande() {
     v.extend_from_within(..3);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_extend_from_within_zst() {
     let mut v = vec![(); 8];
@@ -2369,6 +2495,7 @@ fn test_extend_from_within_zst() {
     assert_eq!(v, [(); 12]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_extend_from_within_empty_vec() {
     let mut v = Vec::<i32>::new();
@@ -2377,6 +2504,7 @@ fn test_extend_from_within_empty_vec() {
     assert_eq!(v, []);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_extend_from_within() {
     let mut v = vec![String::from("a"), String::from("b"), String::from("c")];
@@ -2386,6 +2514,7 @@ fn test_extend_from_within() {
     assert_eq!(v, ["a", "b", "c", "b", "c", "a", "b"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_dedup_by() {
     let mut vec: Vec<i32> = vec![1, -1, 2, 3, 1, -5, 5, -2, 2];
@@ -2395,6 +2524,7 @@ fn test_vec_dedup_by() {
     assert_eq!(vec, [1, 2, 3, 1, -5, -2]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_dedup_empty() {
     let mut vec: Vec<i32> = Vec::new();
@@ -2404,6 +2534,7 @@ fn test_vec_dedup_empty() {
     assert_eq!(vec, []);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_dedup_one() {
     let mut vec = vec![12i32];
@@ -2413,6 +2544,7 @@ fn test_vec_dedup_one() {
     assert_eq!(vec, [12]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_dedup_multiple_ident() {
     let mut vec = vec![12, 12, 12, 12, 12, 11, 11, 11, 11, 11, 11];
@@ -2422,6 +2554,7 @@ fn test_vec_dedup_multiple_ident() {
     assert_eq!(vec, [12, 11]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_dedup_partialeq() {
     #[derive(Debug)]
@@ -2439,6 +2572,7 @@ fn test_vec_dedup_partialeq() {
     assert_eq!(vec, [Foo(0, 1), Foo(1, 7)]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_dedup() {
     let mut vec: Vec<bool> = Vec::with_capacity(8);
@@ -2459,6 +2593,7 @@ fn test_vec_dedup() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_vec_dedup_panicking() {
@@ -2516,6 +2651,7 @@ fn test_vec_dedup_panicking() {
 }
 
 // Regression test for issue #82533
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_extend_from_within_panicking_clone() {
@@ -2557,6 +2693,7 @@ fn test_extend_from_within_panicking_clone() {
     assert_eq!(count.load(Ordering::SeqCst), 4);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[should_panic = "vec len overflow"]
 fn test_into_flattened_size_overflow() {
@@ -2564,6 +2701,7 @@ fn test_into_flattened_size_overflow() {
     let _ = v.into_flattened();
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_box_zero_allocator() {
     use core::alloc::AllocError;
@@ -2629,16 +2767,19 @@ fn test_box_zero_allocator() {
     assert!(alloc.state.borrow().0.is_empty());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_from_array_ref() {
     assert_eq!(Vec::from(&[1, 2, 3]), vec![1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_vec_from_array_mut_ref() {
     assert_eq!(Vec::from(&mut [1, 2, 3]), vec![1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_pop_if() {
     let mut v = vec![1, 2, 3, 4];
@@ -2651,6 +2792,7 @@ fn test_pop_if() {
     assert_eq!(v, [1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_pop_if_empty() {
     let mut v = Vec::<i32>::new();
@@ -2658,6 +2800,7 @@ fn test_pop_if_empty() {
     assert!(v.is_empty());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_pop_if_mutates() {
     let mut v = vec![1];
@@ -2669,6 +2812,7 @@ fn test_pop_if_mutates() {
     assert_eq!(v, [2]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn test_peek_mut() {
     let mut vec = Vec::new();
@@ -2692,6 +2836,7 @@ fn test_peek_mut() {
 /// `vec.insert(usize::MAX, val)` once slipped by!
 ///
 /// All code that manipulates the collection types should be tested with "trivially wrong" args.
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn max_dont_panic() {
     let mut v = vec![0];
@@ -2700,6 +2845,7 @@ fn max_dont_panic() {
     v.truncate(usize::MAX);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[should_panic]
 fn max_insert() {
@@ -2707,6 +2853,7 @@ fn max_insert() {
     v.insert(usize::MAX, 1);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[should_panic]
 fn max_remove() {
@@ -2714,6 +2861,7 @@ fn max_remove() {
     v.remove(usize::MAX);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[should_panic]
 fn max_splice() {
@@ -2721,6 +2869,7 @@ fn max_splice() {
     v.splice(usize::MAX.., core::iter::once(1));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 #[should_panic]
 fn max_swap_remove() {
@@ -2729,6 +2878,7 @@ fn max_swap_remove() {
 }
 
 // Regression test for #135338
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn vec_null_ptr_roundtrip() {
     let ptr = std::ptr::from_ref(&42);
@@ -2741,6 +2891,7 @@ fn vec_null_ptr_roundtrip() {
 // Regression test for Undefined Behavior (UB) caused by IntoIter::nth_back (#148682)
 // when dealing with high-aligned Zero-Sized Types (ZSTs).
 use std::collections::{BTreeMap, BinaryHeap, HashMap, LinkedList, VecDeque};
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn zst_collections_iter_nth_back_regression() {
     #[repr(align(8))]
@@ -2770,6 +2921,7 @@ fn zst_collections_iter_nth_back_regression() {
     let _ = list.into_iter().nth_back(1);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn const_heap() {
     const X: &'static [u32] = {
@@ -2788,6 +2940,7 @@ fn const_heap() {
 
 // regression test for issue #153158. `const_make_global` previously assumed `Vec<T>`'s buf
 // always has a heap allocation, which lead to compilation errors.
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_2"))]
 #[test]
 fn const_make_global_empty_or_zst_regression() {
     const EMPTY_SLICE: &'static [i32] = {

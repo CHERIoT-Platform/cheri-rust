@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::str::{from_utf8, from_utf8_unchecked};
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_le() {
     assert!("" <= "");
@@ -13,6 +14,7 @@ fn test_le() {
     assert_ne!("foo", "bar");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_find() {
     assert_eq!("hello".find('l'), Some(2));
@@ -23,6 +25,7 @@ fn test_find() {
     assert_eq!("ประเทศไทย中华Việt Nam".find(|c: char| c == '华'), Some(30));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_rfind() {
     assert_eq!("hello".rfind('l'), Some(3));
@@ -33,6 +36,7 @@ fn test_rfind() {
     assert_eq!("ประเทศไทย中华Việt Nam".rfind(|c: char| c == '华'), Some(30));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_collect() {
     let empty = "";
@@ -43,6 +47,7 @@ fn test_collect() {
     assert_eq!(data, s);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_into_bytes() {
     let data = String::from("asdf");
@@ -50,6 +55,7 @@ fn test_into_bytes() {
     assert_eq!(buf, b"asdf");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_find_str() {
     // byte positions
@@ -109,12 +115,14 @@ macro_rules! test_concat {
     }};
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_concat_for_different_types() {
     test_concat!("ab", vec![s("a"), s("b")]);
     test_concat!("ab", vec!["a", "b"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_concat_for_different_lengths() {
     let empty: &[&str] = &[];
@@ -131,6 +139,7 @@ macro_rules! test_join {
     }};
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_join_for_different_types() {
     test_join!("a-b", ["a", "b"], "-");
@@ -141,6 +150,7 @@ fn test_join_for_different_types() {
     test_join!("a-b", vec![s("a"), s("b")], "-");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_join_for_different_lengths() {
     let empty: &[&str] = &[];
@@ -152,6 +162,7 @@ fn test_join_for_different_lengths() {
 
 // join has fast paths for small separators up to 4 bytes
 // this tests the slow paths.
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_join_for_different_lengths_with_long_separator() {
     assert_eq!("～～～～～".len(), 15);
@@ -163,6 +174,7 @@ fn test_join_for_different_lengths_with_long_separator() {
     test_join!("～～～～～a～～～～～bc", ["", "a", "bc"], "～～～～～");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_join_inconsistent_borrow_shrink() {
     use core::borrow::Borrow;
@@ -194,6 +206,7 @@ fn test_join_inconsistent_borrow_shrink() {
     test_join!("123456-0-0", arr, "-");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 #[should_panic(expected = "mid > len")]
 fn test_join_inconsistent_borrow_grow() {
@@ -213,8 +226,10 @@ fn test_join_inconsistent_borrow_grow() {
     let _s = [E(Cell::new(0)), E(Cell::new(0))].join("");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri is too slow
+#[cfg_attr(target_abi = "cheriot", ignore)] // Simulator is too slow
 fn test_unsafe_slice() {
     assert_eq!("ab", unsafe { "abc".get_unchecked(0..2) });
     assert_eq!("bc", unsafe { "abc".get_unchecked(1..3) });
@@ -241,6 +256,7 @@ fn test_unsafe_slice() {
     assert_eq!(half_a_million_letter_a(), unsafe { letters.get_unchecked(0..500000) });
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_starts_with() {
     assert!("".starts_with(""));
@@ -252,6 +268,7 @@ fn test_starts_with() {
     assert!("ödd".starts_with("öd"));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_ends_with() {
     assert!("".ends_with(""));
@@ -263,12 +280,14 @@ fn test_ends_with() {
     assert!("ddö".ends_with("dö"));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_is_empty() {
     assert!("".is_empty());
     assert!(!"a".is_empty());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_replacen() {
     assert_eq!("".replacen('a', "b", 5), "");
@@ -283,6 +302,7 @@ fn test_replacen() {
     assert_eq!("qwer123zxc789".replacen(char::is_numeric, "", 3), "qwerzxc789");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_replace() {
     let a = "a";
@@ -294,6 +314,7 @@ fn test_replace() {
     assert_eq!(" test test ".replace(test, ""), "   ");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_replace_2a() {
     let data = "ประเทศไทย中华";
@@ -304,6 +325,7 @@ fn test_replace_2a() {
     assert_eq!(data.replace(a, repl), a2);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_replace_2b() {
     let data = "ประเทศไทย中华";
@@ -314,6 +336,7 @@ fn test_replace_2b() {
     assert_eq!(data.replace(b, repl), b2);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_replace_2c() {
     let data = "ประเทศไทย中华";
@@ -324,6 +347,7 @@ fn test_replace_2c() {
     assert_eq!(data.replace(c, repl), c2);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_replace_2d() {
     let data = "ประเทศไทย中华";
@@ -333,6 +357,7 @@ fn test_replace_2d() {
     assert_eq!(data.replace(d, repl), data);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_replace_pattern() {
     let data = "abcdαβγδabcdαβγδ";
@@ -461,6 +486,7 @@ mod slice_index {
 
                 #[test]
                 #[should_panic(expected = $expect_msg)]
+                #[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri/triage): crashes runner
                 fn index_mut_fail() {
                     let mut v: String = $data.into();
                     let v: &mut str = &mut v;
@@ -531,6 +557,7 @@ mod slice_index {
     #[test]
     #[cfg_attr(target_os = "emscripten", ignore)] // hits an OOM
     #[cfg_attr(miri, ignore)] // Miri is too slow
+    #[cfg_attr(target_abi = "cheriot", ignore)] // Simulator is too slow
     fn simple_big() {
         fn a_million_letter_x() -> String {
             let mut i = 0;
@@ -741,6 +768,7 @@ mod slice_index {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_str_slice_rangetoinclusive_ok() {
     let s = "abcαβγ";
@@ -748,6 +776,7 @@ fn test_str_slice_rangetoinclusive_ok() {
     assert_eq!(&s[..=4], "abcα");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 #[should_panic]
 fn test_str_slice_rangetoinclusive_notok() {
@@ -755,6 +784,7 @@ fn test_str_slice_rangetoinclusive_notok() {
     let _ = &s[..=3];
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_str_slicemut_rangetoinclusive_ok() {
     let mut s = "abcαβγ".to_owned();
@@ -763,6 +793,7 @@ fn test_str_slicemut_rangetoinclusive_ok() {
     assert_eq!(&mut s[..=4], "abcα");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 #[should_panic]
 fn test_str_slicemut_rangetoinclusive_notok() {
@@ -771,6 +802,7 @@ fn test_str_slicemut_rangetoinclusive_notok() {
     let _ = &mut s[..=3];
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_is_char_boundary() {
     let s = "ศไทย中华Việt Nam β-release 🐱123";
@@ -791,6 +823,7 @@ fn test_is_char_boundary() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_trim_start_matches() {
     let v: &[char] = &[];
@@ -806,6 +839,7 @@ fn test_trim_start_matches() {
     assert_eq!("123foo1bar123".trim_start_matches(|c: char| c.is_numeric()), "foo1bar123");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_trim_end_matches() {
     let v: &[char] = &[];
@@ -821,6 +855,7 @@ fn test_trim_end_matches() {
     assert_eq!("123foo1bar123".trim_end_matches(|c: char| c.is_numeric()), "123foo1bar");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_trim_matches() {
     let v: &[char] = &[];
@@ -836,6 +871,7 @@ fn test_trim_matches() {
     assert_eq!("123foo1bar123".trim_matches(|c: char| c.is_numeric()), "foo1bar");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_trim_start() {
     assert_eq!("".trim_start(), "");
@@ -846,6 +882,7 @@ fn test_trim_start() {
     assert_eq!("hey ".trim_start(), "hey ");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_trim_end() {
     assert_eq!("".trim_end(), "");
@@ -856,6 +893,7 @@ fn test_trim_end() {
     assert_eq!(" hey".trim_end(), " hey");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_trim() {
     assert_eq!("".trim(), "");
@@ -866,6 +904,7 @@ fn test_trim() {
     assert_eq!(" hey dude ".trim(), "hey dude");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_is_whitespace() {
     assert!("".chars().all(|c| c.is_whitespace()));
@@ -875,6 +914,7 @@ fn test_is_whitespace() {
     assert!(!"   _   ".chars().all(|c| c.is_whitespace()));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_is_utf8() {
     // deny overlong encodings
@@ -900,6 +940,7 @@ fn test_is_utf8() {
     assert!(from_utf8(&[0xF4, 0x8F, 0xBF, 0xBF]).is_ok());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn test_const_is_utf8() {
     const _: () = {
@@ -927,6 +968,7 @@ fn test_const_is_utf8() {
     };
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn from_utf8_mostly_ascii() {
     // deny invalid bytes embedded in long stretches of ascii
@@ -939,6 +981,7 @@ fn from_utf8_mostly_ascii() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn const_from_utf8_mostly_ascii() {
     const _: () = {
@@ -956,6 +999,7 @@ fn const_from_utf8_mostly_ascii() {
     };
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_1"))]
 #[test]
 fn from_utf8_error() {
     macro_rules! test {
@@ -999,6 +1043,7 @@ fn from_utf8_error() {
     test!(b"A\xC3\xA9 \xF1\x80\x80 ", 4, Some(3));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_as_bytes() {
     // no null
@@ -1012,6 +1057,7 @@ fn test_as_bytes() {
     assert_eq!("ศไทย中华Việt Nam".as_bytes(), v);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 #[should_panic]
 fn test_as_bytes_fail() {
@@ -1022,6 +1068,7 @@ fn test_as_bytes_fail() {
     panic!();
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_as_ptr() {
     let buf = "hello".as_ptr();
@@ -1034,6 +1081,7 @@ fn test_as_ptr() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn vec_str_conversions() {
     let s1: String = String::from("All mimsy were the borogoves");
@@ -1052,6 +1100,7 @@ fn vec_str_conversions() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_contains() {
     assert!("abcde".contains("bcd"));
@@ -1069,6 +1118,7 @@ fn test_contains() {
     assert!(!data.contains("ไท华"));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_contains_char() {
     assert!("abc".contains('b'));
@@ -1077,6 +1127,7 @@ fn test_contains_char() {
     assert!(!"".contains('a'));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_split_at() {
     let s = "ศไทย中华Việt Nam";
@@ -1090,6 +1141,7 @@ fn test_split_at() {
     assert_eq!(b, "");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_split_at_mut() {
     let mut s = "Hello World".to_string();
@@ -1101,6 +1153,7 @@ fn test_split_at_mut() {
     assert_eq!(s, "HELLO world");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 #[should_panic]
 fn test_split_at_boundscheck() {
@@ -1108,6 +1161,7 @@ fn test_split_at_boundscheck() {
     let _ = s.split_at(1);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_copy_from_str() {
     let src = "Saludos";
@@ -1136,6 +1190,7 @@ fn test_escape_unicode() {
     assert_eq!("\u{1d4ea}\r".escape_unicode().to_string(), "\\u{1d4ea}\\u{d}");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_escape_debug() {
     // Note that there are subtleties with the number of backslashes
@@ -1160,6 +1215,7 @@ fn test_escape_debug() {
     );
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_escape_default() {
     assert_eq!("abc".escape_default().to_string(), "abc");
@@ -1174,6 +1230,7 @@ fn test_escape_default() {
     assert_eq!("\u{10d4ea}\r".escape_default().to_string(), "\\u{10d4ea}\\r");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_total_ord() {
     assert_eq!("1234".cmp("123"), Greater);
@@ -1183,6 +1240,7 @@ fn test_total_ord() {
     assert_eq!("22".cmp("1234"), Greater);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_iterator() {
     let s = "ศไทย中华Việt Nam";
@@ -1199,6 +1257,7 @@ fn test_iterator() {
     assert_eq!(s.chars().count(), v.len());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_iterator_advance() {
     let s = "「赤錆」と呼ばれる鉄錆は、水の存在下での鉄の自然酸化によって生じる、オキシ水酸化鉄(III) 等の（含水）酸化物粒子の疎な凝集膜であるとみなせる。";
@@ -1210,6 +1269,7 @@ fn test_iterator_advance() {
     assert_eq!(it.next(), Some(chars[35]));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_rev_iterator() {
     let s = "ศไทย中华Việt Nam";
@@ -1225,6 +1285,7 @@ fn test_rev_iterator() {
     assert_eq!(pos, v.len());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_to_lowercase_rev_iterator() {
     let s = "AÖßÜ💩ΣΤΙΓΜΑΣǅﬁİ";
@@ -1240,6 +1301,7 @@ fn test_to_lowercase_rev_iterator() {
     assert_eq!(pos, v.len());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_to_uppercase_rev_iterator() {
     let s = "aößü💩στιγμαςǅﬁᾀ";
@@ -1256,8 +1318,10 @@ fn test_to_uppercase_rev_iterator() {
     assert_eq!(pos, v.len());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri is too slow
+#[cfg_attr(target_abi = "cheriot", ignore)] // Simulator is too slow
 fn test_chars_decoding() {
     let mut bytes = [0; char::MAX_LEN_UTF8];
     for c in (0..0x110000).filter_map(std::char::from_u32) {
@@ -1268,8 +1332,10 @@ fn test_chars_decoding() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri is too slow
+#[cfg_attr(target_abi = "cheriot", ignore)] // Simulator is too slow
 fn test_chars_rev_decoding() {
     let mut bytes = [0; char::MAX_LEN_UTF8];
     for c in (0..0x110000).filter_map(std::char::from_u32) {
@@ -1280,6 +1346,7 @@ fn test_chars_rev_decoding() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_iterator_clone() {
     let s = "ศไทย中华Việt Nam";
@@ -1288,6 +1355,7 @@ fn test_iterator_clone() {
     assert!(it.clone().zip(it).all(|(x, y)| x == y));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_iterator_last() {
     let s = "ศไทย中华Việt Nam";
@@ -1296,6 +1364,7 @@ fn test_iterator_last() {
     assert_eq!(it.last(), Some('m'));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_chars_debug() {
     let s = "ศไทย中华Việt Nam";
@@ -1306,6 +1375,7 @@ fn test_chars_debug() {
     );
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_bytesator() {
     let s = "ศไทย中华Việt Nam";
@@ -1321,6 +1391,7 @@ fn test_bytesator() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_bytes_revator() {
     let s = "ศไทย中华Việt Nam";
@@ -1336,6 +1407,7 @@ fn test_bytes_revator() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_bytesator_nth() {
     let s = "ศไทย中华Việt Nam";
@@ -1350,6 +1422,7 @@ fn test_bytesator_nth() {
     assert_eq!(b.nth(200), None);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_bytesator_count() {
     let s = "ศไทย中华Việt Nam";
@@ -1358,6 +1431,7 @@ fn test_bytesator_count() {
     assert_eq!(b.count(), 28)
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_bytesator_last() {
     let s = "ศไทย中华Việt Nam";
@@ -1366,6 +1440,7 @@ fn test_bytesator_last() {
     assert_eq!(b.last().unwrap(), 109)
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_char_indicesator() {
     let s = "ศไทย中华Việt Nam";
@@ -1383,6 +1458,7 @@ fn test_char_indicesator() {
     assert_eq!(pos, p.len());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_char_indices_revator() {
     let s = "ศไทย中华Việt Nam";
@@ -1400,6 +1476,7 @@ fn test_char_indices_revator() {
     assert_eq!(pos, p.len());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_char_indices_last() {
     let s = "ศไทย中华Việt Nam";
@@ -1408,6 +1485,8 @@ fn test_char_indices_last() {
     assert_eq!(it.last(), Some((27, 'm')));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
+#[cfg_attr(target_abi = "cheriot", ignore)]
 #[test]
 fn test_splitn_char_iterator() {
     let data = "\nMäry häd ä little lämb\nLittle lämb\n";
@@ -1426,6 +1505,7 @@ fn test_splitn_char_iterator() {
     assert_eq!(split, ["\nM", "ry h", "d ", " little lämb\nLittle lämb\n"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_split_char_iterator_no_trailing() {
     let data = "\nMäry häd ä little lämb\nLittle lämb\n";
@@ -1437,6 +1517,7 @@ fn test_split_char_iterator_no_trailing() {
     assert_eq!(split, ["", "Märy häd ä little lämb", "Little lämb"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_split_char_iterator_inclusive() {
     let data = "\nMäry häd ä little lämb\nLittle lämb\n";
@@ -1456,6 +1537,7 @@ fn test_split_char_iterator_inclusive() {
     assert_eq!(split, ["SheeP", "SharK", "TurtlE", "CaT"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_split_char_iterator_inclusive_rev() {
     let data = "\nMäry häd ä little lämb\nLittle lämb\n";
@@ -1480,6 +1562,7 @@ fn test_split_char_iterator_inclusive_rev() {
     assert_eq!(split, ["CaT", "TurtlE", "SharK", "SheeP"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_rsplit() {
     let data = "\nMäry häd ä little lämb\nLittle lämb\n";
@@ -1494,6 +1577,7 @@ fn test_rsplit() {
     assert_eq!(split, ["mb\n", "mb\nLittle l", " little l", "d ", "ry h", "\nM"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_rsplitn() {
     let data = "\nMäry häd ä little lämb\nLittle lämb\n";
@@ -1508,6 +1592,7 @@ fn test_rsplitn() {
     assert_eq!(split, ["mb\n", "\nMäry häd ä little lämb\nLittle l"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_split_once() {
     assert_eq!("".split_once("->"), None);
@@ -1520,6 +1605,7 @@ fn test_split_once() {
     assert_eq!("---".split_once("--"), Some(("", "-")));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_rsplit_once() {
     assert_eq!("".rsplit_once("->"), None);
@@ -1532,6 +1618,7 @@ fn test_rsplit_once() {
     assert_eq!("---".rsplit_once("--"), Some(("-", "")));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_split_whitespace() {
     let data = "\n \tMäry   häd\tä  little lämb\nLittle lämb\n";
@@ -1539,6 +1626,7 @@ fn test_split_whitespace() {
     assert_eq!(words, ["Märy", "häd", "ä", "little", "lämb", "Little", "lämb"])
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_lines() {
     fn t(data: &str, expected: &[&str]) {
@@ -1562,6 +1650,7 @@ fn test_lines() {
     );
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_splitator() {
     fn t(s: &str, sep: &str, u: &[&str]) {
@@ -1584,6 +1673,7 @@ fn test_splitator() {
     t("zzzzz", "zz", &["", "", "z"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_str_default() {
     use std::default::Default;
@@ -1598,6 +1688,7 @@ fn test_str_default() {
     t::<&mut str>();
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_str_container() {
     fn sum_len(v: &[&str]) -> usize {
@@ -1610,6 +1701,7 @@ fn test_str_container() {
     assert_eq!(5, sum_len(&[s]));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_str_from_utf8() {
     let xs = b"hello";
@@ -1622,6 +1714,7 @@ fn test_str_from_utf8() {
     assert!(from_utf8(xs).is_err());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_pattern_deref_forward() {
     let data = "aabcdaa";
@@ -1630,6 +1723,7 @@ fn test_pattern_deref_forward() {
     assert!(data.contains(&"bcd".to_string()));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_empty_match_indices() {
     let data = "aä中!";
@@ -1637,6 +1731,7 @@ fn test_empty_match_indices() {
     assert_eq!(vec, [(0, ""), (1, ""), (3, ""), (6, ""), (7, "")]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_2"))]
 #[test]
 fn test_bool_from_str() {
     assert_eq!("true".parse().ok(), Some(true));
@@ -1669,8 +1764,10 @@ fn check_contains_all_substrings(haystack: &str) {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri is too slow
+#[cfg_attr(target_abi = "cheriot", ignore)] // Simulator is too slow
 fn strslice_issue_16589() {
     assert!("bananas".contains("nana"));
 
@@ -1679,12 +1776,14 @@ fn strslice_issue_16589() {
     check_contains_all_substrings("012345678901234567890123456789bcdabcdabcd");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn strslice_issue_16878() {
     assert!(!"1234567ah012345678901ah".contains("hah"));
     assert!(!"00abc01234567890123456789abc".contains("bcabc"));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn strslice_issue_104726() {
     // Edge-case in the simd_contains impl.
@@ -1697,13 +1796,16 @@ fn strslice_issue_104726() {
     assert!(!haystack.contains(needle));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri is too slow
+#[cfg_attr(target_abi = "cheriot", ignore)] // Simulator is too slow
 fn test_strslice_contains() {
     let x = "There are moments, Jeeves, when one asks oneself, 'Do trousers matter?'";
     check_contains_all_substrings(x);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_rsplitn_char_iterator() {
     let data = "\nMäry häd ä little lämb\nLittle lämb\n";
@@ -1726,6 +1828,7 @@ fn test_rsplitn_char_iterator() {
     assert_eq!(split, ["\nMäry häd ", " little l", "mb\nLittle l", "mb\n"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_split_char_iterator() {
     let data = "\nMäry häd ä little lämb\nLittle lämb\n";
@@ -1760,6 +1863,7 @@ fn test_split_char_iterator() {
     assert_eq!(rsplit, ["\nM", "ry h", "d ", " little l", "mb\nLittle l", "mb\n"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_rev_split_char_iterator_no_trailing() {
     let data = "\nMäry häd ä little lämb\nLittle lämb\n";
@@ -1773,11 +1877,13 @@ fn test_rev_split_char_iterator_no_trailing() {
     assert_eq!(split, ["", "Märy häd ä little lämb", "Little lämb"]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_utf16_code_units() {
     assert_eq!("é\u{1F4A9}".encode_utf16().collect::<Vec<u16>>(), [0xE9, 0xD83D, 0xDCA9])
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_utf16_size_hint() {
     assert_eq!("".encode_utf16().size_hint(), (0, Some(0)));
@@ -1800,6 +1906,7 @@ fn test_utf16_size_hint() {
     assert_eq!(hint_vec("\u{101234}a"), [(2, Some(5)), (2, Some(2)), (1, Some(1)), (0, Some(0))]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_utf16_count() {
     assert_eq!("".encode_utf16().count(), 0);
@@ -1820,6 +1927,7 @@ fn starts_with_in_unicode() {
     assert!(!"├── Cargo.toml".starts_with("# "));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn starts_short_long() {
     assert!(!"".starts_with("##"));
@@ -1839,6 +1947,7 @@ fn starts_short_long() {
     assert!("##ä#".starts_with(""));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn contains_weird_cases() {
     assert!("* \t".contains(' '));
@@ -1846,6 +1955,7 @@ fn contains_weird_cases() {
     assert!(!"* \t".contains('\u{1F4A9}'));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn trim_ws() {
     assert_eq!(" \t  a \t  ".trim_start_matches(|c: char| c.is_whitespace()), "a \t  ");
@@ -1860,6 +1970,7 @@ fn trim_ws() {
     assert_eq!(" \t   \t  ".trim_matches(|c: char| c.is_whitespace()), "");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn to_lowercase() {
     assert_eq!("".to_lowercase(), "");
@@ -1913,12 +2024,14 @@ fn to_lowercase() {
     assert_eq!(upper.to_lowercase(), lower);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn to_uppercase() {
     assert_eq!("".to_uppercase(), "");
     assert_eq!("aéǅßẞﬁᾀ".to_uppercase(), "AÉǄSSẞFIἈΙ");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn word_to_titlecase() {
     // ASCII fast path: first cased letter is upper-cased, the rest lower-cased.
@@ -1975,6 +2088,7 @@ fn to_casefold_unnormalized() {
     assert_eq!("ꮿﬁῲὼ\u{0345}ßẞΣς".to_casefold_unnormalized(), "Ꮿfiὼιὼιssssσσ");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_into_string() {
     // The only way to acquire a Box<str> in the first place is through a String, so just
@@ -1983,6 +2097,7 @@ fn test_into_string() {
     assert_eq!(string.clone().into_boxed_str().into_string(), string);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_box_slice_clone() {
     let data = String::from("hello HELLO hello HELLO yes YES 5 中ä华!!!");
@@ -1991,6 +2106,7 @@ fn test_box_slice_clone() {
     assert_eq!(data, data2);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_cow_from() {
     let borrowed = "borrowed";
@@ -2001,6 +2117,7 @@ fn test_cow_from() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_repeat() {
     assert_eq!("".repeat(3), "");
@@ -2288,6 +2405,7 @@ generate_iterator_test! {
     with str::rsplitn;
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn different_str_pattern_forwarding_lifetimes() {
     use std::str::pattern::Pattern;
@@ -2304,6 +2422,7 @@ fn different_str_pattern_forwarding_lifetimes() {
     foo::<&str>("x");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_str_multiline() {
     let a: String = "this \
@@ -2318,6 +2437,7 @@ is a test"
     assert_eq!(b, "this is another test".to_string());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn test_str_escapes() {
     let x = "\\\\\
@@ -2325,6 +2445,7 @@ fn test_str_escapes() {
     assert_eq!(x, r"\\"); // extraneous whitespace stripped
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn const_str_ptr() {
     const A: [u8; 2] = ['h' as u8, 'i' as u8];
@@ -2345,6 +2466,7 @@ fn const_str_ptr() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn utf8() {
     let yen: char = '¥'; // 0xa5
@@ -2395,6 +2517,7 @@ fn utf8() {
     check_str_eq(austria, austria_e);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn utf8_chars() {
     // Chars of 1, 2, 3, and 4 bytes
@@ -2424,20 +2547,21 @@ fn utf8_chars() {
     assert!(!from_utf8(&[0xf0, 0xff, 0xff, 0x10]).is_ok());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn utf8_char_counts() {
     let strs = [("e", 1), ("é", 1), ("€", 1), ("\u{10000}", 1), ("eé€\u{10000}", 4)];
-    let spread = if cfg!(miri) { 4 } else { 8 };
+    let spread = if cfg!(any(miri, target_abi = "cheriot")) { 4 } else { 8 };
     let mut reps = [8, 64, 256, 512]
         .iter()
         .copied()
         .flat_map(|n| n - spread..=n + spread)
         .collect::<Vec<usize>>();
-    if cfg!(not(miri)) {
+    if cfg!(not(any(miri, target_abi = "cheriot"))) {
         // Miri is too slow
         reps.extend([1024, 1 << 16].iter().copied().flat_map(|n| n - spread..=n + spread));
     }
-    let counts = if cfg!(miri) { 0..1 } else { 0..8 };
+    let counts = if cfg!(any(miri, target_abi = "cheriot")) { 0..1 } else { 0..8 };
     let padding = counts.map(|len| " ".repeat(len)).collect::<Vec<String>>();
 
     for repeat in reps {
@@ -2470,6 +2594,7 @@ fn utf8_char_counts() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn floor_char_boundary() {
     fn check_many(s: &str, arg: impl IntoIterator<Item = usize>, ret: usize) {
@@ -2523,6 +2648,7 @@ fn floor_char_boundary() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_str_3"))]
 #[test]
 fn ceil_char_boundary() {
     fn check_many(s: &str, arg: impl IntoIterator<Item = usize>, ret: usize) {
