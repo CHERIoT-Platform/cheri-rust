@@ -1,7 +1,9 @@
 use alloc::alloc::*;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): Bench
 use alloc::boxed::Box;
 
 extern crate test;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): Bench
 use test::Bencher;
 
 #[test]
@@ -22,6 +24,7 @@ fn allocate_zeroed() {
 }
 
 #[bench]
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): Bench
 fn alloc_owned_small(b: &mut Bencher) {
     b.iter(|| {
         let _: Box<_> = Box::new(10);
