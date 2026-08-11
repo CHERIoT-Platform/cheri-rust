@@ -10,31 +10,36 @@ edition = "2024"
 
 [lib]
 path = "lib.rs"
-test = true
-bench = true
+test = false
+bench = false
 doc = false
 
 [dev-dependencies]
 rand = { version = "0.9.0", default-features = false, features = ["alloc"] }
 rand_xorshift = "0.4.0"
 
+[target.'cfg(target_abi = "cheriot")'.dev-dependencies]
+test = { package = "cheri_test", path = "../../cheri/ci/library/cheri_test" }
+
 [[test]]
 name = "alloctests"
 path = "tests/lib.rs"
 
-[[test]]
-name = "vec_deque_alloc_error"
-path = "tests/vec_deque_alloc_error.rs"
+# FIXME(cheri/triage): contains one test which needs unwind
+# [[test]]
+# name = "vec_deque_alloc_error"
+# path = "tests/vec_deque_alloc_error.rs"
 
-[[bench]]
-name = "allocbenches"
-path = "benches/lib.rs"
-test = true
+# FIXME(cheri/triage): wants libtest
+# [[bench]]
+# name = "allocbenches"
+# path = "benches/lib.rs"
+# test = true
 
-[[bench]]
-name = "vec_deque_append_bench"
-path = "benches/vec_deque_append.rs"
-harness = false
+# [[bench]]
+# name = "vec_deque_append_bench"
+# path = "benches/vec_deque_append.rs"
+# harness = false
 
 [lints.rust.unexpected_cfgs]
 level = "warn"

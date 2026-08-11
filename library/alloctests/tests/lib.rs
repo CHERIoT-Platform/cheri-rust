@@ -1,3 +1,8 @@
+#![cfg_attr(target_abi = "cheriot", no_main)]
+#![cfg_attr(target_abi = "cheriot", feature(custom_test_frameworks))]
+#![cfg_attr(target_abi = "cheriot", test_runner(test::run_tests))]
+#![cfg_attr(target_abi = "cheriot", reexport_test_harness_main = "test_main")]
+#![cfg_attr(target_abi = "cheriot", allow(unused_features))]
 #![feature(allocator_api)]
 #![feature(binary_heap_pop_if)]
 #![feature(const_heap)]
@@ -107,4 +112,11 @@ fn test_boxed_hasher() {
     let mut hasher_2 = Box::new(DefaultHasher::new()) as Box<dyn Hasher>;
     5u32.hash(&mut hasher_2);
     assert_eq!(ordinary_hash, hasher_2.finish());
+}
+
+#[cfg(target_abi = "cheriot")]
+#[unsafe(no_mangle)]
+pub extern "C" fn rust_main() -> i32 {
+    test_main();
+    return 0;
 }
