@@ -12,6 +12,7 @@ pub trait Sort {
 
 mod ffi_types;
 mod known_good_stable_sort;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_sort_misc"))]
 mod partial;
 mod patterns;
 mod tests;
