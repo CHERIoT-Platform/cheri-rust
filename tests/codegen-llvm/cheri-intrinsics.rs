@@ -1,68 +1,76 @@
 //@ compile-flags: -Copt-level=0
 //@ only-riscv32cheriot-unknown-cheriotrtos
+// ignore-tidy-linelength
 
 #![no_std]
 #![feature(core_intrinsics)]
+#![feature(stdarch_cheri)]
 #![crate_type = "lib"]
 
-// CHECK-LABEL: @cheri_intrinsics(
 #[no_mangle]
 pub unsafe fn cheri_intrinsics(x: u32) {
-    let nil = core::ptr::null();
-
+    let mut nil = core::ptr::null::<()>();
+    // For some optimisations to happen, address_get doesn't lower to the cheri.cap.addr.get intrinsics. Instead,
+    // it lowers to a `ptrtoint`:
     // CHECK: ptrtoint
-    _ = core::intrinsics::cheri::cheri_address_get(nil);
+    _ = core::arch::cheri::address_get(nil);
 
-    // _ = core::intrinsics::cheri::cheri_address_increment(nil, 0);
-
-    // CHECK: llvm.cheri.cap.address.set.
-    _ = core::intrinsics::cheri::cheri_address_set(nil, 0);
-
-    // CHECK: llvm.cheri.cap.base.get.
-    _ = core::intrinsics::cheri::cheri_base_get(nil);
-
-    // CHECK: llvm.cheri.cap.bounds.set.
-    _ = core::intrinsics::cheri::cheri_bounds_set(nil, 0);
-
-    // CHECK: llvm.cheri.cap.bounds.set.exact.
-    _ = core::intrinsics::cheri::cheri_bounds_set_exact(nil, 0);
-
-    // CHECK: llvm.cheri.cap.equal.exact
-    _ = core::intrinsics::cheri::cheri_is_equal_exact(nil, nil);
-
-    // CHECK: llvm.cheri.cap.length.get.
-    _ = core::intrinsics::cheri::cheri_length_get(nil);
-
-    // CHECK: llvm.cheri.cap.perms.and
-    _ = core::intrinsics::cheri::cheri_permissions_and(nil, 0);
-
-    // CHECK: llvm.cheri.cap.perms.get
-    _ = core::intrinsics::cheri::cheri_permissions_get(nil);
-
-    // CHECK: llvm.cheri.representable.alignment.mask
-    _ = core::intrinsics::cheri::cheri_representable_alignment_mask(0);
-
-    // CHECK: llvm.cheri.round.representable.length
-    _ = core::intrinsics::cheri::cheri_round_representable_length(0);
-
-    // CHECK: llvm.cheri.cap.seal
-    _ = core::intrinsics::cheri::cheri_seal(nil, nil);
-
-    // CHECK: llvm.cheri.cap.subset.test
-    _ = core::intrinsics::cheri::cheri_subset_test(nil, nil);
-
-    // CHECK: llvm.cheri.cap.tag.clear
-    _ = core::intrinsics::cheri::cheri_tag_clear(nil);
-
-    // CHECK: llvm.cheri.cap.tag.get
-    _ = core::intrinsics::cheri::cheri_tag_get(nil);
-
-    // CHECK: llvm.cheri.cap.top.get
-    _ = core::intrinsics::cheri::cheri_top_get(nil);
-
-    // CHECK: llvm.cheri.cap.type.get
-    _ = core::intrinsics::cheri::cheri_type_get(nil);
-
-    // CHECK: llvm.cheri.cap.unseal
-    _ = core::intrinsics::cheri::cheri_unseal(nil, nil);
+    // Address increment is inlined, and it just results in a gep.
+    // CHECK: getelementptr
+    let new_nil =
+        core::arch::cheri::address_increment(core::hint::black_box(nil), core::hint::black_box(0));
+    core::ptr::write_volatile(&mut nil as *mut _, new_nil);
+    _ = core::arch::cheri::address_set(nil, 0);
+    _ = core::arch::cheri::base_get(nil);
+    _ = core::arch::cheri::bounds_set(nil, 0);
+    _ = core::arch::cheri::bounds_set_exact(nil, 0);
+    _ = core::arch::cheri::is_equal_exact(nil, nil);
+    _ = core::arch::cheri::length_get(nil);
+    _ = core::arch::cheri::permissions_and(nil, 0);
+    _ = core::arch::cheri::permissions_get(nil);
+    _ = core::arch::cheri::representable_alignment_mask(0);
+    _ = core::arch::cheri::round_representable_length(0);
+    _ = core::arch::cheri::seal(nil, nil);
+    _ = core::arch::cheri::subset_test(nil, nil);
+    _ = core::arch::cheri::tag_clear(nil);
+    _ = core::arch::cheri::tag_get(nil);
+    _ = core::arch::cheri::top_get(nil);
+    _ = core::arch::cheri::type_get(nil);
+    _ = core::arch::cheri::unseal(nil, nil);
 }
+
+// Since some functions will be inlined and others won't, we simply check for the intrinsics to be declared.
+
+// CHECK: declare i1 @llvm.cheri.cap.subset.test(ptr addrspace(200), ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare i1 @llvm.cheri.cap.equal.exact(ptr addrspace(200), ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare ptr addrspace(200) @llvm.cheri.cap.seal(ptr addrspace(200), ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare ptr addrspace(200) @llvm.cheri.cap.unseal(ptr addrspace(200), ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare i1 @llvm.cheri.cap.tag.get(ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare ptr addrspace(200) @llvm.cheri.cap.tag.clear(ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare ptr addrspace(200) @llvm.cheri.cap.bounds.set.i32(ptr addrspace(200), i32) addrspace(200)
+
+// CHECK: declare i32 @llvm.cheri.cap.length.get.i32(ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare ptr addrspace(200) @llvm.cheri.cap.address.set.i32(ptr addrspace(200), i32) addrspace(200)
+
+// CHECK: declare ptr addrspace(200) @llvm.cheri.cap.perms.and.i32(ptr addrspace(200), i32) addrspace(200)
+
+// CHECK: declare i32 @llvm.cheri.cap.perms.get.i32(ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare ptr addrspace(200) @llvm.cheri.cap.bounds.set.exact.i32(ptr addrspace(200), i32) addrspace(200)
+
+// CHECK: declare i32 @llvm.cheri.cap.top.get.i32(ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare i32 @llvm.cheri.cap.base.get.i32(ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare i32 @llvm.cheri.cap.type.get.i32(ptr addrspace(200)) addrspace(200)
+
+// CHECK: declare i32 @llvm.cheri.round.representable.length.i32(i32) addrspace(200)
+
+// CHECK: declare i32 @llvm.cheri.representable.alignment.mask.i32(i32) addrspace(200)

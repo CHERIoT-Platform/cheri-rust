@@ -333,6 +333,17 @@ pub mod arch {
     pub mod hexagon {
         pub use crate::core_arch::hexagon::*;
     }
+
+
+    /// Platform-specific intrinsics for the `CHERI` platform.
+    /// See the [module documentation](../index.html) for more details.
+    #[cfg(any(target_family = "cheri", doc))]
+    #[doc(cfg(target_family = "cheri"))]
+    #[unstable(feature = "stdarch_cheri", issue = "1")]
+    pub mod cheri {
+        pub use crate::core_arch::cheri::*;
+    }
+
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", doc))]
@@ -396,3 +407,7 @@ mod s390x;
 #[cfg(any(target_arch = "hexagon", doc))]
 #[doc(cfg(target_arch = "hexagon"))]
 mod hexagon;
+
+#[cfg(any(target_family = "cheri", doc))]
+#[doc(cfg(target_family = "cheri"))]
+mod cheri;

@@ -144,7 +144,7 @@ impl<T: PointeeSized> *mut T {
     pub fn addr(self) -> usize {
         #[cfg(target_family = "cheri")]
         {
-            crate::intrinsics::cheri::cheri_address_get(self.cast::<()>())
+            crate::arch::cheri::address_get(self.cast::<()>())
         }
 
         #[cfg(not(target_family = "cheri"))]
@@ -207,9 +207,9 @@ impl<T: PointeeSized> *mut T {
     #[stable(feature = "strict_provenance", since = "1.84.0")]
     pub fn with_addr(self, addr: usize) -> Self {
         #[cfg(target_family = "cheri")]
-        // SAFETY: the `cheri_address_set` intrinsic has no prerequisites to be called.
+        // SAFETY: the `cheri::address_set` intrinsic has no prerequisites to be called.
         unsafe {
-            crate::intrinsics::cheri::cheri_address_set(self, addr) as *mut _
+            crate::arch::cheri::address_set(self, addr) as *mut _
         }
 
         #[cfg(not(target_family = "cheri"))]

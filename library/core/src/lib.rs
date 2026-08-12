@@ -185,6 +185,7 @@
 #![feature(wasm_target_feature)]
 #![feature(x86_amx_intrinsics)]
 // tidy-alphabetical-end
+#![cfg_attr(target_family = "cheri", feature(stdarch_cheri))]
 
 // allow using `core::` in intra-doc links
 #[allow(unused_extern_crates)]
