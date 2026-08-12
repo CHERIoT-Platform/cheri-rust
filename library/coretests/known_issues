@@ -1,4 +1,3 @@
-iter_adapters::test_intersperse_collect_string https://github.com/CHERIoT-Platform/cheri-rust/issues/187
 num::floats::exp2::test_f32 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
 num::floats::exp::test_f32 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
 num::floats::ln::test_f32 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
