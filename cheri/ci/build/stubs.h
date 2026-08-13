@@ -3,10 +3,6 @@
 #include <cdefs.h>
 #include <stdint.h>
 
-// softfloat
-CHERIOT_DECLARE_STANDARD_LIBCALL(__extendhfsf2, float, uint16_t)
-CHERIOT_DECLARE_STANDARD_LIBCALL(__truncsfhf2, uint16_t, float)
-
 // libm
 CHERIOT_DECLARE_STANDARD_LIBCALL(sqrtf, float, float)
 CHERIOT_DECLARE_STANDARD_LIBCALL(expf, float, float)
