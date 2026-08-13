@@ -164,7 +164,9 @@ impl Cargo {
                     return Ok(PathBuf::from(executable));
                 }
                 // non-interesting
-                Build::Artifact { executable: None } | Build::Finished => {
+                Build::Artifact { executable: None }
+                | Build::BuildScriptExecuted
+                | Build::Finished => {
                     continue;
                 }
             }
@@ -191,6 +193,8 @@ struct MetadataPackage {
 #[derive(Deserialize)]
 #[serde(tag = "reason")]
 enum Build {
+    #[serde(rename = "build-script-executed")]
+    BuildScriptExecuted,
     #[serde(rename = "compiler-artifact")]
     Artifact { executable: Option<String> },
     #[serde(rename = "compiler-message")]
