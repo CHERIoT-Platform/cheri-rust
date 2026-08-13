@@ -11,10 +11,6 @@ using Debug = ConditionalDebug<true, "Test Runner">;
         __builtin_trap(); \
     }
 
-// softfloat
-STUB_LIBCALL(__extendhfsf2, float, uint16_t)
-STUB_LIBCALL(__truncsfhf2, uint16_t, float)
-
 // libm
 STUB_LIBCALL(sqrtf, float, float)
 STUB_LIBCALL(expf, float, float)
