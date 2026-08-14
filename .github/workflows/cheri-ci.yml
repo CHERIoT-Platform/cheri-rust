@@ -22,6 +22,8 @@ jobs:
     env:
       CC: "clang"
       CXX: "clang++"
+      # in the future we may prefer `rustc --print host-tuple`
+      HOST_TRIPLE: "aarch64-unknown-linux-gnu"
     steps:
       - name: Install dependencies
         run: |
@@ -133,8 +135,11 @@ jobs:
         working-directory: ./cheri/examples
         run: ./run_examples.sh
 
+      # we need to explictly pass the host target in order to be able to run future build scripts,
+      # this shouldn't add any extra work as the host target + sysroot needs to already exist in order
+      # to build `std` for the facade.
       - name: Build rustc, std (CHERIoT/facade)
-        run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos.facade --ci=false
+        run: ./x build compiler std --target=${{env.HOST_TRIPLE}},riscv32cheriot-unknown-cheriotrtos.facade --ci=false
 
       - name: Build test-runner
         run: cargo install --path cheri/ci/tools/test_runner

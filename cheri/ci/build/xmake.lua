@@ -5,9 +5,28 @@ set_toolchains("cheriot-clang")
 option("board")
     set_default("sail")
 
+library("stubs")
+    set_default(false)
+	add_cxflags("-include " .. "stubs.h")
+    add_files("stubs.cc")
+
+option("needs-softfloat")
+    set_default(false)
+
+option("needs-math")
+    set_default(false)
+
 compartment("test_runner")
-    add_deps("atomic","debug","freestanding","softfloat","stdio")
+    add_deps("atomic", "debug", "freestanding")
     add_files("runner.cc")
+    on_load(function(target)
+        if get_config("needs-softfloat") then
+            target:add("deps", "softfloat", "softfloat32pow", "softfloat64pow", "softfloat3216convert")
+        end
+        if get_config("needs-math") then
+            target:add("deps", "stubs")
+        end
+    end)
     before_link(function(target)
         local objectfiles = target:objectfiles()
         for line in io.lines("rust_objects.txt") do

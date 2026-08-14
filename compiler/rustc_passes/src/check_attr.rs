@@ -17,8 +17,8 @@ use rustc_errors::{DiagCtxtHandle, IntoDiagArg, MultiSpan, msg};
 use rustc_feature::BUILTIN_ATTRIBUTE_MAP;
 use rustc_hir::attrs::diagnostic::Directive;
 use rustc_hir::attrs::{
-    AttributeKind, DocAttribute, DocInline, EiiDecl, EiiImpl, EiiImplResolution, InlineAttr,
-    OptimizeAttr, ReprAttr,
+    AttributeKind, CheriotCapImportAttr, CheriotCapImportKind, DocAttribute, DocInline, EiiDecl,
+    EiiImpl, EiiImplResolution, InlineAttr, OptimizeAttr, ReprAttr,
 };
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::LocalModDefId;
@@ -45,6 +45,7 @@ use rustc_session::lint::builtin::{
 };
 use rustc_span::edition::Edition;
 use rustc_span::{DUMMY_SP, Ident, Span, Symbol, sym};
+use rustc_target::spec::HasTargetSpec;
 use rustc_trait_selection::error_reporting::InferCtxtErrorExt;
 use rustc_trait_selection::infer::{TyCtxtInferExt, ValuePairs};
 use rustc_trait_selection::traits::ObligationCtxt;
@@ -241,6 +242,20 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
             }
             AttributeKind::OnTypeError { directive, .. } => {
                 self.check_diagnostic_on_type_error(hir_id, directive.as_deref())
+            }
+
+            AttributeKind::CheriotCapImport(CheriotCapImportAttr {
+                import_kind: CheriotCapImportKind::MMIO,
+                attr_span,
+                ..
+            }) => self.check_cheriot_cap_import(hir_id, &sym::cheriot_mmio, attr, *attr_span),
+
+            AttributeKind::CheriotCapImport(CheriotCapImportAttr {
+                import_kind: CheriotCapImportKind::SharedObject,
+                attr_span,
+                ..
+            }) => {
+                self.check_cheriot_cap_import(hir_id, &sym::cheriot_shared_object, attr, *attr_span)
             }
 
             // All of the following attributes have no specific checks.
@@ -1666,6 +1681,91 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         {
             self.dcx()
                 .emit_err(diagnostics::BothOptimizeNoneAndInline { optimize_span, inline_span });
+        }
+    }
+
+    fn check_cheriot_cap_import(
+        &self,
+        hir_id: HirId,
+        sym: &Symbol,
+        attr: &AttributeKind,
+        attr_span: Span,
+    ) {
+        if self.tcx.target_spec().llvm_abiname != rustc_target::spec::LlvmAbi::CHERIoT {
+            self.dcx().emit_err(diagnostics::NotCHERIoTTarget {
+                span: attr_span,
+                attr: &sym.to_string(),
+            });
+        }
+
+        let AttributeKind::CheriotCapImport(rustc_hir::attrs::CheriotCapImportAttr {
+            permissions,
+            permissions_span,
+            ..
+        }) = attr
+        else {
+            unreachable!()
+        };
+
+        let all_cap_import_attrs = self
+            .tcx
+            .hir_attrs(hir_id)
+            .iter()
+            .filter(|v| matches!(v, Attribute::Parsed(AttributeKind::CheriotCapImport(..))))
+            .collect::<Vec<&Attribute>>();
+
+        if all_cap_import_attrs.len() > 1 {
+            self.dcx()
+                .emit_err(diagnostics::MultipleCHERIoTCapImportAttributes { span: attr_span });
+            return;
+        }
+
+        let permissions = permissions.as_str();
+        use rustc_hir::attrs::CheriotPermissionsAttr as Perms;
+        let has_read = permissions.contains(Perms::READ_SYM);
+        let has_write = permissions.contains(Perms::WRITE_SYM);
+        let has_cap = permissions.contains(Perms::CAP_SYM);
+        let has_mut = permissions.contains(Perms::MUT_SYM);
+        let has_glob = permissions.contains(Perms::GLOB_SYM);
+
+        if has_mut && !(has_read && has_cap) {
+            self.dcx().emit_err(diagnostics::CHERIoTCapImportPermissionsCoherence {
+                span: *permissions_span,
+                suggestion: &format!("add the missing permissions"),
+                permissions,
+                reason: &format!(
+                    "as they contain load mut (`{}`) but don't contain both read (`{}`) and cap (`{}`)",
+                    Perms::MUT_SYM, Perms::READ_SYM, Perms::CAP_SYM
+                ),
+            });
+            return;
+        }
+
+        if has_glob && !(has_read && has_cap) {
+            self.dcx().emit_err(diagnostics::CHERIoTCapImportPermissionsCoherence {
+                span: *permissions_span,
+                suggestion: &format!("add the missing permissions"),
+                permissions,
+                reason: &format!(
+                    "as they contain load global (`{}`) but don't contain both read (`{}`) and cap (`{}`)",
+                    Perms::GLOB_SYM, Perms::READ_SYM, Perms::CAP_SYM
+                ),
+            });
+            return;
+        }
+
+        if !has_read && !has_write {
+            self.dcx().emit_err(diagnostics::CHERIoTCapImportPermissionsCoherence {
+                span: *permissions_span,
+                suggestion: &format!("add `{}` or `{}`", Perms::READ_SYM, Perms::WRITE_SYM),
+                permissions,
+                reason: &format!(
+                    "as they don't contain either `{}` (read) or `{}` (write)",
+                    Perms::READ_SYM,
+                    Perms::WRITE_SYM
+                ),
+            });
+            return;
         }
     }
 }

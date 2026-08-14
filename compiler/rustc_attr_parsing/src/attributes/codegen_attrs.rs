@@ -1,6 +1,7 @@
 use rustc_feature::AttributeStability;
 use rustc_hir::attrs::{
-    CoverageAttrKind, InstrumentFnAttr, OptimizeAttr, RtsanSetting, SanitizerSet, UsedBy,
+    CheriotPermissionsAttr, CoverageAttrKind, InstrumentFnAttr, OptimizeAttr, RtsanSetting,
+    SanitizerSet, UsedBy,
 };
 use rustc_session::diagnostics::feature_err;
 use rustc_span::edition::Edition::Edition2024;
@@ -8,9 +9,11 @@ use rustc_span::edition::Edition::Edition2024;
 use super::prelude::*;
 use crate::attributes::AttributeSafety;
 use crate::session_diagnostics::{
-    EmptyExportName, EmptySection, NakedFunctionIncompatibleAttribute, NullOnExport,
-    NullOnObjcClass, NullOnObjcSelector, NullOnSection, ObjcClassExpectedStringLiteral,
-    ObjcSelectorExpectedStringLiteral, SanitizeInvalidStatic, TargetFeatureOnLangItem,
+    CHERIoTCapImportPermissionsDuplicateSymbol, CHERIoTCapImportPermissionsUnknownSymbols,
+    CheriotCapImportMissingParameter, EmptyExportName, EmptySection,
+    NakedFunctionIncompatibleAttribute, NullOnExport, NullOnObjcClass, NullOnObjcSelector,
+    NullOnSection, ObjcClassExpectedStringLiteral, ObjcSelectorExpectedStringLiteral,
+    SanitizeInvalidStatic, TargetFeatureOnLangItem,
 };
 use crate::target_checking::Policy::AllowSilent;
 
@@ -884,5 +887,171 @@ impl SingleAttributeParser for PatchableFunctionEntryParser {
         }
 
         Some(AttributeKind::PatchableFunctionEntry { prefix, entry, section })
+    }
+}
+
+pub(crate) struct CheriotMMIOParser;
+
+impl SingleAttributeParser for CheriotMMIOParser {
+    const PATH: &[Symbol] = &[sym::cheriot_mmio];
+
+    const STABILITY: AttributeStability = unstable!(cheriot_attributes);
+
+    const ALLOWED_TARGETS: AllowedTargets<'_> =
+        AllowedTargets::AllowList(&[Allow(Target::ForeignStatic)]);
+    const TEMPLATE: AttributeTemplate =
+        template!(List: &["name = \"mmio_name\", permissions = \"permissions\""]);
+
+    fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<AttributeKind> {
+        CheriotCapImportParser::convert(cx, args)
+    }
+}
+
+pub(crate) struct CheriotSharedObjectParser;
+
+impl SingleAttributeParser for CheriotSharedObjectParser {
+    const PATH: &[Symbol] = &[sym::cheriot_shared_object];
+
+    const STABILITY: AttributeStability = unstable!(cheriot_attributes);
+
+    const ALLOWED_TARGETS: AllowedTargets<'_> =
+        AllowedTargets::AllowList(&[Allow(Target::ForeignStatic)]);
+    const TEMPLATE: AttributeTemplate =
+        template!(List: &["name = \"import_name\", permissions = \"permissions\""]);
+
+    fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<AttributeKind> {
+        CheriotCapImportParser::convert(cx, args)
+    }
+}
+
+struct CheriotCapImportParser;
+
+impl CheriotCapImportParser {
+    fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<AttributeKind> {
+        let meta_item_list = cx.expect_list(args, cx.attr_span)?;
+
+        if meta_item_list.len() == 0 {
+            cx.adcx().expected_at_least_one_argument(meta_item_list.span);
+            return None;
+        }
+
+        let (import_kind, attr_name) = if cx.attr_path.segments.contains(&sym::cheriot_mmio) {
+            (rustc_hir::attrs::CheriotCapImportKind::MMIO, sym::cheriot_mmio.to_string())
+        } else if cx.attr_path.segments.contains(&sym::cheriot_shared_object) {
+            (
+                rustc_hir::attrs::CheriotCapImportKind::SharedObject,
+                sym::cheriot_shared_object.to_string(),
+            )
+        } else {
+            unreachable!()
+        };
+
+        let mut name = None;
+        let mut permissions = None;
+
+        for item in meta_item_list.mixed() {
+            let Some((ident, value)) = cx.expect_name_value(item, item.span(), None) else {
+                return None;
+            };
+
+            match ident.name {
+                sym::name => {
+                    if name.is_some() {
+                        cx.adcx().duplicate_key(ident.span, sym::name);
+                        return None;
+                    }
+
+                    let Some(value_str) = value.value_as_str() else {
+                        cx.adcx().expect_string_literal(value);
+                        return None;
+                    };
+
+                    name = Some((value_str, value.value_span));
+                }
+                sym::permissions => {
+                    if permissions.is_some() {
+                        cx.adcx().duplicate_key(ident.span, sym::permissions);
+                        return None;
+                    }
+
+                    let Some(value_sym) = value.value_as_str() else {
+                        cx.adcx().expect_string_literal(value);
+                        return None;
+                    };
+
+                    let value_str = value_sym.as_str();
+                    let chars = value_str.chars();
+                    let mut unknown_symbols = vec![];
+                    const SYM_COUNT: usize = CheriotPermissionsAttr::VALID_SYMBOLS.len();
+                    let mut counter: [usize; SYM_COUNT] = [0; SYM_COUNT];
+
+                    for c in chars {
+                        let mut duplicate = false;
+                        if let Some(pos) =
+                            CheriotPermissionsAttr::VALID_SYMBOLS.iter().position(|v| v == &c)
+                        {
+                            counter[pos] += 1;
+                            duplicate = counter[pos] > 1;
+                        } else {
+                            unknown_symbols.push(c);
+                        }
+
+                        if duplicate {
+                            cx.dcx().emit_warn(CHERIoTCapImportPermissionsDuplicateSymbol {
+                                span: value.value_span,
+                                duplicate_symbol: c,
+                                permissions: value_str,
+                            });
+                        }
+                    }
+
+                    if !unknown_symbols.is_empty() {
+                        let unknown_symbols = unknown_symbols
+                            .iter()
+                            .map(|v| format!("`{v}`"))
+                            .collect::<Vec<_>>()
+                            .join(",");
+
+                        let allowed_symbols = CheriotPermissionsAttr::VALID_SYMBOLS
+                            .iter()
+                            .map(|v| format!("`{v}`"))
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        cx.dcx().emit_err(CHERIoTCapImportPermissionsUnknownSymbols {
+                            span: value.value_span,
+                            unknown_symbols: &unknown_symbols,
+                            allowed_symbols: &allowed_symbols,
+                            permissions: value_str,
+                        });
+                    }
+
+                    permissions = Some((value_sym, value.value_span));
+                }
+                _ => {
+                    cx.adcx()
+                        .expected_specific_argument(ident.span, &[sym::name, sym::permissions]);
+                    return None;
+                }
+            }
+        }
+
+        if name.is_none() || permissions.is_none() {
+            cx.emit_err(CheriotCapImportMissingParameter {
+                attr_name: &attr_name,
+                attr_span: cx.attr_span,
+            });
+            return None;
+        }
+
+        let (name, name_span) = name.unwrap();
+        let (permissions, permissions_span) = permissions.unwrap();
+        Some(AttributeKind::CheriotCapImport(rustc_hir::attrs::CheriotCapImportAttr {
+            import_kind,
+            name,
+            name_span,
+            permissions,
+            permissions_span,
+            attr_span: cx.attr_span,
+        }))
     }
 }

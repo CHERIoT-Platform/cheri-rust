@@ -939,7 +939,7 @@ pub const fn dangling<T>() -> *const T {
 pub const fn without_provenance_mut<T>(addr: usize) -> *mut T {
     #[cfg(target_family = "cheri")]
     {
-        crate::intrinsics::cheri::cheri_without_provenance(addr)
+        crate::arch::cheri::cheri_without_provenance(addr)
     }
 
     #[cfg(not(target_family = "cheri"))]

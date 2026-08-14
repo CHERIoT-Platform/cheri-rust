@@ -1195,3 +1195,32 @@ pub(crate) struct OnTypeErrorMalformedFormatLiterals {
 pub(crate) struct OnTypeErrorNotExactlyOneGeneric {
     pub count: usize,
 }
+
+#[derive(Diagnostic)]
+#[diag("permissions `{$permissions}` are invalid {$reason}")]
+pub(crate) struct CHERIoTCapImportPermissionsCoherence<'a> {
+    #[primary_span]
+    pub span: Span,
+    pub suggestion: &'a str,
+    pub permissions: &'a str,
+    pub reason: &'a str,
+}
+
+#[derive(Diagnostic)]
+#[diag("attribute `{$attr}` can be used on CHERIoT targets only")]
+pub(crate) struct NotCHERIoTTarget<'a> {
+    #[primary_span]
+    pub span: Span,
+    pub attr: &'a str,
+}
+
+#[derive(Diagnostic)]
+#[diag("multiple CHERIoT capability import attributes used on the same item")]
+#[help(
+    "only a single capability import attribute (`#[cheriot_mmio]` or `#[cheriot_shared_object]`) is allowed on any item, remove the other ones"
+)]
+pub(crate) struct MultipleCHERIoTCapImportAttributes {
+    #[primary_span]
+    #[label("new attribute here")]
+    pub span: Span,
+}

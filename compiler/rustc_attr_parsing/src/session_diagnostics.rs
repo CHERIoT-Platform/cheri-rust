@@ -21,6 +21,35 @@ pub(crate) struct BothFfiConstAndPure {
 }
 
 #[derive(Diagnostic)]
+#[diag("`#[{$attr_name}(name = \"...\", permissions = \"...\")]` requires two parameters")]
+pub(crate) struct CheriotCapImportMissingParameter<'a> {
+    pub attr_name: &'a str,
+    #[primary_span]
+    pub attr_span: Span,
+}
+
+#[derive(Diagnostic)]
+#[diag("duplicate symbol `{$duplicate_symbol}` in `{$permissions}`")]
+#[help("remove the duplicate symbol")]
+pub(crate) struct CHERIoTCapImportPermissionsDuplicateSymbol<'a> {
+    #[primary_span]
+    pub span: Span,
+    pub duplicate_symbol: char,
+    pub permissions: &'a str,
+}
+
+#[derive(Diagnostic)]
+#[diag("unknown symbol(s) `{$unknown_symbols}` in `{$permissions}`")]
+#[help("the allowed symbols are {$allowed_symbols}")]
+pub(crate) struct CHERIoTCapImportPermissionsUnknownSymbols<'a> {
+    #[primary_span]
+    pub span: Span,
+    pub unknown_symbols: &'a str,
+    pub allowed_symbols: &'a str,
+    pub permissions: &'a str,
+}
+
+#[derive(Diagnostic)]
 #[diag("{$attr_str} attribute cannot have empty value")]
 pub(crate) struct DocAliasEmpty<'a> {
     #[primary_span]

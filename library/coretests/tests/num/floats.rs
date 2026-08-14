@@ -342,6 +342,7 @@ macro_rules! float_test {
             use super::*;
 
             #[test]
+            #[cfg(any(not(target_abi = "cheriot"), any(feature = "test_num_f16", feature = "test_num_ieee754")))]
             $( $( #[$f16_meta] )+ )?
             fn test_f16() {
                 #[allow(unused_imports)]
@@ -353,6 +354,7 @@ macro_rules! float_test {
             }
 
             #[test]
+            #[cfg(any(not(target_abi = "cheriot"), any(feature = "test_num_f32", feature = "test_num_ieee754")))]
             $( $( #[$f32_meta] )+ )?
             fn test_f32() {
                 #[allow(unused_imports)]
@@ -364,6 +366,7 @@ macro_rules! float_test {
             }
 
             #[test]
+            #[cfg(any(not(target_abi = "cheriot"), any(feature = "test_num_f64", feature = "test_num_ieee754")))]
             $( $( #[$f64_meta] )+ )?
             fn test_f64() {
                 #[allow(unused_imports)]
@@ -375,6 +378,7 @@ macro_rules! float_test {
             }
 
             #[test]
+            #[cfg(any(not(target_abi = "cheriot"), any(feature = "test_num_f128", feature = "test_num_ieee754")))]
             $( $( #[$f128_meta] )+ )?
             fn test_f128() {
                 #[allow(unused_imports)]
@@ -391,6 +395,7 @@ macro_rules! float_test {
                 use super::*;
 
                 #[test]
+                #[cfg(any(not(target_abi = "cheriot"), any(feature = "test_num_f16", feature = "test_num_ieee754")))]
                 $( $( #[$f16_const_meta] )+ )?
                 fn test_f16() {
                     #[allow(unused_imports)]
@@ -402,6 +407,7 @@ macro_rules! float_test {
                 }
 
                 #[test]
+                #[cfg(any(not(target_abi = "cheriot"), any(feature = "test_num_f32", feature = "test_num_ieee754")))]
                 $( $( #[$f32_const_meta] )+ )?
                 fn test_f32() {
                     #[allow(unused_imports)]
@@ -413,6 +419,7 @@ macro_rules! float_test {
                 }
 
                 #[test]
+                #[cfg(any(not(target_abi = "cheriot"), any(feature = "test_num_f64", feature = "test_num_ieee754")))]
                 $( $( #[$f64_const_meta] )+ )?
                 fn test_f64() {
                     #[allow(unused_imports)]
@@ -424,6 +431,7 @@ macro_rules! float_test {
                 }
 
                 #[test]
+                #[cfg(any(not(target_abi = "cheriot"), any(feature = "test_num_f128", feature = "test_num_ieee754")))]
                 $( $( #[$f128_const_meta] )+ )?
                 fn test_f128() {
                     #[allow(unused_imports)]
@@ -441,6 +449,7 @@ macro_rules! float_test {
 pub(crate) use assert_biteq;
 pub(crate) use float_test;
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: num,
     attrs: {
@@ -459,6 +468,7 @@ float_test! {
 
 // FIXME(f128): merge into `num` once the required `fmodl`/`fmodf128` function is available on
 // all platforms.
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: num_rem,
     attrs: {
@@ -473,6 +483,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: nan,
     attrs: {
@@ -493,6 +504,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: infinity,
     attrs: {
@@ -511,6 +523,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: neg_infinity,
     attrs: {
@@ -529,6 +542,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: zero,
     attrs: {
@@ -547,6 +561,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: neg_zero,
     attrs: {
@@ -567,6 +582,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: one,
     attrs: {
@@ -585,6 +601,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: is_nan,
     attrs: {
@@ -606,6 +623,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: is_infinite,
     attrs: {
@@ -627,6 +645,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: is_finite,
     attrs: {
@@ -648,6 +667,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: is_normal,
     attrs: {
@@ -670,6 +690,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: classify,
     attrs: {
@@ -691,6 +712,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: min,
     attrs: {
@@ -733,6 +755,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: max,
     attrs: {
@@ -776,6 +799,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: minimum,
     attrs: {
@@ -808,6 +832,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: maximum,
     attrs: {
@@ -841,6 +866,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: midpoint,
     attrs: {
@@ -893,6 +919,7 @@ float_test! {
 }
 
 // Separate test since the `for` loops cannot be run in `const`.
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: midpoint_large_magnitude,
     attrs: {
@@ -925,6 +952,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: abs,
     attrs: {
@@ -944,6 +972,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: copysign,
     attrs: {
@@ -959,6 +988,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: rem_euclid,
     attrs: {
@@ -977,6 +1007,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: div_euclid,
     attrs: {
@@ -994,6 +1025,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: floor,
     attrs: {
@@ -1024,6 +1056,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: ceil,
     attrs: {
@@ -1054,6 +1087,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: round,
     attrs: {
@@ -1085,6 +1119,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: round_ties_even,
     attrs: {
@@ -1116,6 +1151,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: trunc,
     attrs: {
@@ -1146,6 +1182,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: fract,
     attrs: {
@@ -1178,6 +1215,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: signum,
     attrs: {
@@ -1197,6 +1235,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: is_sign_positive,
     attrs: {
@@ -1216,6 +1255,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: is_sign_negative,
     attrs: {
@@ -1235,6 +1275,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: next_up,
     attrs: {
@@ -1266,6 +1307,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: next_down,
     attrs: {
@@ -1298,6 +1340,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: sqrt_domain,
     attrs: {
@@ -1317,6 +1360,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: clamp_min_greater_than_max,
     attrs: {
@@ -1331,6 +1375,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: clamp_min_is_nan,
     attrs: {
@@ -1345,6 +1390,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: clamp_max_is_nan,
     attrs: {
@@ -1359,6 +1405,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: total_cmp,
     attrs: {
@@ -1464,6 +1511,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: total_cmp_s_nan,
     attrs: {
@@ -1522,6 +1570,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: recip,
     attrs: {
@@ -1545,6 +1594,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: powi,
     attrs: {
@@ -1566,6 +1616,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: powf,
     attrs: {
@@ -1589,6 +1640,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: exp,
     attrs: {
@@ -1610,6 +1662,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: exp2,
     attrs: {
@@ -1630,6 +1683,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: ln,
     attrs: {
@@ -1652,6 +1706,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: log,
     attrs: {
@@ -1677,6 +1732,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: log2,
     attrs: {
@@ -1700,6 +1756,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: log10,
     attrs: {
@@ -1724,6 +1781,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: asinh,
     attrs: {
@@ -1760,6 +1818,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: acosh,
     attrs: {
@@ -1791,6 +1850,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: atanh,
     attrs: {
@@ -1817,6 +1877,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: gamma,
     attrs: {
@@ -1852,6 +1913,8 @@ float_test! {
     }
 }
 
+// FIXME(cheri): space issues and removing this gives us enough to run the rest
+#[cfg(not(target_abi = "cheriot"))]
 float_test! {
     name: ln_gamma,
     attrs: {
@@ -1871,6 +1934,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: to_degrees,
     attrs: {
@@ -1892,6 +1956,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: to_radians,
     attrs: {
@@ -1913,6 +1978,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: to_algebraic,
     attrs: {
@@ -1937,6 +2003,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: to_bits_conv,
     attrs: {
@@ -1964,6 +2031,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: mul_add,
     attrs: {
@@ -1989,6 +2057,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: from,
     attrs: {
@@ -2009,6 +2078,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: from_u16_i16,
     attrs: {
@@ -2026,6 +2096,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: from_u32_i32,
     attrs: {
@@ -2046,6 +2117,7 @@ float_test! {
 }
 
 // Test the `float_exact_integer_constants` feature
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: max_exact_integer_constant,
     attrs: {
@@ -2088,6 +2160,7 @@ float_test! {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: min_exact_integer_constant,
     attrs: {
@@ -2151,6 +2224,7 @@ float_test! {
 //     }
 // }
 
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: real_consts,
     attrs: {

@@ -28,6 +28,9 @@ rm -f "$output_fw" # just in case
 prev_arg=""
 output_path=""
 
+needs_softfloat="n"
+needs_math="n"
+
 for arg in "$@"; do
     # e.g. "-o <FILENAME>"
     case "$prev_arg" in
@@ -51,6 +54,12 @@ for arg in "$@"; do
         fi
         echo "$arg" >> "$objects_list"
         ;;
+    --needs-softfloat)
+        needs_softfloat="y"
+        ;;
+    --needs-math)
+        needs_math="y"
+        ;;
     esac
 
     prev_arg="$arg"
@@ -61,11 +70,11 @@ if [[ ! -d "cheriot-rtos" ]]; then
     git clone https://github.com/CHERIoT-Platform/cheriot-rtos --recursive --depth=1
 fi
 
-# if we need to run xmake config
-if [[ ! -d ".xmake" || ! -d "build" ]]; then
-    CHERIOT_LLVM_PROJECT_PATH=${CHERIOT_SYSROOT_DIR:-"../../../build/host/llvm/"}
-    xmake config --sdk="$CHERIOT_LLVM_PROJECT_PATH"
-fi
+CHERIOT_LLVM_PROJECT_PATH=${CHERIOT_SYSROOT_DIR:-"../../../build/host/llvm/"}
+
+xmake config --sdk="$CHERIOT_LLVM_PROJECT_PATH" \
+    --needs-softfloat=$needs_softfloat \
+    --needs-math=$needs_math
 
 xmake build -r
 

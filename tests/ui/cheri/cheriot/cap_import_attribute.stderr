@@ -1,0 +1,146 @@
+error: `#[cheriot_mmio]` attribute cannot be used on statics
+  --> $DIR/cap_import_attribute.rs:18:1
+   |
+LL | #[cheriot_mmio(name = "uart", permissions = "R")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: `#[cheriot_mmio]` can only be applied to foreign statics
+
+error: `#[cheriot_shared_object]` attribute cannot be used on statics
+  --> $DIR/cap_import_attribute.rs:21:1
+   |
+LL | #[cheriot_shared_object(name = "my_so", permissions = "R")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: `#[cheriot_shared_object]` can only be applied to foreign statics
+
+error: `#[cheriot_shared_object]` attribute cannot be used on statics
+  --> $DIR/cap_import_attribute.rs:24:1
+   |
+LL | #[cheriot_shared_object(name = "my_so", permissions = "R")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: `#[cheriot_shared_object]` can only be applied to foreign statics
+
+error: `#[cheriot_mmio]` attribute cannot be used on statics
+  --> $DIR/cap_import_attribute.rs:26:1
+   |
+LL | #[cheriot_mmio(name = "my_so", permissions = "R")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: `#[cheriot_mmio]` can only be applied to foreign statics
+
+error: multiple CHERIoT capability import attributes used on the same item
+  --> $DIR/cap_import_attribute.rs:24:1
+   |
+LL | #[cheriot_shared_object(name = "my_so", permissions = "R")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ new attribute here
+   |
+   = help: only a single capability import attribute (`#[cheriot_mmio]` or `#[cheriot_shared_object]`) is allowed on any item, remove the other ones
+
+error: multiple CHERIoT capability import attributes used on the same item
+  --> $DIR/cap_import_attribute.rs:26:1
+   |
+LL | #[cheriot_mmio(name = "my_so", permissions = "R")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ new attribute here
+   |
+   = help: only a single capability import attribute (`#[cheriot_mmio]` or `#[cheriot_shared_object]`) is allowed on any item, remove the other ones
+
+error: permissions `` are invalid as they don't contain either `R` (read) or `W` (write)
+  --> $DIR/cap_import_attribute.rs:32:49
+   |
+LL |     #[cheriot_mmio(name = "uart", permissions = "")]
+   |                                                 ^^
+
+error: permissions `c` are invalid as they don't contain either `R` (read) or `W` (write)
+  --> $DIR/cap_import_attribute.rs:35:49
+   |
+LL |     #[cheriot_mmio(name = "uart", permissions = "c")]
+   |                                                 ^^^
+
+error: permissions `m` are invalid as they contain load mut (`m`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:38:49
+   |
+LL |     #[cheriot_mmio(name = "uart", permissions = "m")]
+   |                                                 ^^^
+
+error: permissions `Wm` are invalid as they contain load mut (`m`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:41:49
+   |
+LL |     #[cheriot_mmio(name = "uart", permissions = "Wm")]
+   |                                                 ^^^^
+
+error: permissions `mc` are invalid as they contain load mut (`m`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:44:49
+   |
+LL |     #[cheriot_mmio(name = "uart", permissions = "mc")]
+   |                                                 ^^^^
+
+error: permissions `g` are invalid as they contain load global (`g`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:47:49
+   |
+LL |     #[cheriot_mmio(name = "uart", permissions = "g")]
+   |                                                 ^^^
+
+error: permissions `Wg` are invalid as they contain load global (`g`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:50:49
+   |
+LL |     #[cheriot_mmio(name = "uart", permissions = "Wg")]
+   |                                                 ^^^^
+
+error: permissions `gc` are invalid as they contain load global (`g`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:53:49
+   |
+LL |     #[cheriot_mmio(name = "uart", permissions = "gc")]
+   |                                                 ^^^^
+
+error: permissions `` are invalid as they don't contain either `R` (read) or `W` (write)
+  --> $DIR/cap_import_attribute.rs:57:59
+   |
+LL |     #[cheriot_shared_object(name = "my_so", permissions = "")]
+   |                                                           ^^
+
+error: permissions `c` are invalid as they don't contain either `R` (read) or `W` (write)
+  --> $DIR/cap_import_attribute.rs:60:59
+   |
+LL |     #[cheriot_shared_object(name = "my_so", permissions = "c")]
+   |                                                           ^^^
+
+error: permissions `m` are invalid as they contain load mut (`m`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:63:59
+   |
+LL |     #[cheriot_shared_object(name = "my_so", permissions = "m")]
+   |                                                           ^^^
+
+error: permissions `Wm` are invalid as they contain load mut (`m`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:66:59
+   |
+LL |     #[cheriot_shared_object(name = "my_so", permissions = "Wm")]
+   |                                                           ^^^^
+
+error: permissions `mc` are invalid as they contain load mut (`m`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:69:59
+   |
+LL |     #[cheriot_shared_object(name = "my_so", permissions = "mc")]
+   |                                                           ^^^^
+
+error: permissions `g` are invalid as they contain load global (`g`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:72:59
+   |
+LL |     #[cheriot_shared_object(name = "my_so", permissions = "g")]
+   |                                                           ^^^
+
+error: permissions `Wg` are invalid as they contain load global (`g`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:75:59
+   |
+LL |     #[cheriot_shared_object(name = "my_so", permissions = "Wg")]
+   |                                                           ^^^^
+
+error: permissions `gc` are invalid as they contain load global (`g`) but don't contain both read (`R`) and cap (`c`)
+  --> $DIR/cap_import_attribute.rs:78:59
+   |
+LL |     #[cheriot_shared_object(name = "my_so", permissions = "gc")]
+   |                                                           ^^^^
+
+error: aborting due to 22 previous errors
+

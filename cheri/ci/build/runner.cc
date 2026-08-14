@@ -48,7 +48,12 @@ compartment_error_handler(ErrorState *frame, size_t mcause, size_t mtval) {
   return ErrorRecoveryBehaviour::ForceUnwind;
 }
 
-extern "C" void cheriot_print(char *s) { printf("%s", s); }
+extern "C" void cheriot_print(char *str) {
+    for (; *str; ++str) {
+        char c = *str;
+        MMIO_CAPABILITY(Uart, uart)->blocking_write(c);
+	}
+}
 
 extern "C" void *cheriot_alloc(size_t size, size_t align) {
   Timeout timeout{5};
