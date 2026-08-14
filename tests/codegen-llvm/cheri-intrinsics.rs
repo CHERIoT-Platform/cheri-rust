@@ -10,7 +10,8 @@
 #[no_mangle]
 pub unsafe fn cheri_intrinsics(x: u32) {
     let mut nil = core::ptr::null::<()>();
-    // For some optimisations to happen, address_get doesn't lower to the cheri.cap.addr.get intrinsics. Instead,
+    // For some optimisations to happen, address_get doesn't
+    // lower to the cheri.cap.addr.get intrinsics. Instead,
     // it lowers to a `ptrtoint`:
     // CHECK: ptrtoint
     _ = core::arch::cheri::address_get(nil);
@@ -39,7 +40,8 @@ pub unsafe fn cheri_intrinsics(x: u32) {
     _ = core::arch::cheri::unseal(nil, nil);
 }
 
-// Since some functions will be inlined and others won't, we simply check for the intrinsics to be declared.
+// Since some functions will be inlined and others won't,
+// we simply check for the intrinsics to be declared.
 
 // CHECK: declare i1 @llvm.cheri.cap.subset.test(ptr addrspace(200), ptr addrspace(200)) addrspace(200)
 
