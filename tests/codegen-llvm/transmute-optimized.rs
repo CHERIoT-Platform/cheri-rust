@@ -39,7 +39,7 @@ pub fn non_null_is_null(x: core::ptr::NonNull<i32>) -> bool {
 #[no_mangle]
 pub fn non_zero_is_null(x: core::num::NonZero<usize>) -> bool {
     // CHECK: ret i1 false
-    let p: *const i32 = unsafe { core::mem::transmute(x) };
+    let p: *const i32 = core::ptr::without_provenance(x.get());
     p.is_null()
 }
 
@@ -47,7 +47,7 @@ pub fn non_zero_is_null(x: core::num::NonZero<usize>) -> bool {
 #[no_mangle]
 pub fn non_null_is_zero(x: core::ptr::NonNull<i32>) -> bool {
     // CHECK: ret i1 false
-    let a: isize = unsafe { core::mem::transmute(x) };
+    let a: usize = x.as_ptr().addr();
     a == 0
 }
 
