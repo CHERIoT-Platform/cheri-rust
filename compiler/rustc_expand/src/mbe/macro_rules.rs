@@ -10,15 +10,15 @@ use rustc_ast::token::{self, Delimiter, NonterminalKind, Token, TokenKind};
 use rustc_ast::tokenstream::{self, DelimSpan, TokenStream};
 use rustc_ast::{self as ast, DUMMY_NODE_ID, NodeId, Safety};
 use rustc_ast_pretty::pprust;
+use rustc_attr_ir::diagnostic::Directive;
+use rustc_attr_ir::{self as attrs, find_attr};
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap};
 use rustc_errors::{Applicability, Diag, ErrorGuaranteed, MultiSpan};
 use rustc_feature::Features;
-use rustc_hir as hir;
-use rustc_hir::attrs::diagnostic::Directive;
 use rustc_hir::def::MacroKinds;
-use rustc_hir::find_attr;
 use rustc_lint_defs::builtin::{
     RUST_2021_INCOMPATIBLE_OR_PATTERNS, SEMICOLON_IN_EXPRESSIONS_FROM_MACROS,
+    SEMICOLON_IN_EXPRESSIONS_FROM_NON_LOCAL_MACROS,
 };
 use rustc_parse::exp;
 use rustc_parse::parser::{Parser, Recovery};
@@ -99,14 +99,17 @@ impl<'a, 'b> ParserAnyMacro<'a, 'b> {
         // `macro_rules! m { () => { panic!(); } }` isn't parsed by `.parse_expr()`,
         // but `m!()` is allowed in expression positions (cf. issue #34706).
         if kind == AstFragmentKind::Expr && parser.token == token::Semi {
-            if is_local {
-                parser.psess.buffer_lint(
-                    SEMICOLON_IN_EXPRESSIONS_FROM_MACROS,
-                    parser.token.span,
-                    lint_node_id,
-                    diagnostics::TrailingMacro { is_trailing: is_trailing_mac, name: macro_ident },
-                );
-            }
+            let lint = if is_local {
+                SEMICOLON_IN_EXPRESSIONS_FROM_MACROS
+            } else {
+                SEMICOLON_IN_EXPRESSIONS_FROM_NON_LOCAL_MACROS
+            };
+            parser.psess.buffer_lint(
+                lint,
+                parser.token.span,
+                lint_node_id,
+                diagnostics::TrailingMacro { is_trailing: is_trailing_mac, name: macro_ident },
+            );
             parser.bump();
         }
 
@@ -521,6 +524,10 @@ fn expand_macro_attr(
     // whereas macros from an external crate have a dummy id.
     let is_local = node_id != DUMMY_NODE_ID;
 
+    if !is_local && !cx.ecfg.features.macro_attr() {
+        feature_err(cx.sess, sym::macro_attr, sp, "`macro_rules!` attributes are unstable").emit();
+    }
+
     if cx.trace_macros() {
         let msg = format!(
             "expanding `#[{name}({})] {}`",
@@ -775,7 +782,7 @@ pub fn compile_declarative_macro(
     features: &Features,
     macro_def: &ast::MacroDef,
     ident: Ident,
-    attrs: &[hir::Attribute],
+    attrs: &[attrs::Attribute],
     span: Span,
     node_id: NodeId,
     edition: Edition,
@@ -808,7 +815,7 @@ pub fn compile_declarative_macro(
         }
         let (args, is_derive) = if p.eat_keyword_noexpect(sym::attr) {
             kinds |= MacroKinds::ATTR;
-            if !features.macro_attr() {
+            if is_defined_in_current_crate(node_id) && !features.macro_attr() {
                 feature_err(sess, sym::macro_attr, span, "`macro_rules!` attributes are unstable")
                     .emit();
             }

@@ -237,7 +237,7 @@ pub fn prune_stacktrace<'tcx>(
 /// Report the result of a Miri execution.
 ///
 /// Returns `Some` if this was regular program termination with a given exit code and a `bool`
-/// indicating whether a leak check should happen; `None` otherwise.
+/// indicating whether a leak check should happen; `None` if execution was aborted with an error.
 pub fn report_result<'tcx>(
     ecx: &InterpCx<'tcx, MiriMachine<'tcx>>,
     res: InterpErrorInfo<'tcx>,
@@ -372,10 +372,7 @@ pub fn report_result<'tcx>(
                 ..
             }) => {
                 ecx.handle_ice(); // print interpreter backtrace (this is outside the eval `catch_unwind`)
-                bug!(
-                    "This validation error should be impossible in Miri: {}",
-                    format_interp_error(res)
-                );
+                bug!("This validation error should be impossible in Miri: {}", res.to_string());
             }
             UndefinedBehavior(_) => "Undefined Behavior",
             ResourceExhaustion(_) => "resource exhaustion",
@@ -391,7 +388,7 @@ pub fn report_result<'tcx>(
             ) => "post-monomorphization error",
             _ => {
                 ecx.handle_ice(); // print interpreter backtrace (this is outside the eval `catch_unwind`)
-                bug!("This error should be impossible in Miri: {}", format_interp_error(res));
+                bug!("This error should be impossible in Miri: {}", res.to_string());
             }
         };
         #[rustfmt::skip]
@@ -468,7 +465,7 @@ pub fn report_result<'tcx>(
     if let Some(title) = title {
         write!(primary_msg, "{title}: ").unwrap();
     }
-    write!(primary_msg, "{}", format_interp_error(res)).unwrap();
+    write!(primary_msg, "{}", res.to_string()).unwrap();
 
     if labels.is_empty() {
         labels.push(format!(

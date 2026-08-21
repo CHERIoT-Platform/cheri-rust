@@ -9,7 +9,7 @@ use rustc_abi::{
 use rustc_codegen_ssa::RetagInfo;
 use rustc_codegen_ssa::base::{compare_simd_types, wants_msvc_seh, wants_wasm_eh};
 use rustc_codegen_ssa::common::{IntPredicate, TypeKind};
-use rustc_codegen_ssa::errors::{ExpectedPointerMutability, InvalidMonomorphization};
+use rustc_codegen_ssa::diagnostics::{ExpectedPointerMutability, InvalidMonomorphization};
 use rustc_codegen_ssa::mir::IntrinsicResult;
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
 use rustc_codegen_ssa::mir::place::{PlaceRef, PlaceValue};
@@ -26,9 +26,11 @@ use rustc_session::config::CrateType;
 use rustc_session::diagnostics::feature_err;
 use rustc_session::lint::builtin::DEPRECATED_LLVM_INTRINSIC;
 use rustc_span::{ErrorGuaranteed, Span, Symbol, sym};
-use rustc_symbol_mangling::{mangle_internal_symbol, symbol_name_for_instance_in_crate};
+use rustc_symbol_mangling::{
+    mangle_internal_symbol, mangle_offload_export, symbol_name_for_instance_in_crate,
+};
 use rustc_target::callconv::PassMode;
-use rustc_target::spec::{Arch, HasTargetSpec, LlvmAbi};
+use rustc_target::spec::{Arch, HasTargetSpec};
 use tracing::debug;
 
 use crate::abi::FnAbiLlvmExt;
@@ -37,10 +39,9 @@ use crate::builder::autodiff::{adjust_activity_to_abi, generate_enzyme_call};
 use crate::builder::gpu_offload::{
     OffloadKernelDims, gen_call_handling, gen_define_handling, register_offload,
 };
-use crate::common::pauth_fn_attrs;
 use crate::context::CodegenCx;
 use crate::declare::declare_raw_fn;
-use crate::errors::{
+use crate::diagnostics::{
     AutoDiffWithoutEnable, AutoDiffWithoutLto, IntrinsicSignatureMismatch, IntrinsicWrongArch,
     OffloadWithoutEnable, OffloadWithoutFatLTO, UnknownIntrinsic,
 };
@@ -1707,9 +1708,12 @@ fn get_rust_try_fn<'a, 'll, 'tcx>(
         hir::Safety::Unsafe,
     ));
     let rust_try = gen_fn(cx, "__rust_try", rust_fn_sig, codegen);
-    if cx.sess().target.llvm_abiname == LlvmAbi::Pauthtest {
+
+    if cx.sess().pointer_authentication() {
+        let cfg = cx.sess().pointer_auth_config.as_ref().unwrap();
         let attrs: Vec<&Attribute> =
-            pauth_fn_attrs().iter().map(|name| llvm::CreateAttrString(cx.llcx, name)).collect();
+            cfg.fn_attrs().into_iter().map(|name| llvm::CreateAttrString(cx.llcx, name)).collect();
+
         let (_ty, rust_try_fn) = rust_try;
         crate::attributes::apply_to_llfn(rust_try_fn, AttributePlace::Function, &attrs);
     }
@@ -1858,9 +1862,9 @@ fn codegen_offload<'ll, 'tcx>(
         _ => panic!("unparsable"),
     };
     let args = get_args_from_tuple(bx, args[4], fn_target);
-    let target_symbol = symbol_name_for_instance_in_crate(tcx, fn_target, LOCAL_CRATE);
+    let target_symbol = mangle_offload_export(tcx, fn_target);
 
-    let sig = tcx.fn_sig(fn_target.def_id()).skip_binder();
+    let sig = tcx.fn_sig(fn_target.def_id()).instantiate(tcx, fn_target.args).skip_norm_wip();
     let sig = tcx.instantiate_bound_regions_with_erased(sig);
     let inputs = sig.inputs();
 

@@ -28,6 +28,7 @@ use rustc_middle::{bug, span_bug};
 use rustc_serialize::{Decodable, Decoder, Encodable, Encoder, opaque};
 use rustc_session::config::mitigation_coverage::DeniedPartialMitigation;
 use rustc_session::config::{CrateType, OptLevel, TargetModifier};
+use rustc_span::def_id::CRATE_MOD_ID;
 use rustc_span::hygiene::HygieneEncodeContext;
 use rustc_span::{
     ByteSymbol, ExternalSource, FileName, SourceFile, SpanData, SpanEncoder, StableSourceFileId,
@@ -638,6 +639,8 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
 
         let diagnostic_items = stat!("diagnostic-items", || self.encode_diagnostic_items());
 
+        let canonical_symbols = stat!("canonical-symbols", || self.encode_canonical_symbols());
+
         let native_libraries = stat!("native-libs", || self.encode_native_libraries());
 
         let foreign_modules = stat!("foreign-modules", || self.encode_foreign_modules());
@@ -756,6 +759,7 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
                 stability_implications,
                 lang_items,
                 diagnostic_items,
+                canonical_symbols,
                 lang_items_missing,
                 stripped_cfg_items,
                 native_libraries,
@@ -944,6 +948,7 @@ fn should_encode_attrs(def_kind: DefKind) -> bool {
         | DefKind::AssocConst { .. }
         | DefKind::Macro(_)
         | DefKind::Field
+        | DefKind::ConstParam
         | DefKind::Impl { .. } => true,
         // Encoding attrs for `Use` items allows `#[doc(hidden)]` on re-exports
         // to be read cross-crate, which is needed for diagnostic path selection
@@ -956,7 +961,6 @@ fn should_encode_attrs(def_kind: DefKind) -> bool {
         DefKind::Closure => true,
         DefKind::SyntheticCoroutineBody => false,
         DefKind::TyParam
-        | DefKind::ConstParam
         | DefKind::Ctor(..)
         | DefKind::ExternCrate
         | DefKind::ForeignMod
@@ -1424,7 +1428,11 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             // anywhere so we don't need to encode it for other crates.
             // FIXME(mgca): This probably isn't true, they probably are accessed, but, test case?
             if def_kind == DefKind::AnonConst
-                && matches!(tcx.hir_node_by_def_id(local_id), hir::Node::ConstArg(_))
+                && matches!(
+                    tcx.hir_node_by_def_id(local_id),
+                    hir::Node::ConstArg(_)
+                        | hir::Node::Infer(hir::InferArg { kind: hir::InferArgKind::Const, .. })
+                )
             {
                 continue;
             }
@@ -1455,8 +1463,10 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
                 record!(self.tables.codegen_fn_attrs[def_id] <- self.tcx.codegen_fn_attrs(def_id));
             }
             if should_encode_visibility(def_kind) {
-                let vis =
-                    self.tcx.local_visibility(local_id).map_id(|def_id| def_id.local_def_index);
+                let vis = self
+                    .tcx
+                    .local_visibility(local_id)
+                    .map_id(|mod_id| mod_id.to_local_def_id().local_def_index);
                 record!(self.tables.visibility[def_id] <- vis);
             }
             if should_encode_stability(def_kind) {
@@ -1475,7 +1485,7 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             if should_encode_generics(def_kind) {
                 let g = tcx.generics_of(def_id);
                 record!(self.tables.generics_of[def_id] <- g);
-                record!(self.tables.explicit_predicates_of[def_id] <- self.tcx.explicit_predicates_of(def_id));
+                record!(self.tables.explicit_clauses_of[def_id] <- self.tcx.explicit_clauses_of(def_id));
                 let inferred_outlives = self.tcx.inferred_outlives_of(def_id);
                 record_defaulted_array!(self.tables.inferred_outlives_of[def_id] <- inferred_outlives);
 
@@ -1510,10 +1520,10 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             }
             if let DefKind::Trait = def_kind {
                 record!(self.tables.trait_def[def_id] <- self.tcx.trait_def(def_id));
-                record_defaulted_array!(self.tables.explicit_super_predicates_of[def_id] <-
-                    self.tcx.explicit_super_predicates_of(def_id).skip_binder());
-                record_defaulted_array!(self.tables.explicit_implied_predicates_of[def_id] <-
-                    self.tcx.explicit_implied_predicates_of(def_id).skip_binder());
+                record_defaulted_array!(self.tables.explicit_super_clauses_of[def_id] <-
+                    self.tcx.explicit_super_clauses_of(def_id).skip_binder());
+                record_defaulted_array!(self.tables.explicit_implied_clauses_of[def_id] <-
+                    self.tcx.explicit_implied_clauses_of(def_id).skip_binder());
                 let module_children = self.tcx.module_children_local(local_id);
                 record_array!(self.tables.module_children_non_reexports[def_id] <-
                     module_children.iter().map(|child| child.res.def_id().index));
@@ -1524,10 +1534,10 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             }
             if let DefKind::TraitAlias = def_kind {
                 record!(self.tables.trait_def[def_id] <- self.tcx.trait_def(def_id));
-                record_defaulted_array!(self.tables.explicit_super_predicates_of[def_id] <-
-                    self.tcx.explicit_super_predicates_of(def_id).skip_binder());
-                record_defaulted_array!(self.tables.explicit_implied_predicates_of[def_id] <-
-                    self.tcx.explicit_implied_predicates_of(def_id).skip_binder());
+                record_defaulted_array!(self.tables.explicit_super_clauses_of[def_id] <-
+                    self.tcx.explicit_super_clauses_of(def_id).skip_binder());
+                record_defaulted_array!(self.tables.explicit_implied_clauses_of[def_id] <-
+                    self.tcx.explicit_implied_clauses_of(def_id).skip_binder());
             }
             if let DefKind::Trait | DefKind::Impl { .. } = def_kind {
                 let associated_item_def_ids = self.tcx.associated_item_def_ids(def_id);
@@ -1579,9 +1589,9 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             }
             if let DefKind::TyAlias = def_kind {
                 self.tables
-                    .type_alias_is_lazy
-                    .set(def_id.index, self.tcx.type_alias_is_lazy(def_id));
-                if self.tcx.type_alias_is_lazy(def_id) {
+                    .type_alias_is_checked
+                    .set(def_id.index, self.tcx.type_alias_is_checked(def_id));
+                if self.tcx.type_alias_is_checked(def_id) {
                     record!(self.tables.args_known_to_outlive_alias_params[def_id] <- tcx.args_known_to_outlive_alias_params(def_id));
                 }
             }
@@ -1692,6 +1702,9 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
 
             for field in &variant.fields {
                 self.tables.safety.set(field.did.index, field.safety);
+                record!(
+                    self.tables.mut_restriction[field.did] <- field.mut_restriction
+                );
             }
 
             if let Some((CtorKind::Fn, ctor_def_id)) = variant.ctor {
@@ -1979,16 +1992,18 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             self.tables.def_kind.set_some(LOCAL_CRATE.as_def_id().index, DefKind::Mod);
             record!(self.tables.def_span[LOCAL_CRATE.as_def_id()] <- tcx.def_span(LOCAL_CRATE.as_def_id()));
             self.encode_attrs(LOCAL_CRATE.as_def_id().expect_local());
-            let vis = tcx.local_visibility(CRATE_DEF_ID).map_id(|def_id| def_id.local_def_index);
+            let vis = tcx
+                .local_visibility(CRATE_DEF_ID)
+                .map_id(|mod_id| mod_id.to_local_def_id().local_def_index);
             record!(self.tables.visibility[LOCAL_CRATE.as_def_id()] <- vis);
             if let Some(stability) = stability {
                 record!(self.tables.lookup_stability[LOCAL_CRATE.as_def_id()] <- stability);
             }
             self.encode_deprecation(LOCAL_CRATE.as_def_id());
-            if let Some(res_map) = tcx.resolutions(()).doc_link_resolutions.get(&CRATE_DEF_ID) {
+            if let Some(res_map) = tcx.resolutions(()).doc_link_resolutions.get(&CRATE_MOD_ID) {
                 record!(self.tables.doc_link_resolutions[LOCAL_CRATE.as_def_id()] <- res_map);
             }
-            if let Some(traits) = tcx.resolutions(()).doc_link_traits_in_scope.get(&CRATE_DEF_ID) {
+            if let Some(traits) = tcx.resolutions(()).doc_link_traits_in_scope.get(&CRATE_MOD_ID) {
                 record_array!(self.tables.doc_link_traits_in_scope[LOCAL_CRATE.as_def_id()] <- traits);
             }
 
@@ -2129,6 +2144,13 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
         self.lazy_array(sorted.into_iter().map(|(k, v)| (*k, *v)))
     }
 
+    fn encode_canonical_symbols(&mut self) -> LazyArray<(Symbol, DefIndex)> {
+        empty_proc_macro!(self);
+        let tcx = self.tcx;
+        let canonical_symbols = &tcx.canonical_symbols(LOCAL_CRATE);
+        self.lazy_array(canonical_symbols.iter().map(|cs| (cs.symbol, cs.def_id.index)))
+    }
+
     fn encode_diagnostic_items(&mut self) -> LazyArray<(Symbol, DefIndex)> {
         empty_proc_macro!(self);
         let tcx = self.tcx;
@@ -2181,6 +2203,12 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             if of_trait {
                 let header = tcx.impl_trait_header(def_id);
                 record!(self.tables.impl_trait_header[def_id] <- header);
+
+                let impl_is_fully_generic_for_reflection =
+                    tcx.impl_is_fully_generic_for_reflection(def_id);
+                self.tables
+                    .impl_is_fully_generic_for_reflection
+                    .set(def_id.index, impl_is_fully_generic_for_reflection);
 
                 self.tables.defaultness.set(def_id.index, tcx.defaultness(def_id));
 
@@ -2456,7 +2484,7 @@ pub fn encode_metadata(tcx: TyCtxt<'_>, path: &Path, ref_path: Option<&Path>) {
         && tcx.dep_graph.try_mark_green(tcx, &dep_node).is_some()
     {
         let saved_path = &work_product.saved_files["rmeta"];
-        let incr_comp_session_dir = tcx.sess.incr_comp_session_dir();
+        let incr_comp_session_dir = &tcx.incr_comp_session.unwrap().session_directory;
         let source_file_in_incr_dir = &incr_comp_session_dir.join(saved_path);
         debug!("copying preexisting metadata from {source_file_in_incr_dir:?} to {path:?}");
         match rustc_fs_util::link_or_copy(&source_file_in_incr_dir, path) {
@@ -2466,7 +2494,7 @@ pub fn encode_metadata(tcx: TyCtxt<'_>, path: &Path, ref_path: Option<&Path>) {
         return;
     };
 
-    if tcx.sess.threads().is_some() {
+    if tcx.sess.opts.jobs.frontend.is_some() {
         // Prefetch some queries used by metadata encoding.
         // This is not necessary for correctness, but is only done for performance reasons.
         // It can be removed if it turns out to cause trouble or be detrimental to performance.

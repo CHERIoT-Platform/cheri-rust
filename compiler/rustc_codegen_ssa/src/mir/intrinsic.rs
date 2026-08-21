@@ -10,7 +10,7 @@ use super::operand::{OperandRef, OperandValue};
 use super::place::PlaceValue;
 use super::{FunctionCx, IntrinsicResult};
 use crate::common::{AtomicRmwBinOp, PreserveCheriTags, SynchronizationScope};
-use crate::errors::InvalidMonomorphization;
+use crate::diagnostics::InvalidMonomorphization;
 use crate::mir::operand::OperandRefBuilder;
 use crate::traits::*;
 use crate::{MemFlags, meth, size_of_val};
@@ -87,7 +87,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         if let sym::typed_swap_nonoverlapping = name {
             let pointee_ty = fn_args.type_at(0);
             let pointee_layout = bx.layout_of(pointee_ty);
-            if !bx.is_backend_ref(pointee_layout)
+            if pointee_layout.is_ssa_standalone()
                 // But if we're not going to optimize, trying to use the fallback
                 // body just makes things worse, so don't bother.
                 || bx.sess().opts.optimize == OptLevel::No
@@ -163,22 +163,16 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 location.val
             }
 
-            // va_end uses the fallback body (a no-op).
-            sym::va_start => {
-                bx.va_start(args[0].immediate());
-                OperandValue::ZeroSized
-            }
-
             sym::size_of_val => {
                 let tp_ty = fn_args.type_at(0);
                 let (_, meta) = args[0].val.pointer_parts();
-                let (llsize, _) = size_of_val::size_and_align_of_dst(bx, tp_ty, meta);
+                let (llsize, _) = size_of_val::size_and_align_of_dst(bx, tp_ty, meta, span);
                 OperandValue::Immediate(llsize)
             }
             sym::align_of_val => {
                 let tp_ty = fn_args.type_at(0);
                 let (_, meta) = args[0].val.pointer_parts();
-                let (_, llalign) = size_of_val::size_and_align_of_dst(bx, tp_ty, meta);
+                let (_, llalign) = size_of_val::size_and_align_of_dst(bx, tp_ty, meta, span);
                 OperandValue::Immediate(llalign)
             }
             sym::vtable_size | sym::vtable_align => {
@@ -611,7 +605,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         };
 
         debug_assert!(
-            op_val.is_expected_variant_for_type(bx.cx(), result_layout),
+            op_val.is_expected_variant_for_type(result_layout),
             "[{name:?}] Value {op_val:?} is wrong for type {result_layout:?}",
         );
 
