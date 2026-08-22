@@ -84,8 +84,9 @@ jobs:
       - name: Run `x check` (host)
         run: ./x check --ci=false
 
+        # intrinsic-test depends on particular clang and gcc versions and tests arch-specific features
       - name: Run `x test` (host)
-        run: ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make --skip tidy --ci=false
+        run: ./x test --skip src/tools/linkchecker --skip tests/rustdoc-ui --skip tests/run-make --skip tidy --skip intrinsic-test --ci=false
 
       - name: Build rustc, core (CHERIoT)
         run: ./x build compiler std --target=riscv32cheriot-unknown-cheriotrtos --ci=false
