@@ -1,8 +1,8 @@
-error[E0658]: the `#[cheriot_mmio]` attribute is an experimental feature
-  --> $DIR/feature-gate-cheriot-attributes.rs:15:5
+error[E0658]: the `cheriot_mmio` attribute is an experimental feature
+  --> $DIR/feature-gate-cheriot-attributes.rs:15:7
    |
 LL |     #[cheriot_mmio(name = "uart", permissions = "R")]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |       ^^^^^^^^^^^^
    |
    = note: see issue #1 <https://github.com/rust-lang/rust/issues/1> for more information
    = help: add `#![feature(cheriot_attributes)]` to the crate attributes to enable

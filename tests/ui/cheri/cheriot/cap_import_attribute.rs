@@ -15,16 +15,16 @@ pub struct Uart {
     field: u32,
 }
 
-#[cheriot_mmio(name = "uart", permissions = "R")] //~ ERROR `#[cheriot_mmio]` attribute cannot be used on statics
+#[cheriot_mmio(name = "uart", permissions = "R")] //~ ERROR the `cheriot_mmio` attribute cannot be used on statics
 pub static UART_NOEXT: i8 = 0;
 
-#[cheriot_shared_object(name = "my_so", permissions = "R")] //~ ERROR `#[cheriot_shared_object]` attribute cannot be used on statics
+#[cheriot_shared_object(name = "my_so", permissions = "R")] //~ ERROR the `cheriot_shared_object` attribute cannot be used on statics
 pub static SHARED_OBJECT_NOEXT: i8 = 0;
 
 #[cheriot_shared_object(name = "my_so", permissions = "R")]  //~ ERROR multiple CHERIoT capability import attributes used on the same item
-//~^ ERROR  `#[cheriot_shared_object]` attribute cannot be used on static
+//~^ ERROR  the `cheriot_shared_object` attribute cannot be used on static
 #[cheriot_mmio(name = "my_so", permissions = "R")] //~ ERROR multiple CHERIoT capability import attributes used on the same item
-//~^ ERROR  `#[cheriot_mmio]` attribute cannot be used on static
+//~^ ERROR  the `cheriot_mmio` attribute cannot be used on static
 pub static TWO_ATTRS: i8 = 0;
 
 unsafe extern "Rust" {

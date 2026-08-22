@@ -1,34 +1,34 @@
-error: `#[cheriot_mmio]` attribute cannot be used on statics
-  --> $DIR/cap_import_attribute.rs:18:1
+error: the `cheriot_mmio` attribute cannot be used on statics
+  --> $DIR/cap_import_attribute.rs:18:3
    |
 LL | #[cheriot_mmio(name = "uart", permissions = "R")]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   ^^^^^^^^^^^^
    |
-   = help: `#[cheriot_mmio]` can only be applied to foreign statics
+   = help: the `cheriot_mmio` attribute can only be applied to foreign statics
 
-error: `#[cheriot_shared_object]` attribute cannot be used on statics
-  --> $DIR/cap_import_attribute.rs:21:1
+error: the `cheriot_shared_object` attribute cannot be used on statics
+  --> $DIR/cap_import_attribute.rs:21:3
    |
 LL | #[cheriot_shared_object(name = "my_so", permissions = "R")]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   ^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: `#[cheriot_shared_object]` can only be applied to foreign statics
+   = help: the `cheriot_shared_object` attribute can only be applied to foreign statics
 
-error: `#[cheriot_shared_object]` attribute cannot be used on statics
-  --> $DIR/cap_import_attribute.rs:24:1
+error: the `cheriot_shared_object` attribute cannot be used on statics
+  --> $DIR/cap_import_attribute.rs:24:3
    |
 LL | #[cheriot_shared_object(name = "my_so", permissions = "R")]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   ^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: `#[cheriot_shared_object]` can only be applied to foreign statics
+   = help: the `cheriot_shared_object` attribute can only be applied to foreign statics
 
-error: `#[cheriot_mmio]` attribute cannot be used on statics
-  --> $DIR/cap_import_attribute.rs:26:1
+error: the `cheriot_mmio` attribute cannot be used on statics
+  --> $DIR/cap_import_attribute.rs:26:3
    |
 LL | #[cheriot_mmio(name = "my_so", permissions = "R")]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |   ^^^^^^^^^^^^
    |
-   = help: `#[cheriot_mmio]` can only be applied to foreign statics
+   = help: the `cheriot_mmio` attribute can only be applied to foreign statics
 
 error: multiple CHERIoT capability import attributes used on the same item
   --> $DIR/cap_import_attribute.rs:24:1
