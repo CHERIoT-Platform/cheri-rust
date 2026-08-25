@@ -518,6 +518,10 @@ impl TargetDataLayout {
                         _is_fat = true;
                     }
 
+                    if p.starts_with('e') {
+                        p = p.strip_prefix('e').unwrap();
+                    }
+
                     // However, we currently don't take into account further specifications:
                     // an error is emitted instead.
                     if p.starts_with(char::is_alphabetic) {
