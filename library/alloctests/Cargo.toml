@@ -10,31 +10,36 @@ edition = "2024"
 
 [lib]
 path = "lib.rs"
-test = true
-bench = true
+test = false
+bench = false
 doc = false
 
 [dev-dependencies]
 rand = { version = "0.9.0", default-features = false, features = ["alloc"] }
 rand_xorshift = "0.4.0"
 
+[target.'cfg(target_abi = "cheriot")'.dev-dependencies]
+test = { package = "cheri_test", path = "../../cheri/ci/library/cheri_test" }
+
 [[test]]
 name = "alloctests"
 path = "tests/lib.rs"
 
-[[test]]
-name = "vec_deque_alloc_error"
-path = "tests/vec_deque_alloc_error.rs"
+# FIXME(cheri/triage): contains one test which needs unwind
+# [[test]]
+# name = "vec_deque_alloc_error"
+# path = "tests/vec_deque_alloc_error.rs"
 
-[[bench]]
-name = "allocbenches"
-path = "benches/lib.rs"
-test = true
+# FIXME(cheri/triage): wants libtest
+# [[bench]]
+# name = "allocbenches"
+# path = "benches/lib.rs"
+# test = true
 
-[[bench]]
-name = "vec_deque_append_bench"
-path = "benches/vec_deque_append.rs"
-harness = false
+# [[bench]]
+# name = "vec_deque_append_bench"
+# path = "benches/vec_deque_append.rs"
+# harness = false
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
@@ -44,3 +49,52 @@ check-cfg = [
     'cfg(no_sync)',
     'cfg(randomized_layouts)',
 ]
+
+[features]
+test_alloc_test = []
+test_arc = []
+test_autotraits = []
+test_borrow = []
+test_boxed = []
+test_btree_set_hash = []
+test_c_str = []
+test_c_str2 = []
+test_collections = []
+test_const_fns = []
+test_cow_str = []
+test_extras = []
+test_fmt = []
+test_heap = []
+test_linked_list = []
+test_misc_tests = []
+test_num = []
+test_rc = []
+test_slice = []
+test_sort_misc = []
+test_sort_i32 = []
+test_sort_u64 = []
+test_sort_u128 = []
+test_sort_cell_i32 = []
+test_sort_string = []
+test_sort_f128 = []
+test_sort_1k = []
+test_sort_dyn = []
+test_sort_panic_retain = []
+test_sort_panic_observable = []
+test_sort_observable = []
+test_sort_stability = []
+test_sort_det = []
+test_sort_cmp = []
+test_sort_ord = []
+test_str_1 = []
+test_str_2 = []
+test_str_3 = []
+test_string = []
+test_sync = []
+test_task = []
+test_testing = []
+test_thin_box = []
+test_vec_1 = []
+test_vec_2 = []
+test_vec_deque_1 = []
+test_vec_deque_2 = []

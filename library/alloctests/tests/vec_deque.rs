@@ -8,12 +8,15 @@ use std::fmt::Debug;
 use std::ops::Bound::*;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 use Taggy::*;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 use Taggypar::*;
 
 use crate::hash;
 use crate::testing::macros::struct_with_counted_drop;
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_simple() {
     let mut d = VecDeque::new();
@@ -49,6 +52,7 @@ fn test_simple() {
     assert_eq!(d[3], 4);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 fn test_parameterized<T: Clone + PartialEq + Debug>(a: T, b: T, c: T, d: T) {
     let mut deq = VecDeque::new();
     assert_eq!(deq.len(), 0);
@@ -79,6 +83,7 @@ fn test_parameterized<T: Clone + PartialEq + Debug>(a: T, b: T, c: T, d: T) {
     assert_eq!(deq[3].clone(), d.clone());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_pop_if() {
     let mut deq: VecDeque<_> = vec![0, 1, 2, 3, 4].into();
@@ -97,6 +102,7 @@ fn test_pop_if() {
     assert_eq!(deq, [1, 2, 3]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_pop_if_empty() {
     let mut deq = VecDeque::<i32>::new();
@@ -105,6 +111,7 @@ fn test_pop_if_empty() {
     assert!(deq.is_empty());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_pop_if_mutates() {
     let mut v: VecDeque<_> = vec![-1, 1].into();
@@ -118,6 +125,7 @@ fn test_pop_if_mutates() {
     assert_eq!(v, [-2, 2]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_push_front_grow() {
     let mut deq = VecDeque::new();
@@ -140,6 +148,7 @@ fn test_push_front_grow() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_index() {
     let mut deq = VecDeque::new();
@@ -149,6 +158,7 @@ fn test_index() {
     assert_eq!(deq[1], 2);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 #[should_panic]
 fn test_index_out_of_bounds() {
@@ -159,6 +169,7 @@ fn test_index_out_of_bounds() {
     deq[3];
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 #[should_panic]
 fn test_range_start_overflow() {
@@ -166,6 +177,7 @@ fn test_range_start_overflow() {
     deq.range((Included(0), Included(usize::MAX)));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 #[should_panic]
 fn test_range_end_overflow() {
@@ -194,16 +206,19 @@ struct RecCy {
     t: Taggy,
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_param_int() {
     test_parameterized::<i32>(5, 72, 64, 175);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_param_taggy() {
     test_parameterized::<Taggy>(One(1), Two(1, 2), Three(1, 2, 3), Two(17, 42));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_param_taggypar() {
     test_parameterized::<Taggypar<i32>>(
@@ -214,6 +229,7 @@ fn test_param_taggypar() {
     );
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_param_reccy() {
     let reccy1 = RecCy { x: 1, y: 2, t: One(1) };
@@ -223,6 +239,7 @@ fn test_param_reccy() {
     test_parameterized::<RecCy>(reccy1, reccy2, reccy3, reccy4);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_with_capacity() {
     let mut d = VecDeque::with_capacity(0);
@@ -233,6 +250,7 @@ fn test_with_capacity() {
     assert_eq!(d.len(), 1);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_with_capacity_non_power_two() {
     let mut d3 = VecDeque::with_capacity(3);
@@ -274,6 +292,7 @@ fn test_with_capacity_non_power_two() {
     assert_eq!(d3.front(), Some(&9));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_reserve_exact() {
     let mut d = VecDeque::new();
@@ -282,6 +301,7 @@ fn test_reserve_exact() {
     assert!(d.capacity() >= 51);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_reserve() {
     let mut d = VecDeque::new();
@@ -290,6 +310,7 @@ fn test_reserve() {
     assert!(d.capacity() >= 51);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_swap() {
     let mut d: VecDeque<_> = (0..5).collect();
@@ -298,6 +319,7 @@ fn test_swap() {
     assert_eq!(d.iter().cloned().collect::<Vec<_>>(), [4, 2, 3, 1]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_iter() {
     let mut d = VecDeque::new();
@@ -333,6 +355,7 @@ fn test_iter() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_rev_iter() {
     let mut d = VecDeque::new();
@@ -353,6 +376,7 @@ fn test_rev_iter() {
     assert_eq!(d.iter().rev().collect::<Vec<_>>(), b);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_mut_rev_iter_wrap() {
     let mut d = VecDeque::with_capacity(3);
@@ -367,6 +391,7 @@ fn test_mut_rev_iter_wrap() {
     assert_eq!(d.iter_mut().rev().map(|x| *x).collect::<Vec<_>>(), vec![4, 3, 2]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_mut_iter() {
     let mut d = VecDeque::new();
@@ -390,6 +415,7 @@ fn test_mut_iter() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_mut_rev_iter() {
     let mut d = VecDeque::new();
@@ -413,6 +439,7 @@ fn test_mut_rev_iter() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_into_iter() {
     // Empty iter
@@ -493,6 +520,7 @@ fn test_into_iter() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_drain() {
     // Empty iter
@@ -558,6 +586,7 @@ fn test_drain() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_from_iter() {
     let v = vec![1, 2, 3, 4, 5, 6, 7];
@@ -573,6 +602,7 @@ fn test_from_iter() {
     assert_eq!(deq.len(), 256);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_clone() {
     let mut d = VecDeque::new();
@@ -590,6 +620,7 @@ fn test_clone() {
     assert_eq!(e.len(), 0);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_eq() {
     let mut d = VecDeque::new();
@@ -611,6 +642,7 @@ fn test_eq() {
     assert!(e == VecDeque::new());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_partial_eq_array() {
     let d = VecDeque::<char>::new();
@@ -630,6 +662,7 @@ fn test_partial_eq_array() {
     assert!(d == ['a', 'b']);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_hash() {
     let mut x = VecDeque::new();
@@ -648,6 +681,7 @@ fn test_hash() {
     assert!(hash(&x) == hash(&y));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_hash_after_rotation() {
     // test that two deques hash equal even if elements are laid out differently
@@ -667,6 +701,7 @@ fn test_hash_after_rotation() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_eq_after_rotation() {
     // test that two deques are equal even if elements are laid out differently
@@ -694,6 +729,7 @@ fn test_eq_after_rotation() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_ord() {
     let x = VecDeque::new();
@@ -707,6 +743,7 @@ fn test_ord() {
     assert!(x >= x);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_show() {
     let ringbuf: VecDeque<_> = (0..10).collect();
@@ -716,6 +753,7 @@ fn test_show() {
     assert_eq!(format!("{ringbuf:?}"), "[\"just\", \"one\", \"test\", \"more\"]");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_drop() {
     struct_with_counted_drop!(Elem, DROPS);
@@ -730,6 +768,7 @@ fn test_drop() {
     assert_eq!(DROPS.get(), 4);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_drop_with_pop() {
     struct_with_counted_drop!(Elem, DROPS);
@@ -748,6 +787,7 @@ fn test_drop_with_pop() {
     assert_eq!(DROPS.get(), 4);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_drop_clear() {
     struct_with_counted_drop!(Elem, DROPS);
@@ -764,6 +804,7 @@ fn test_drop_clear() {
     assert_eq!(DROPS.get(), 4);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_drop_panic() {
@@ -784,6 +825,7 @@ fn test_drop_panic() {
     assert_eq!(DROPS.get(), 8);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_reserve_grow() {
     // test growth path A
@@ -828,6 +870,7 @@ fn test_reserve_grow() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_get() {
     let mut ring = VecDeque::new();
@@ -860,6 +903,7 @@ fn test_get() {
     assert_eq!(ring.get(1), None);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_get_mut() {
     let mut ring = VecDeque::new();
@@ -883,6 +927,7 @@ fn test_get_mut() {
     assert_eq!(ring.get_mut(2), None);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_front() {
     let mut ring = VecDeque::new();
@@ -895,6 +940,7 @@ fn test_front() {
     assert_eq!(ring.front(), None);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_as_slices() {
     let mut ring: VecDeque<i32> = VecDeque::with_capacity(127);
@@ -923,6 +969,7 @@ fn test_as_slices() {
     assert_eq!(ring.capacity() as i32, cap);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_as_mut_slices() {
     let mut ring: VecDeque<i32> = VecDeque::with_capacity(127);
@@ -951,6 +998,7 @@ fn test_as_mut_slices() {
     assert_eq!(ring.capacity() as i32, cap);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_append() {
     let mut a: VecDeque<_> = [1, 2, 3].into_iter().collect();
@@ -972,6 +1020,7 @@ fn test_append() {
     assert_eq!(a.iter().cloned().collect::<Vec<_>>(), []);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_append_permutations() {
     fn construct_vec_deque(
@@ -997,7 +1046,8 @@ fn test_append_permutations() {
     }
 
     // Miri is too slow
-    let max = if cfg!(miri) { 3 } else { 5 };
+    // FIXME(cheri): simulator is too slow
+    let max = if cfg!(any(miri, target_abi = "cheriot")) { 3 } else { 5 };
 
     // Many different permutations of both the `VecDeque` getting appended to
     // and the one getting appended are generated to check `append`.
@@ -1058,6 +1108,7 @@ impl Drop for DropCounter<'_> {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_append_double_drop() {
     let (mut count_a, mut count_b) = (0, 0);
@@ -1073,6 +1124,7 @@ fn test_append_double_drop() {
     assert_eq!(count_b, 1);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 #[should_panic]
 fn test_append_zst_capacity_overflow() {
@@ -1087,6 +1139,7 @@ fn test_append_zst_capacity_overflow() {
     v.append(&mut w);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_retain() {
     let mut buf = VecDeque::new();
@@ -1096,6 +1149,7 @@ fn test_retain() {
     assert_eq!(&v[..], &[2, 4]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_extend_ref() {
     let mut v = VecDeque::new();
@@ -1122,6 +1176,7 @@ fn test_extend_ref() {
     assert_eq!(v[5], 6);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_contains() {
     let mut v = VecDeque::new();
@@ -1142,6 +1197,7 @@ fn assert_covariance() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_is_empty() {
     let mut v = VecDeque::<i32>::new();
@@ -1163,6 +1219,7 @@ fn test_is_empty() {
     assert!(v.into_iter().is_empty());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_reserve_exact_2() {
     // This is all the same as test_reserve
@@ -1186,6 +1243,7 @@ fn test_reserve_exact_2() {
     assert!(v.capacity() >= 33)
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri does not support signalling OOM
 fn test_try_with_capacity() {
@@ -1196,6 +1254,7 @@ fn test_try_with_capacity() {
     assert!(VecDeque::<u16>::try_with_capacity(isize::MAX as usize + 1).is_err());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri does not support signalling OOM
 fn test_try_reserve() {
@@ -1291,6 +1350,7 @@ fn test_try_reserve() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 #[cfg_attr(miri, ignore)] // Miri does not support signalling OOM
 fn test_try_reserve_exact() {
@@ -1380,6 +1440,7 @@ fn test_try_reserve_exact() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_rotate_nop() {
     let mut v: VecDeque<_> = (0..10).collect();
@@ -1438,6 +1499,7 @@ fn test_rotate_nop() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_rotate_left_parts() {
     let mut v: VecDeque<_> = VecDeque::with_capacity(8);
@@ -1458,6 +1520,7 @@ fn test_rotate_left_parts() {
     assert_eq!(v.as_slices(), (&[1, 2][..], &[3, 4, 5, 6, 7][..]));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_rotate_right_parts() {
     let mut v: VecDeque<_> = VecDeque::with_capacity(8);
@@ -1478,6 +1541,7 @@ fn test_rotate_right_parts() {
     assert_eq!(v.as_slices(), (&[1, 2, 3, 4, 5, 6][..], &[7][..]));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_rotate_left_random() {
     let shifts = [
@@ -1496,6 +1560,7 @@ fn test_rotate_left_random() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_1"))]
 #[test]
 fn test_rotate_right_random() {
     let shifts = [
@@ -1514,29 +1579,34 @@ fn test_rotate_right_random() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_fold_empty() {
     assert_eq!(Some(0), VecDeque::<u32>::new().iter().try_fold(0, |_, _| None));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_fold_none() {
     let v: VecDeque<u32> = (0..12).collect();
     assert_eq!(None, v.into_iter().try_fold(0, |a, b| if b < 11 { Some(a + b) } else { None }));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_fold_ok() {
     let v: VecDeque<u32> = (0..12).collect();
     assert_eq!(Ok::<_, ()>(66), v.into_iter().try_fold(0, |a, b| Ok(a + b)));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_fold_unit() {
     let v: VecDeque<()> = std::iter::repeat(()).take(42).collect();
     assert_eq!(Some(()), v.into_iter().try_fold((), |(), ()| Some(())));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_fold_unit_none() {
     let v: std::collections::VecDeque<()> = [(); 10].iter().cloned().collect();
@@ -1545,6 +1615,7 @@ fn test_try_fold_unit_none() {
     assert_eq!(iter.len(), 9);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_fold_rotated() {
     let mut v: VecDeque<_> = (0..12).collect();
@@ -1558,6 +1629,7 @@ fn test_try_fold_rotated() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_fold_moves_iter() {
     let v: VecDeque<_> = [10, 20, 30, 40, 100, 60, 70, 80, 90].iter().collect();
@@ -1566,6 +1638,7 @@ fn test_try_fold_moves_iter() {
     assert_eq!(iter.next(), Some(&60));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_fold_exhaust_wrap() {
     let mut v = VecDeque::with_capacity(7);
@@ -1579,6 +1652,7 @@ fn test_try_fold_exhaust_wrap() {
     assert!(iter.is_empty());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_fold_wraparound() {
     let mut v = VecDeque::with_capacity(8);
@@ -1592,6 +1666,7 @@ fn test_try_fold_wraparound() {
     assert_eq!(Some(&7), iter.next());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_rfold_rotated() {
     let mut v: VecDeque<_> = (0..12).collect();
@@ -1605,6 +1680,7 @@ fn test_try_rfold_rotated() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_try_rfold_moves_iter() {
     let v: VecDeque<_> = [10, 20, 30, 40, 100, 60, 70, 80, 90].iter().collect();
@@ -1613,6 +1689,7 @@ fn test_try_rfold_moves_iter() {
     assert_eq!(iter.next_back(), Some(&70));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn truncate_leak() {
@@ -1633,6 +1710,7 @@ fn truncate_leak() {
     assert_eq!(DROPS.get(), 7);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn truncate_front_leak() {
@@ -1653,6 +1731,7 @@ fn truncate_front_leak() {
     assert_eq!(DROPS.get(), 7);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_drain_leak() {
@@ -1678,6 +1757,7 @@ fn test_drain_leak() {
     assert_eq!(DROPS.get(), 7);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_binary_search() {
     // Contiguous (front only) search:
@@ -1701,6 +1781,7 @@ fn test_binary_search() {
     assert_eq!(deque.binary_search(&20), Err(6));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_binary_search_by() {
     let deque: VecDeque<_> = vec![(1,), (2,), (3,), (5,), (6,)].into();
@@ -1709,6 +1790,7 @@ fn test_binary_search_by() {
     assert_eq!(deque.binary_search_by(|&(v,)| v.cmp(&4)), Err(3));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_binary_search_by_key() {
     let deque: VecDeque<_> = vec![(1,), (2,), (3,), (5,), (6,)].into();
@@ -1717,6 +1799,7 @@ fn test_binary_search_by_key() {
     assert_eq!(deque.binary_search_by_key(&4, |&(v,)| v), Err(3));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_partition_point() {
     // Contiguous (front only) search:
@@ -1735,6 +1818,7 @@ fn test_partition_point() {
     assert_eq!(deque.partition_point(|&v| v <= 5), 4);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_zero_sized_push() {
     const N: usize = 8;
@@ -1765,6 +1849,7 @@ fn test_zero_sized_push() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_from_zero_sized_vec() {
     let v = vec![(); 100];
@@ -1772,6 +1857,7 @@ fn test_from_zero_sized_vec() {
     assert_eq!(queue.len(), 100);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_resize_keeps_reserved_space_from_item() {
     let v = Vec::<i32>::with_capacity(1234);
@@ -1780,6 +1866,7 @@ fn test_resize_keeps_reserved_space_from_item() {
     assert_eq!(d[0].capacity(), 1234);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_collect_from_into_iter_keeps_allocation() {
     let mut v = Vec::with_capacity(13);
@@ -1816,6 +1903,7 @@ fn test_collect_from_into_iter_keeps_allocation() {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_truncate_front() {
     let mut v = VecDeque::with_capacity(13);
@@ -1851,6 +1939,7 @@ fn test_truncate_front() {
     assert_eq!(v.as_slices(), ([2, 3, 4, 5, 6].as_slice(), [].as_slice()));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_extend_from_within() {
     let mut v = VecDeque::with_capacity(8);
@@ -1902,6 +1991,7 @@ impl<'a> Drop for CloneTracker<'a> {
     }
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_extend_from_within_clone() {
     let clone_counts = [const { Cell::new(0) }; 4];
@@ -1932,6 +2022,7 @@ fn test_extend_from_within_clone() {
     assert_eq!(clone_counts.each_ref().map(Cell::get), [0, 1, 3, 2]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_extend_from_within_clone_panic() {
@@ -1981,6 +2072,7 @@ fn test_extend_from_within_clone_panic() {
     assert_eq!(drop_count.get(), 4);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_prepend_from_within() {
     let mut v = VecDeque::with_capacity(8);
@@ -1994,6 +2086,7 @@ fn test_prepend_from_within() {
     assert_eq!(v, [[3, 4, 5, 2, 2, 3, 4, 5]; 2].as_flattened());
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_prepend_from_within_clone() {
     let clone_counts = [const { Cell::new(0) }; 4];
@@ -2019,6 +2112,7 @@ fn test_prepend_from_within_clone() {
     assert_eq!(clone_counts.each_ref().map(Cell::get), [2, 3, 1, 0]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
 fn test_prepend_from_within_clone_panic() {
@@ -2068,6 +2162,7 @@ fn test_prepend_from_within_clone_panic() {
     assert_eq!(drop_count.get(), 4);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_extend_and_prepend_from_within() {
     let mut v = ('0'..='9').map(String::from).collect::<VecDeque<_>>();
@@ -2082,6 +2177,7 @@ fn test_extend_and_prepend_from_within() {
     assert_eq!(v.iter().map(|s| &**s).collect::<String>(), "123123123123");
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_extend_front() {
     let mut v = VecDeque::new();
@@ -2112,6 +2208,7 @@ fn test_extend_front() {
     assert_eq!(v, [123]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_extend_front_specialization_vec_into_iter() {
     // trigger 4 code paths: all combinations of prepend and extend_front, wrap and no wrap
@@ -2134,6 +2231,7 @@ fn test_extend_front_specialization_vec_into_iter() {
     assert_eq!(v.as_slices(), ([5].as_slice(), [4, 3, 2].as_slice()));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_extend_front_specialization_copy_slice() {
     // trigger 4 code paths: all combinations of prepend and extend_front, wrap and no wrap
@@ -2156,6 +2254,7 @@ fn test_extend_front_specialization_copy_slice() {
     assert_eq!(v.as_slices(), ([5].as_slice(), [4, 3, 2].as_slice()));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_extend_front_specialization_deque_drain() {
     // trigger 8 code paths: all combinations of prepend and extend_front, wrap and no wrap (src deque), wrap and no wrap (dst deque)
@@ -2266,6 +2365,7 @@ fn test_extend_front_specialization_deque_drain() {
     assert_eq!(v1.as_slices(), ([4].as_slice(), [3, 2, 1, 4, 3, 2].as_slice()));
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_splice() {
     let mut v = VecDeque::from(vec![1, 2, 3, 4, 5]);
@@ -2276,6 +2376,7 @@ fn test_splice() {
     assert_eq!(v, &[1, 20, 11, 12, 5]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_splice_inclusive_range() {
     let mut v = VecDeque::from(vec![1, 2, 3, 4, 5]);
@@ -2288,6 +2389,7 @@ fn test_splice_inclusive_range() {
     assert_eq!(t2, &[2, 10]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_splice_inclusive_range2() {
     let mut v = VecDeque::from(vec![1, 2, 10, 11, 12, 5]);
@@ -2296,6 +2398,7 @@ fn test_splice_inclusive_range2() {
     assert_eq!(t2, &[2, 10]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 #[should_panic]
 fn test_splice_out_of_bounds() {
@@ -2304,6 +2407,7 @@ fn test_splice_out_of_bounds() {
     v.splice(5..6, a);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 #[should_panic]
 fn test_splice_inclusive_out_of_bounds() {
@@ -2312,6 +2416,7 @@ fn test_splice_inclusive_out_of_bounds() {
     v.splice(5..=5, a);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_splice_items_zero_sized() {
     let mut vec = VecDeque::from(vec![(), (), ()]);
@@ -2321,6 +2426,7 @@ fn test_splice_items_zero_sized() {
     assert_eq!(t, &[()]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_splice_unbounded() {
     let mut vec = VecDeque::from(vec![1, 2, 3, 4, 5]);
@@ -2329,6 +2435,7 @@ fn test_splice_unbounded() {
     assert_eq!(t, &[1, 2, 3, 4, 5]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_splice_forget() {
     let mut v = VecDeque::from(vec![1, 2, 3, 4, 5]);
@@ -2337,6 +2444,7 @@ fn test_splice_forget() {
     assert_eq!(v, &[1, 2]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_splice_wrapping() {
     let mut vec = VecDeque::with_capacity(10);
@@ -2348,6 +2456,7 @@ fn test_splice_wrapping() {
     assert_eq!(Vec::from(vec), [7, 8, 9]);
 }
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_vec_deque_2"))]
 #[test]
 fn test_splice_wrapping_and_resize() {
     let mut vec = VecDeque::new();

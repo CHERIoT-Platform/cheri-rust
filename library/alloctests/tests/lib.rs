@@ -1,3 +1,8 @@
+#![cfg_attr(target_abi = "cheriot", no_main)]
+#![cfg_attr(target_abi = "cheriot", feature(custom_test_frameworks))]
+#![cfg_attr(target_abi = "cheriot", test_runner(test::run_tests))]
+#![cfg_attr(target_abi = "cheriot", reexport_test_harness_main = "test_main")]
+#![cfg_attr(target_abi = "cheriot", allow(unused_features))]
 #![feature(allocator_api)]
 #![feature(binary_heap_pop_if)]
 #![feature(const_heap)]
@@ -50,32 +55,85 @@ extern crate alloc;
 
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_alloc_test"))]
 mod alloc_test;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_arc"))]
 mod arc;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_autotraits"))]
 mod autotraits;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_borrow"))]
 mod borrow;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_boxed"))]
 mod boxed;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_btree_set_hash"))]
 mod btree_set_hash;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_c_str"))]
 mod c_str;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_c_str2"))]
 mod c_str2;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_collections"))]
 mod collections;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_const_fns"))]
 mod const_fns;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_cow_str"))]
 mod cow_str;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_fmt"))]
 mod fmt;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_heap"))]
 mod heap;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_linked_list"))]
 mod linked_list;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_misc_tests"))]
 mod misc_tests;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod num;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_rc"))]
 mod rc;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_slice"))]
 mod slice;
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_sort_misc",
+        feature = "test_sort_i32",
+        feature = "test_sort_u64",
+        feature = "test_sort_u128",
+        feature = "test_sort_cell_i32",
+        feature = "test_sort_string",
+        feature = "test_sort_f128",
+        feature = "test_sort_1k",
+        feature = "test_sort_dyn",
+        feature = "test_sort_panic_retain",
+        feature = "test_sort_panic_observable",
+        feature = "test_sort_observable",
+        feature = "test_sort_stability",
+        feature = "test_sort_det",
+        feature = "test_sort_cmp",
+        feature = "test_sort_ord",
+    )
+))]
 mod sort;
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(feature = "test_str_1", feature = "test_str_2", feature = "test_str_3")
+))]
 mod str;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_string"))]
 mod string;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_sync"))]
 mod sync;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_task"))]
 mod task;
+// Helpers/macros
 mod testing;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_thin_box"))]
 mod thin_box;
+#[cfg(any(not(target_abi = "cheriot"), any(feature = "test_vec_1", feature = "test_vec_2"),))]
 mod vec;
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(feature = "test_vec_deque_1", feature = "test_vec_deque_2")
+))]
 mod vec_deque;
 
 fn hash<T: Hash>(t: &T) -> u64 {
@@ -97,6 +155,7 @@ fn test_rng() -> rand_xorshift::XorShiftRng {
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_extras"))]
 fn test_boxed_hasher() {
     let ordinary_hash = hash(&5u32);
 
@@ -107,4 +166,11 @@ fn test_boxed_hasher() {
     let mut hasher_2 = Box::new(DefaultHasher::new()) as Box<dyn Hasher>;
     5u32.hash(&mut hasher_2);
     assert_eq!(ordinary_hash, hasher_2.finish());
+}
+
+#[cfg(target_abi = "cheriot")]
+#[unsafe(no_mangle)]
+pub extern "C" fn rust_main() -> i32 {
+    test_main();
+    return 0;
 }
