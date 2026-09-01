@@ -7,7 +7,7 @@ pub(crate) fn target() -> Target {
     Target {
         // The below `data_layout` is explicitly specified by the ilp32e ABI in LLVM. See also
         // `options.llvm_abiname`.
-        data_layout: "e-m:e-p:32:32-i64:64-n32-S128-pf200:64:64:64:32-A200-P200-G200".into(),
+        data_layout: "e-m:e-p:32:32-pfe200:64:64:64:32-i64:64-n32-S128-A200-P200-G200".into(),
         llvm_target: "riscv32-unknown-cheriotrtos".into(),
         metadata: TargetMetadata {
             description: Some("CHERIoT RISC-V (RV32E ISA)".into()),
