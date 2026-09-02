@@ -38,7 +38,15 @@ mod u8;
 mod bignum;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod carryless_mul;
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): not checked
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_num_cast_checked_uint",
+        feature = "test_num_cast_checked_int",
+        feature = "test_num_cast_bounded_uint",
+        feature = "test_num_cast_bounded_int"
+    )
+))]
 mod cast;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod const_from;

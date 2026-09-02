@@ -265,6 +265,10 @@ mod nonzero;
         feature = "test_num_ieee754",
         feature = "test_num_int_log",
         feature = "test_num_rest",
+        feature = "test_num_cast_checked_uint",
+        feature = "test_num_cast_checked_int",
+        feature = "test_num_cast_bounded_uint",
+        feature = "test_num_cast_bounded_int",
     )
 ))]
 mod num;
