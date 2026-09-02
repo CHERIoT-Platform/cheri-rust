@@ -50,8 +50,7 @@ mod carryless_mul;
 mod cast;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod const_from;
-// FIXME(cheri/excluded/isel): rustc-LLVM ERROR: Cannot select: t117: i32 = fp_to_fp16 t18
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_dec2flt"))]
 mod dec2flt;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_ieee754"))]
 mod float_ieee754_flt2dec_dec2flt;
@@ -110,19 +109,19 @@ macro_rules! assume_usize_width {
 
 /// Return `a * 2^b`.
 #[cfg(target_has_reliable_f16)]
-#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_dec2flt"))]
 fn ldexp_f16(a: f16, b: i32) -> f16 {
     ldexp_f64(a as f64, b) as f16
 }
 
 /// Return `a * 2^b`.
-#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_dec2flt"))]
 fn ldexp_f32(a: f32, b: i32) -> f32 {
     ldexp_f64(a as f64, b) as f32
 }
 
 /// Return `a * 2^b`.
-#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_dec2flt"))]
 fn ldexp_f64(a: f64, b: i32) -> f64 {
     unsafe extern "C" {
         fn ldexp(x: f64, n: i32) -> f64;

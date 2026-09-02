@@ -258,6 +258,7 @@ mod nonzero;
     not(target_abi = "cheriot"),
     any(
         feature = "test_num",
+        feature = "test_num_dec2flt",
         feature = "test_num_f16",
         feature = "test_num_f32",
         feature = "test_num_f64",
