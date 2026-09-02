@@ -48,23 +48,40 @@ compartment_error_handler(ErrorState *frame, size_t mcause, size_t mtval) {
   return ErrorRecoveryBehaviour::ForceUnwind;
 }
 
-extern "C" void cheriot_print(char *str) {
-    for (; *str; ++str) {
-        char c = *str;
-        MMIO_CAPABILITY(Uart, uart)->blocking_write(c);
-	}
+// This doesn't need to be non-blocking, in the simulator `can_write`
+// is always true, and the Rust `stdio` interface which uses this does
+// not require it to be non-blocking, but it is how the interface is designed,
+// so let's pretend.
+extern "C" size_t cheriot_write(uint8_t *buf, size_t len) {
+  auto uart = MMIO_CAPABILITY(Uart, uart);
+  size_t i = 0;
+  while (i < len && uart->can_write()) {
+    uart->data = buf[i++];
+  }
+  return i;
 }
 
-extern "C" void *cheriot_alloc(size_t size, size_t align) {
-  Timeout timeout{5};
-  void *ret = heap_allocate(&timeout, MALLOC_CAPABILITY, size);
-  Debug::Invariant(CHERI::Capability{ret}.is_valid(),
-                   "Allocation is invalid, got pointer: {} -- {}", ret,
-                   (int)ret);
+extern "C" void *cheriot_alloc(size_t size) {
+  // wait for revocation, don't wait for free
+  void *ret = heap_allocate(TimeoutWaitForever, MALLOC_CAPABILITY, size,
+                            AllocateWaitRevocationNeeded);
+  if (!CHERI::Capability{ret}.is_valid()) {
+    Debug::log("Trying to allocate {} bytes", (int)size);
+    Debug::log("Allocator error on alloc: {} ({})", (int)ret, ret);
+    return nullptr;
+  }
   return ret;
 }
 
-extern "C" void cheriot_free(void *ptr) { heap_free(MALLOC_CAPABILITY, ptr); }
+extern "C" void cheriot_free(void *ptr) {
+  int ret = heap_free(MALLOC_CAPABILITY, ptr);
+  Debug::Invariant(ret >= 0, "Allocator error on free: {}", ret);
+}
+
+extern "C" void cheriot_quarantine_flush() {
+  int ret = heap_quarantine_empty();
+  Debug::Invariant(ret >= 0, "Allocator error on flush: {}", ret);
+}
 
 // Re-export because `cleanup_list_head` is marked as `__always_inline static
 // inline`.
@@ -74,7 +91,27 @@ extern "C" struct CleanupList **get_cleanup_list_head() {
 
 extern "C" int rust_main();
 
+// We probably want `Allocator::check_gm` but this is not exposed. We want to
+// ensure that the allocator is working, and print the size of the heap which
+// is available to us. `heap_available` returns an error unless the allocator
+// has been initialised (through a call to `check_gm`), which is the primary
+// reason we make an allocation here, though it adds some extra useful checks.
+void startup_check_allocator() {
+  void *ptr = heap_allocate(TimeoutNoWait, MALLOC_CAPABILITY, 16);
+  Debug::Invariant(CHERI::Capability{ptr}.is_valid(),
+                   "Allocator error at startup: {}", (int)ptr);
+
+  heap_free(MALLOC_CAPABILITY, ptr);
+  heap_quarantine_empty();
+
+  int available = (int)heap_available();
+  Debug::Invariant(available >= 0, "Allocator error at startup: {}", available);
+
+  Debug::log("Heap available: {} bytes", available);
+}
+
 int __cheri_compartment("test_runner") run() {
+  startup_check_allocator();
   int status = rust_main();
   simulation_exit(status);
 }
