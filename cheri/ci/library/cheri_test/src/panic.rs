@@ -52,6 +52,8 @@ pub(crate) fn set_panic_hook() {
             return;
         }
 
+        PANIC_EXPECT.set(false);
+
         let msg = match info.payload_as_str() {
             Some(s) => s.to_string(),
             None => info.to_string(),
