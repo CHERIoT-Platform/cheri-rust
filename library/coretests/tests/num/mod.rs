@@ -52,6 +52,9 @@ mod cast;
 mod const_from;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_dec2flt"))]
 mod dec2flt;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_dec2flt_parse"))]
+#[path = "dec2flt/parse.rs"]
+mod dec2flt_parse;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_ieee754"))]
 mod float_ieee754_flt2dec_dec2flt;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
