@@ -243,7 +243,14 @@ mod macros;
 mod manually_drop;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_mem"))]
 mod mem;
-#[cfg(any(not(target_abi = "cheriot"), feature = "test_net"))]
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_net_ip_addr",
+        feature = "test_net_parser",
+        feature = "test_net_socket_addr",
+    )
+))]
 mod net;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_nonzero"))]
 mod nonzero;
