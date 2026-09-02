@@ -227,7 +227,6 @@ fn test_can_not_overflow() {
     // Negative tests:
 
     // Not currently in std lib (issue: #27728)
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
     fn format_radix<T>(mut x: T, radix: T) -> String
     where
         T: std::ops::Rem<Output = T>,
@@ -254,7 +253,6 @@ fn test_can_not_overflow() {
         result.into_iter().rev().collect()
     }
 
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
     macro_rules! check {
         ($($t:ty)*) => ($(
         for base in 2..=36 {
@@ -268,11 +266,8 @@ fn test_can_not_overflow() {
         )*)
     }
 
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
     check! { i8 i16 i32 i64 i128 isize usize u8 u16 u32 u64 }
 
-    // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
-    #[cfg(not(target_abi = "cheriot"))]
     // Check u128 separately:
     for base in 2..=36 {
         let num = <u128>::MAX;
