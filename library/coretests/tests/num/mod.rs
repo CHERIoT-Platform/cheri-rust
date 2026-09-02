@@ -67,8 +67,6 @@ mod float_iter_sum_identity;
     )
 ))]
 mod floats;
-// FIXME(cheri/excluded/isel): rustc-LLVM ERROR: Cannot select: t99: i32 = fp_to_fp16 t16
-// #[cfg(not(target_abi = "cheriot"))]
 #[cfg(any(
     not(target_abi = "cheriot"),
     any(
