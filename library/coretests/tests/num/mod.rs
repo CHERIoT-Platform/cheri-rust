@@ -63,8 +63,7 @@ mod floats;
 // FIXME(cheri/triage): rustc-LLVM ERROR: Cannot select: t99: i32 = fp_to_fp16 t16
 #[cfg(not(target_abi = "cheriot"))]
 mod flt2dec;
-// FIXME(cheri/triage): hangs, needs investigation
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_int_log"))]
 mod int_log;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod int_sqrt;

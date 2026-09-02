@@ -263,7 +263,8 @@ mod nonzero;
         feature = "test_num_f64",
         feature = "test_num_f128",
         feature = "test_num_ieee754",
-        feature = "test_num_rest"
+        feature = "test_num_int_log",
+        feature = "test_num_rest",
     )
 ))]
 mod num;
