@@ -18,3 +18,5 @@ CHERIOT_DECLARE_STANDARD_LIBCALL(log2, double, double)
 CHERIOT_DECLARE_STANDARD_LIBCALL(log10, double, double)
 CHERIOT_DECLARE_STANDARD_LIBCALL(fminimum_numf, float, float, float)
 CHERIOT_DECLARE_STANDARD_LIBCALL(fmaximum_numf, float, float, float)
+
+CHERIOT_DECLARE_STANDARD_LIBCALL(ceil, double, double)
