@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 // comparisons.
 static ORDERED_VALS: LazyLock<Vec<String>> = LazyLock::new(|| {
     let mut pos_int_vals = Vec::new();
-    // FIXME(cheri): we are skipping the 128-bit ints because otherwise these tests attempt
+    // FIXME(cheri/reduced/too_big): we are skipping the 128-bit ints because otherwise these tests attempt
     // to make very large allocations which we cannot currently support
     let exp_range = if cfg!(target_abi = "cheriot") { 0u32..=64 } else { 0u32..=127 };
     for exp in exp_range {

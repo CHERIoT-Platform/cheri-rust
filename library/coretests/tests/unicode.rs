@@ -47,7 +47,7 @@ fn test_case_mapping(
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn alphabetic() {
     test_boolean_property(test_data::ALPHABETIC, unicode_data::alphabetic::lookup);
@@ -55,28 +55,28 @@ fn alphabetic() {
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn case_ignorable() {
     test_boolean_property(test_data::CASE_IGNORABLE, unicode_data::case_ignorable::lookup);
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn cf() {
     test_boolean_property(test_data::CF, unicode_data::cf::lookup);
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn cn_planes_0_3() {
     test_boolean_property(test_data::CN_PLANES_0_3, unicode_data::cn_planes_0_3::lookup);
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn default_ignorable_code_point() {
     test_boolean_property(
@@ -86,14 +86,14 @@ fn default_ignorable_code_point() {
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn grapheme_extend() {
     test_boolean_property(test_data::GRAPHEME_EXTEND, unicode_data::grapheme_extend::lookup);
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn lowercase() {
     test_boolean_property(test_data::LOWERCASE, unicode_data::lowercase::lookup);
@@ -101,7 +101,7 @@ fn lowercase() {
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn n() {
     test_boolean_property(test_data::N, unicode_data::n::lookup);
@@ -109,7 +109,7 @@ fn n() {
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn uppercase() {
     test_boolean_property(test_data::UPPERCASE, unicode_data::uppercase::lookup);
@@ -117,7 +117,7 @@ fn uppercase() {
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn white_space() {
     test_boolean_property(test_data::WHITE_SPACE, unicode_data::white_space::lookup);
@@ -125,7 +125,7 @@ fn white_space() {
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn to_lowercase() {
     test_case_mapping(test_data::TO_LOWER, unicode_data::conversions::to_lower, |c| {
@@ -134,7 +134,7 @@ fn to_lowercase() {
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn to_uppercase() {
     test_case_mapping(test_data::TO_UPPER, unicode_data::conversions::to_upper, |c| {
@@ -143,7 +143,7 @@ fn to_uppercase() {
 }
 
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn to_titlecase() {
     test_case_mapping(
@@ -159,7 +159,7 @@ fn to_titlecase() {
 /// so that the debug assertions in `core/src/unicode/unicode_data.rs`
 /// `conversions::to_casefold` get run with every possible Unicode character as input.
 #[test]
-// FIXME(cheriot_too_slow_ignore): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn to_casefold() {
     test_case_mapping(test_data::TO_CASEFOLD, unicode_data::conversions::to_casefold, |c| {

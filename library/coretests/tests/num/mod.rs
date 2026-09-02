@@ -50,7 +50,7 @@ mod carryless_mul;
 mod cast;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod const_from;
-// FIXME(cheri/triage): rustc-LLVM ERROR: Cannot select: t117: i32 = fp_to_fp16 t18
+// FIXME(cheri/excluded/isel): rustc-LLVM ERROR: Cannot select: t117: i32 = fp_to_fp16 t18
 #[cfg(not(target_abi = "cheriot"))]
 mod dec2flt;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_ieee754"))]
@@ -68,7 +68,7 @@ mod float_iter_sum_identity;
     )
 ))]
 mod floats;
-// FIXME(cheri/triage): rustc-LLVM ERROR: Cannot select: t99: i32 = fp_to_fp16 t16
+// FIXME(cheri/excluded/isel): rustc-LLVM ERROR: Cannot select: t99: i32 = fp_to_fp16 t16
 #[cfg(not(target_abi = "cheriot"))]
 mod flt2dec;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_int_log"))]

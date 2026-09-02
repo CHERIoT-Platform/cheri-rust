@@ -413,7 +413,7 @@ fn align_offset_various_strides() {
     let mut align = 1;
     let mut x = false;
     // Miri is too slow
-    // FIXME(cheri_too_slow)
+    // FIXME(cheri/reduced/too_slow)
     let limit = if cfg!(any(miri, target_abi = "cheriot")) { 32 } else { 1024 };
     while align < limit {
         for ptr in 1usize..4 * align {
