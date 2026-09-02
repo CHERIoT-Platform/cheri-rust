@@ -259,6 +259,9 @@ mod nonzero;
     any(
         feature = "test_num",
         feature = "test_num_dec2flt",
+        feature = "test_num_flt2dec",
+        feature = "test_num_flt2dec_dragon",
+        feature = "test_num_flt2dec_grisu",
         feature = "test_num_f16",
         feature = "test_num_f32",
         feature = "test_num_f64",

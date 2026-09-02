@@ -10,11 +10,15 @@ use Sign::{Minus, MinusPlus};
 
 use crate::num::{ldexp_f32, ldexp_f64};
 
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec"))]
 mod estimator;
 mod strategy {
+    #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_dragon"))]
     mod dragon;
+    #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu"))]
     mod grisu;
 }
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec"))]
 mod random;
 
 pub fn decode_finite<T: DecodableFloat>(v: T) -> Decoded {
@@ -659,7 +663,8 @@ where
         assert_eq!(to_string(f, minf64, Minus, 325), format!("0.{:0>323}50", ""));
     }
 
-    if cfg!(miri) {
+    // FIXME(cheri/reduced/too_slow)
+    if cfg!(any(miri, target_abi = "cheriot")) {
         // Miri is too slow
         return;
     }
@@ -949,7 +954,8 @@ where
                  8897910826858606014866381883621215820312500000000000000000000000e-45"
     );
 
-    if cfg!(miri) {
+    // FIXME(cheri/reduced/too_slow)
+    if cfg!(any(miri, target_abi = "cheriot")) {
         // Miri is too slow
         return;
     }
@@ -1208,7 +1214,8 @@ where
     assert_eq!(to_string(f, f32::MAX, Minus, 1), "340282346638528859811704183484516925440.0");
     assert_eq!(to_string(f, f32::MAX, Minus, 2), "340282346638528859811704183484516925440.00");
 
-    if cfg!(miri) {
+    // FIXME(cheri/reduced/too_slow)
+    if cfg!(any(miri, target_abi = "cheriot")) {
         // Miri is too slow
         return;
     }

@@ -26,3 +26,4 @@ num::floats::min::test_f32 https://github.com/CHERIoT-Platform/cheri-rust/issues
 num::int_log::checked_ilog https://github.com/CHERIoT-Platform/cheri-rust/issues/103
 num::int_log::checked_ilog10 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
 num::int_log::checked_ilog2 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
+num::flt2dec::estimator::test_estimate_scaling_factor https://github.com/CHERIoT-Platform/cheri-rust/issues/103

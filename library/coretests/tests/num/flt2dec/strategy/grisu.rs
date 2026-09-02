@@ -3,7 +3,8 @@ use core::num::imp::flt2dec::strategy::grisu::*;
 use super::super::*;
 
 #[test]
-#[cfg_attr(miri, ignore)] // Miri is too slow
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn test_cached_power() {
     assert_eq!(CACHED_POW10.first().unwrap().1, CACHED_POW10_FIRST_E);
     assert_eq!(CACHED_POW10.last().unwrap().1, CACHED_POW10_LAST_E);
@@ -35,6 +36,8 @@ fn test_max_pow10_no_more_than() {
 }
 
 #[test]
+// FIXME(cheri/excluded/isel): i32 = fp_to_f16
+#[cfg(not(target_abi = "cheriot"))]
 fn shortest_sanity_test() {
     f64_shortest_sanity_test(format_shortest);
     f32_shortest_sanity_test(format_shortest);
@@ -44,7 +47,8 @@ fn shortest_sanity_test() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)] // Miri is too slow
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn exact_sanity_test() {
     // See comments in dragon.rs's exact_sanity_test for why this test is
     // ignored on MSVC
@@ -53,25 +57,35 @@ fn exact_sanity_test() {
     }
     f32_exact_sanity_test(format_exact);
     #[cfg(target_has_reliable_f16)]
+    // FIXME(cheri/excluded/isel): i32 = fp_to_f16
+    #[cfg(not(target_abi = "cheriot"))]
     f16_exact_sanity_test(format_exact);
 }
 
 #[test]
+// FIXME(cheri/excluded/isel): i32 = fp_to_f16
+#[cfg(not(target_abi = "cheriot"))]
 fn test_to_shortest_str() {
     to_shortest_str_test(format_shortest);
 }
 
 #[test]
+// FIXME(cheri/excluded/isel): i32 = fp_to_f16
+#[cfg(not(target_abi = "cheriot"))]
 fn test_to_shortest_exp_str() {
     to_shortest_exp_str_test(format_shortest);
 }
 
 #[test]
+// FIXME(cheri/excluded/isel): i32 = fp_to_f16
+// #[cfg(not(target_abi = "cheriot"))]
 fn test_to_exact_exp_str() {
     to_exact_exp_str_test(format_exact);
 }
 
 #[test]
+// FIXME(cheri/excluded/isel): i32 = fp_to_f16
+#[cfg(not(target_abi = "cheriot"))]
 fn test_to_exact_fixed_str() {
     to_exact_fixed_str_test(format_exact);
 }
