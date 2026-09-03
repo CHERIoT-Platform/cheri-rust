@@ -74,8 +74,10 @@ mod floats;
     not(target_abi = "cheriot"),
     any(
         feature = "test_num_flt2dec",
-        feature = "test_num_flt2dec_dragon",
-        feature = "test_num_flt2dec_grisu"
+        feature = "test_num_flt2dec_dragon_1",
+        feature = "test_num_flt2dec_dragon_2",
+        feature = "test_num_flt2dec_grisu_1",
+        feature = "test_num_flt2dec_grisu_2",
     )
 ))]
 mod flt2dec;
@@ -123,8 +125,10 @@ macro_rules! assume_usize_width {
     any(
         feature = "test_num_dec2flt",
         feature = "test_num_flt2dec",
-        feature = "test_num_flt2dec_dragon",
-        feature = "test_num_flt2dec_grisu"
+        feature = "test_num_flt2dec_dragon_1",
+        feature = "test_num_flt2dec_dragon_2",
+        feature = "test_num_flt2dec_grisu_1",
+        feature = "test_num_flt2dec_grisu_2",
     )
 ))]
 fn ldexp_f16(a: f16, b: i32) -> f16 {
@@ -137,8 +141,10 @@ fn ldexp_f16(a: f16, b: i32) -> f16 {
     any(
         feature = "test_num_dec2flt",
         feature = "test_num_flt2dec",
-        feature = "test_num_flt2dec_dragon",
-        feature = "test_num_flt2dec_grisu"
+        feature = "test_num_flt2dec_dragon_1",
+        feature = "test_num_flt2dec_dragon_2",
+        feature = "test_num_flt2dec_grisu_1",
+        feature = "test_num_flt2dec_grisu_2",
     )
 ))]
 fn ldexp_f32(a: f32, b: i32) -> f32 {
@@ -151,8 +157,10 @@ fn ldexp_f32(a: f32, b: i32) -> f32 {
     any(
         feature = "test_num_dec2flt",
         feature = "test_num_flt2dec",
-        feature = "test_num_flt2dec_dragon",
-        feature = "test_num_flt2dec_grisu"
+        feature = "test_num_flt2dec_dragon_1",
+        feature = "test_num_flt2dec_dragon_2",
+        feature = "test_num_flt2dec_grisu_1",
+        feature = "test_num_flt2dec_grisu_2",
     )
 ))]
 fn ldexp_f64(a: f64, b: i32) -> f64 {

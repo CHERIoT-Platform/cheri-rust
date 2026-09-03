@@ -5,6 +5,7 @@ use super::super::*;
 #[test]
 // FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu_1"))]
 fn test_cached_power() {
     assert_eq!(CACHED_POW10.first().unwrap().1, CACHED_POW10_FIRST_E);
     assert_eq!(CACHED_POW10.last().unwrap().1, CACHED_POW10_LAST_E);
@@ -25,6 +26,7 @@ fn test_cached_power() {
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu_1"))]
 fn test_max_pow10_no_more_than() {
     let mut prevtenk = 1;
     for k in 1..10 {
@@ -36,12 +38,13 @@ fn test_max_pow10_no_more_than() {
 }
 
 #[test]
-// FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu_1"))]
 fn shortest_sanity_test() {
     f64_shortest_sanity_test(format_shortest);
     f32_shortest_sanity_test(format_shortest);
     #[cfg(target_has_reliable_f16)]
+    // FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
+    #[cfg(not(target_abi = "cheriot"))]
     f16_shortest_sanity_test(format_shortest);
     more_shortest_sanity_test(format_shortest);
 }
@@ -49,6 +52,7 @@ fn shortest_sanity_test() {
 #[test]
 // FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu_1"))]
 fn exact_sanity_test() {
     // See comments in dragon.rs's exact_sanity_test for why this test is
     // ignored on MSVC
@@ -63,29 +67,25 @@ fn exact_sanity_test() {
 }
 
 #[test]
-// FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu_2"))]
 fn test_to_shortest_str() {
     to_shortest_str_test(format_shortest);
 }
 
 #[test]
-// FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu_2"))]
 fn test_to_shortest_exp_str() {
     to_shortest_exp_str_test(format_shortest);
 }
 
 #[test]
-// FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu_2"))]
 fn test_to_exact_exp_str() {
     to_exact_exp_str_test(format_exact);
 }
 
 #[test]
-// FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu_2"))]
 fn test_to_exact_fixed_str() {
     to_exact_fixed_str_test(format_exact);
 }

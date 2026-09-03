@@ -13,9 +13,15 @@ use crate::num::{ldexp_f32, ldexp_f64};
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec"))]
 mod estimator;
 mod strategy {
-    #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_dragon"))]
+    #[cfg(any(
+        not(target_abi = "cheriot"),
+        any(feature = "test_num_flt2dec_dragon_1", feature = "test_num_flt2dec_dragon_2")
+    ))]
     mod dragon;
-    #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_grisu"))]
+    #[cfg(any(
+        not(target_abi = "cheriot"),
+        any(feature = "test_num_flt2dec_grisu_1", feature = "test_num_flt2dec_grisu_2")
+    ))]
     mod grisu;
 }
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec"))]
@@ -624,6 +630,8 @@ where
     assert_eq!(to_string(f, 1.9971e20, Minus, 8), "199710000000000000000.00000000");
 
     #[cfg(target_has_reliable_f16)]
+    // FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
+    #[cfg(not(target_abi = "cheriot"))]
     {
         // f16
         assert_eq!(to_string(f, f16::MAX, Minus, 0), "65500");
@@ -747,6 +755,8 @@ where
     assert_eq!(to_string(f, 1.0e23, Minus, (24, 25), false), "1e23");
 
     #[cfg(target_has_reliable_f16)]
+    // FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
+    #[cfg(not(target_abi = "cheriot"))]
     {
         // f16
         assert_eq!(to_string(f, f16::MAX, Minus, (-2, 2), false), "6.55e4");
@@ -907,6 +917,8 @@ where
     );
 
     #[cfg(target_has_reliable_f16)]
+    // FIXME(cheri/excluded/isel): i32 = f16_to_f16
+    #[cfg(not(target_abi = "cheriot"))]
     {
         assert_eq!(to_string(f, f16::MAX, Minus, 1, false), "7e4");
         assert_eq!(to_string(f, f16::MAX, Minus, 2, false), "6.6e4");
