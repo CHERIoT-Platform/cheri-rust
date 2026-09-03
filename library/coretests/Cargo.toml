@@ -18,7 +18,7 @@ doc = false
 name = "coretests"
 path = "tests/lib.rs"
 
-# FIXME(cheri/excluded/triage): wants libtest
+# FIXME(cheri/excluded/bench)
 # [[bench]]
 # name = "corebenches"
 # path = "benches/lib.rs"
