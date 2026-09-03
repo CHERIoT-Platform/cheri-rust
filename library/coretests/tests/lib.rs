@@ -2,6 +2,7 @@
 #![cfg_attr(target_abi = "cheriot", feature(custom_test_frameworks))]
 #![cfg_attr(target_abi = "cheriot", test_runner(test::run_tests))]
 #![cfg_attr(target_abi = "cheriot", reexport_test_harness_main = "test_main")]
+#![cfg_attr(target_abi = "cheriot", allow(unused_features))]
 // tidy-alphabetical-start
 #![cfg_attr(not(panic = "abort"), feature(reentrant_lock))]
 #![cfg_attr(target_has_atomic = "128", feature(integer_atomics))]
