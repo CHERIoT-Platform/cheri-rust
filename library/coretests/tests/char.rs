@@ -52,7 +52,8 @@ fn test_is_cased() {
 }
 
 #[test]
-#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow, FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn test_char_case() {
     for c in '\0'..='\u{10FFFF}' {
         match c.case() {
@@ -101,7 +102,8 @@ fn titlecase_fast_path() {
 }
 
 #[test]
-#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow, FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn at_most_one_case() {
     for c in '\0'..='\u{10FFFF}' {
         assert_eq!(

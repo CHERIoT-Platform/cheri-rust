@@ -26,3 +26,5 @@ STUB_LIBCALL(log2, double, double)
 STUB_LIBCALL(log10, double, double)
 STUB_LIBCALL(fminimum_numf, float, float, float)
 STUB_LIBCALL(fmaximum_numf, float, float, float)
+
+STUB_LIBCALL(ceil, double, double)

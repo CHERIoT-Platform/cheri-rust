@@ -18,7 +18,7 @@ doc = false
 name = "coretests"
 path = "tests/lib.rs"
 
-# FIXME(cheri/triage): wants libtest
+# FIXME(cheri/excluded/bench)
 # [[bench]]
 # name = "corebenches"
 # path = "benches/lib.rs"
@@ -80,14 +80,28 @@ test_lazy = []
 test_macros = []
 test_manually_drop = []
 test_mem = []
-test_net = []
+test_net_ip_addr = []
+test_net_parser = []
+test_net_socket_addr = []
 test_nonzero = []
 test_num = []
+test_num_cast_checked_uint = []
+test_num_cast_checked_int = []
+test_num_cast_bounded_uint = []
+test_num_cast_bounded_int = []
+test_num_dec2flt = ["needs_softfloat"]
+test_num_dec2flt_parse = ["needs_softfloat"]
+test_num_flt2dec = ["needs_math", "needs_softfloat"]
+test_num_flt2dec_dragon_1 = ["needs_softfloat"]
+test_num_flt2dec_dragon_2 = ["needs_softfloat"]
+test_num_flt2dec_grisu_1 = ["needs_softfloat"]
+test_num_flt2dec_grisu_2 = ["needs_softfloat"]
 test_num_f16 = ["needs_math", "needs_softfloat"]
 test_num_f32 = ["needs_math", "needs_softfloat"]
 test_num_f64 = ["needs_math", "needs_softfloat"]
 test_num_f128 = []
 test_num_ieee754 = ["needs_softfloat"]
+test_num_int_log = ["needs_math", "needs_softfloat"]
 test_num_rest = []
 test_ops = []
 test_option = []

@@ -23,3 +23,7 @@ num::floats::min::test_f16 https://github.com/CHERIoT-Platform/cheri-rust/issues
 num::floats::sqrt_domain::test_f16 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
 num::floats::max::test_f32 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
 num::floats::min::test_f32 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
+num::int_log::checked_ilog https://github.com/CHERIoT-Platform/cheri-rust/issues/103
+num::int_log::checked_ilog10 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
+num::int_log::checked_ilog2 https://github.com/CHERIoT-Platform/cheri-rust/issues/103
+num::flt2dec::estimator::test_estimate_scaling_factor https://github.com/CHERIoT-Platform/cheri-rust/issues/103
