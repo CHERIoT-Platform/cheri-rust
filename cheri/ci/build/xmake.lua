@@ -5,11 +5,6 @@ set_toolchains("cheriot-clang")
 option("board")
     set_default("sail")
 
-library("stubs")
-    set_default(false)
-	add_cxflags("-include " .. "stubs.h")
-    add_files("stubs.cc")
-
 option("needs-softfloat")
     set_default(false)
 
@@ -24,7 +19,7 @@ compartment("test_runner")
             target:add("deps", "softfloat", "softfloat32pow", "softfloat64pow", "softfloat3216convert")
         end
         if get_config("needs-math") then
-            target:add("deps", "stubs")
+            target:add("deps", "math")
         end
     end)
     before_link(function(target)
