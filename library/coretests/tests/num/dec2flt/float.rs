@@ -5,8 +5,6 @@ use crate::num::{ldexp_f32, ldexp_f64};
 
 #[test]
 #[cfg(target_has_reliable_f16)]
-// FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
-#[cfg(not(target_abi = "cheriot"))]
 fn test_f16_integer_decode() {
     assert_eq!(3.14159265359f16.integer_decode(), (1608, -9, 1));
     assert_eq!((-8573.5918555f16).integer_decode(), (1072, 3, -1));

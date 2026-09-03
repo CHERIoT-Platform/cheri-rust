@@ -132,7 +132,8 @@ macro_rules! assume_usize_width {
     )
 ))]
 fn ldexp_f16(a: f16, b: i32) -> f16 {
-    ldexp_f64(a as f64, b) as f16
+    // FIXME(cheri/patch): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
+    ldexp_f64(a as f64, b) as f32 as f16
 }
 
 /// Return `a * 2^b`.
