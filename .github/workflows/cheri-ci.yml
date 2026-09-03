@@ -75,11 +75,11 @@ jobs:
       - name: Configure bootstrap
         run: ./configure --set profile=cheriot --enable-sccache --disable-manage-submodules
 
-      # - name: Run `x test tidy` (host)
-      #   run: ./x test tidy --ci=false
+      - name: Run `x test tidy` (host)
+        run: ./x test tidy --ci=false
 
-      # - name: Build LLVM
-      #   run: ./x build llvm --ci=false
+      - name: Build LLVM
+        run: ./x build llvm --ci=false
 
       # - name: Run `x check` (host)
       #   run: ./x check --ci=false
@@ -94,35 +94,35 @@ jobs:
       # - name: Run `x test tests/codegen-llvm` (CHERIoT)
       #   run: ./x test tests/codegen-llvm --target=riscv32cheriot-unknown-cheriotrtos --skip src/tools/linkchecker --ci=false
 
-      # - name: Check xmake
-      #   run: xmake --version
+      - name: Check xmake
+        run: xmake --version
 
-      # - name: Install Rust (upstream stable)
-      #   run: |
-      #     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
-      #     . "$HOME/.cargo/env" && echo "PATH=$PATH" >> $GITHUB_ENV
+      - name: Install Rust (upstream stable)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
+          . "$HOME/.cargo/env" && echo "PATH=$PATH" >> $GITHUB_ENV
 
-      # - name: Check rust
-      #   run: cargo --version
+      - name: Check rust
+        run: cargo --version
 
-      # - name: Install Sail
-      #   run: |
-      #     wget https://github.com/rems-project/sail/releases/download/0.20.1/sail-Linux-aarch64.tar.gz
-      #     tar xfv sail-Linux-aarch64.tar.gz
-      #     echo "PATH=$PATH:$(pwd)/sail/bin" >> $GITHUB_ENV
+      - name: Install Sail
+        run: |
+          wget https://github.com/rems-project/sail/releases/download/0.20.1/sail-Linux-aarch64.tar.gz
+          tar xfv sail-Linux-aarch64.tar.gz
+          echo "PATH=$PATH:$(pwd)/sail/bin" >> $GITHUB_ENV
 
-      # - name: Build Sail simulator
-      #   run: |
-      #     git clone --recurse-submodules --depth=1 https://github.com/CHERIoT-Platform/cheriot-sail
-      #     opam init --reinit --bypass-check --disable-sandboxing --disable-shell-hook
-      #     eval $(opam env)
-      #     cd cheriot-sail && make csim -j$(nproc) && sudo cp c_emulator/cheriot_sim /usr/local/bin
-      #   env:
-      #     CC: "cc"
-      #     CXX: "cpp"
+      - name: Build Sail simulator
+        run: |
+          git clone --recurse-submodules --depth=1 https://github.com/CHERIoT-Platform/cheriot-sail
+          opam init --reinit --bypass-check --disable-sandboxing --disable-shell-hook
+          eval $(opam env)
+          cd cheriot-sail && make csim -j$(nproc) && sudo cp c_emulator/cheriot_sim /usr/local/bin
+        env:
+          CC: "cc"
+          CXX: "cpp"
 
-      # - name: Check sail sim
-      #   run: cheriot_sim
+      - name: Check sail sim
+        run: cheriot_sim
 
       # - name: Build test runner (host)
       #   working-directory: ./cheri/tests/runner
