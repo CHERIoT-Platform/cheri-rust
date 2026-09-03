@@ -5,7 +5,7 @@ use crate::num::{ldexp_f32, ldexp_f64};
 
 #[test]
 #[cfg(target_has_reliable_f16)]
-// FIXME(cheri/excluded/isel): rustc-LLVM ERROR: Cannot select: t117: i32 = fp_to_fp16 t18
+// FIXME(cheri/excluded/isel): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
 #[cfg(not(target_abi = "cheriot"))]
 fn test_f16_integer_decode() {
     assert_eq!(3.14159265359f16.integer_decode(), (1608, -9, 1));
