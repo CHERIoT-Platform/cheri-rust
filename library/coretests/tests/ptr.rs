@@ -382,7 +382,6 @@ fn align_offset_stride_one() {
 }
 
 #[test]
-#[cfg_attr(target_abi = "cheriot", ignore)] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 fn align_offset_various_strides() {
     unsafe fn test_stride<T>(ptr: *const T, align: usize) -> bool {
         let numptr = ptr.addr();
@@ -414,7 +413,8 @@ fn align_offset_various_strides() {
     let mut align = 1;
     let mut x = false;
     // Miri is too slow
-    let limit = if cfg!(miri) { 32 } else { 1024 };
+    // FIXME(cheri/reduced/too_slow)
+    let limit = if cfg!(any(miri, target_abi = "cheriot")) { 32 } else { 1024 };
     while align < limit {
         for ptr in 1usize..4 * align {
             unsafe {

@@ -2,6 +2,7 @@
 #![cfg_attr(target_abi = "cheriot", feature(custom_test_frameworks))]
 #![cfg_attr(target_abi = "cheriot", test_runner(test::run_tests))]
 #![cfg_attr(target_abi = "cheriot", reexport_test_harness_main = "test_main")]
+#![cfg_attr(target_abi = "cheriot", allow(unused_features))]
 // tidy-alphabetical-start
 #![cfg_attr(not(panic = "abort"), feature(reentrant_lock))]
 #![cfg_attr(target_has_atomic = "128", feature(integer_atomics))]
@@ -243,7 +244,14 @@ mod macros;
 mod manually_drop;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_mem"))]
 mod mem;
-#[cfg(any(not(target_abi = "cheriot"), feature = "test_net"))]
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_net_ip_addr",
+        feature = "test_net_parser",
+        feature = "test_net_socket_addr",
+    )
+))]
 mod net;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_nonzero"))]
 mod nonzero;
@@ -251,12 +259,24 @@ mod nonzero;
     not(target_abi = "cheriot"),
     any(
         feature = "test_num",
+        feature = "test_num_dec2flt",
+        feature = "test_num_dec2flt_parse",
+        feature = "test_num_flt2dec",
+        feature = "test_num_flt2dec_dragon_1",
+        feature = "test_num_flt2dec_dragon_2",
+        feature = "test_num_flt2dec_grisu_1",
+        feature = "test_num_flt2dec_grisu_2",
         feature = "test_num_f16",
         feature = "test_num_f32",
         feature = "test_num_f64",
         feature = "test_num_f128",
         feature = "test_num_ieee754",
-        feature = "test_num_rest"
+        feature = "test_num_int_log",
+        feature = "test_num_rest",
+        feature = "test_num_cast_checked_uint",
+        feature = "test_num_cast_checked_int",
+        feature = "test_num_cast_bounded_uint",
+        feature = "test_num_cast_bounded_int",
     )
 ))]
 mod num;

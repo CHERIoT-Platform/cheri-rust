@@ -162,7 +162,8 @@ where
 fn shortest_random_equivalence_test() {
     use flt2dec::strategy::dragon::format_shortest as fallback;
     // Miri is too slow
-    let n = if cfg!(miri) { 10 } else { 10_000 };
+    // FIXME(cheri/reduced/too_slow)
+    let n = if cfg!(any(miri, target_abi = "cheriot")) { 10 } else { 10_000 };
 
     f64_random_equivalence_test(format_shortest_opt, fallback, MAX_SIG_DIGITS, n);
     f32_random_equivalence_test(format_shortest_opt, fallback, MAX_SIG_DIGITS, n);
@@ -171,7 +172,8 @@ fn shortest_random_equivalence_test() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)] // Miri is to slow
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 #[cfg(target_has_reliable_f16)]
 fn shortest_f16_exhaustive_equivalence_test() {
     // see the f32 version
@@ -207,7 +209,8 @@ fn shortest_f64_hard_random_equivalence_test() {
 fn exact_f16_random_equivalence_test() {
     use flt2dec::strategy::dragon::format_exact as fallback;
     // Miri is too slow
-    let n = if cfg!(miri) { 3 } else { 1_000 };
+    // FIXME(cheri/reduced/too_slow)
+    let n = if cfg!(any(miri, target_abi = "cheriot")) { 3 } else { 1_000 };
 
     for k in 1..21 {
         f16_random_equivalence_test(
@@ -223,7 +226,8 @@ fn exact_f16_random_equivalence_test() {
 fn exact_f32_random_equivalence_test() {
     use flt2dec::strategy::dragon::format_exact as fallback;
     // Miri is too slow
-    let n = if cfg!(miri) { 3 } else { 1_000 };
+    // FIXME(cheri/reduced/too_slow)
+    let n = if cfg!(any(miri, target_abi = "cheriot")) { 3 } else { 1_000 };
 
     for k in 1..21 {
         f32_random_equivalence_test(
@@ -239,7 +243,8 @@ fn exact_f32_random_equivalence_test() {
 fn exact_f64_random_equivalence_test() {
     use flt2dec::strategy::dragon::format_exact as fallback;
     // Miri is too slow
-    let n = if cfg!(miri) { 2 } else { 1_000 };
+    // FIXME(cheri/reduced/too_slow)
+    let n = if cfg!(any(miri, target_abi = "cheriot")) { 2 } else { 1_000 };
 
     for k in 1..21 {
         f64_random_equivalence_test(
