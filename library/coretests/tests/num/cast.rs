@@ -1,3 +1,6 @@
+/// FIXME(cheri/excluded/too_big): https://github.com/CHERIoT-Platform/cheri-rust/issues/278
+/// we are currently skipping the >64bit components of these tests as the ORDERED_VALS
+/// initialiser otherwise requires more heap than we can provide
 use std::sync::LazyLock;
 
 // All (negative) integers which are at or near a power of two to test
@@ -6,7 +9,8 @@ use std::sync::LazyLock;
 // comparisons.
 static ORDERED_VALS: LazyLock<Vec<String>> = LazyLock::new(|| {
     let mut pos_int_vals = Vec::new();
-    for exp in 0..=127 {
+    let exp_range = if cfg!(target_abi = "cheriot") { 0u32..=64 } else { 0u32..=127 };
+    for exp in exp_range {
         let val = 1_u128 << exp;
         pos_int_vals.push(val.saturating_sub(2));
         pos_int_vals.push(val.saturating_sub(1));
@@ -20,10 +24,15 @@ static ORDERED_VALS: LazyLock<Vec<String>> = LazyLock::new(|| {
     let mut pos_str_vals: Vec<_> = pos_int_vals.iter().map(|i| i.to_string()).collect();
 
     // These are manual because the upper ones overflow even u128.
+    #[cfg(not(target_abi = "cheriot"))]
     pos_str_vals.push("340282366920938463463374607431768211454".to_owned()); // 2**128 - 2
+    #[cfg(not(target_abi = "cheriot"))]
     pos_str_vals.push("340282366920938463463374607431768211455".to_owned()); // 2**128 - 1
+    #[cfg(not(target_abi = "cheriot"))]
     pos_str_vals.push("340282366920938463463374607431768211456".to_owned()); // 2**128
+    #[cfg(not(target_abi = "cheriot"))]
     pos_str_vals.push("340282366920938463463374607431768211457".to_owned()); // 2**128 + 1
+    #[cfg(not(target_abi = "cheriot"))]
     pos_str_vals.push("340282366920938463463374607431768211458".to_owned()); // 2**128 + 2
 
     let mut out = Vec::new();
@@ -78,7 +87,18 @@ macro_rules! make_bounded_cast_test {
 
 macro_rules! make_tests_for_src {
     (|$src:ident| $raw:expr, [$($Src:ident),*]) => {$(
+        #[cfg(all(target_abi = "cheriot", feature = "test_num_cast_checked_uint"))]
+        make_checked_cast_test!(             $Src as [u8, u16, u32, u64,  usize]);
+        #[cfg(all(target_abi = "cheriot", feature = "test_num_cast_checked_int"))]
+        make_checked_cast_test!(             $Src as [i8, i16, i32, i64,  isize]);
+        #[cfg(all(target_abi = "cheriot", feature = "test_num_cast_bounded_uint"))]
+        make_bounded_cast_test!(|$src| $raw, $Src as [u8, u16, u32, u64,  usize]);
+        #[cfg(all(target_abi = "cheriot", feature = "test_num_cast_bounded_int"))]
+        make_bounded_cast_test!(|$src| $raw, $Src as [i8, i16, i32, i64,  isize]);
+
+        #[cfg(not(target_abi = "cheriot"))]
         make_checked_cast_test!(             $Src as [u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize]);
+        #[cfg(not(target_abi = "cheriot"))]
         make_bounded_cast_test!(|$src| $raw, $Src as [u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize]);
 
         // NonZero types are not (yet) implemented.
@@ -89,6 +109,10 @@ macro_rules! make_tests_for_src {
     )*}
 }
 
+#[cfg(target_abi = "cheriot")]
+make_tests_for_src!(|x| x, [u8, u16, u32, u64, usize, i8, i16, i32, i64, isize]);
+
+#[cfg(not(target_abi = "cheriot"))]
 make_tests_for_src!(|x| x, [u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize]);
 
 // NonZero types are not (yet) implemented.
