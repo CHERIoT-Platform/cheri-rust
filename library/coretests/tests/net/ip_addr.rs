@@ -335,7 +335,6 @@ fn ip_properties() {
 }
 
 #[test]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/189
 fn ipv4_properties() {
     macro_rules! check {
         ($s:expr) => {
@@ -473,7 +472,6 @@ fn ipv4_properties() {
 }
 
 #[test]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/189
 fn ipv6_properties() {
     macro_rules! check {
         ($s:expr, &[$($octet:expr),*]) => {
