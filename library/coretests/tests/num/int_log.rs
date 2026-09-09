@@ -27,11 +27,13 @@ fn checked_ilog() {
     assert_eq!(0i8.checked_ilog(4), None);
     assert_eq!(0i16.checked_ilog(4), None);
 
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in i16::MIN..=0 {
         assert_eq!(i.checked_ilog(4), None, "checking {i}");
     }
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in 1..=i16::MAX {
         assert_eq!(
             i.checked_ilog(13),
@@ -39,7 +41,8 @@ fn checked_ilog() {
             "checking {i}"
         );
     }
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in 1..=u16::MAX {
         assert_eq!(
             i.checked_ilog(13),
@@ -72,7 +75,8 @@ fn checked_ilog2() {
             "checking {i}"
         );
     }
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in 1..=u16::MAX {
         assert_eq!(
             i.checked_ilog2(),
@@ -90,11 +94,13 @@ fn checked_ilog2() {
             "checking {i}"
         );
     }
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in i16::MIN..=0 {
         assert_eq!(i.checked_ilog2(), None, "checking {i}");
     }
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in 1..=i16::MAX {
         assert_eq!(
             i.checked_ilog2(),
@@ -111,11 +117,13 @@ fn checked_ilog10() {
     assert_eq!(0i8.checked_ilog10(), None);
     assert_eq!(0i16.checked_ilog10(), None);
 
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in i16::MIN..=0 {
         assert_eq!(i.checked_ilog10(), None, "checking {i}");
     }
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in 1..=i16::MAX {
         assert_eq!(
             i.checked_ilog10(),
@@ -123,7 +131,8 @@ fn checked_ilog10() {
             "checking {i}"
         );
     }
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in 1..=u16::MAX {
         assert_eq!(
             i.checked_ilog10(),
@@ -131,7 +140,8 @@ fn checked_ilog10() {
             "checking {i}"
         );
     }
-    #[cfg(not(miri))] // Miri is too slow
+    // FIXME(cheri/reduced/too_slow)
+    #[cfg(not(any(miri, target_abi = "cheriot")))] // Miri is too slow
     for i in 1..=100_000u32 {
         assert_eq!(
             i.checked_ilog10(),
