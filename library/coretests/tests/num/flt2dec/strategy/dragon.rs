@@ -4,6 +4,7 @@ use core::num::imp::flt2dec::strategy::dragon::*;
 use super::super::*;
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_dragon_1"))]
 fn test_mul_pow10() {
     let mut prevpow10 = Big::from_small(1);
     for i in 1..340 {
@@ -15,6 +16,7 @@ fn test_mul_pow10() {
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_dragon_1"))]
 fn shortest_sanity_test() {
     f64_shortest_sanity_test(format_shortest);
     f32_shortest_sanity_test(format_shortest);
@@ -24,7 +26,9 @@ fn shortest_sanity_test() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)] // Miri is too slow
+// FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_dragon_1"))]
 fn exact_sanity_test() {
     // This test ends up running what I can only assume is some corner-ish case
     // of the `exp2` library function, defined in whatever C runtime we're
@@ -49,21 +53,25 @@ fn exact_sanity_test() {
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_dragon_2"))]
 fn test_to_shortest_str() {
     to_shortest_str_test(format_shortest);
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_dragon_2"))]
 fn test_to_shortest_exp_str() {
     to_shortest_exp_str_test(format_shortest);
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_dragon_2"))]
 fn test_to_exact_exp_str() {
     to_exact_exp_str_test(format_exact);
 }
 
 #[test]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_flt2dec_dragon_2"))]
 fn test_to_exact_fixed_str() {
     to_exact_fixed_str_test(format_exact);
 }

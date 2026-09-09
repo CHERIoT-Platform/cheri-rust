@@ -55,7 +55,8 @@ fn test_estimate_scaling_factor() {
     assert_almost_eq!(estimate_scaling_factor(0x1fffffffffffff, 971), 309);
 
     // Miri is too slow
-    let step = if cfg!(miri) { 37 } else { 1 };
+    // FIXME(cheri/reduced/too_slow)
+    let step = if cfg!(any(miri, target_abi = "cheriot")) { 37 } else { 1 };
 
     for i in (-1074..972).step_by(step) {
         let expected = ldexp_f64(1.0, i).log10().ceil();
