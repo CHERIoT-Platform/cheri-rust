@@ -57,6 +57,14 @@ struct Args {
     /// Clean build directories
     #[arg(long)]
     clean: bool,
+
+    /// Attempt to compile, but don't run tests
+    #[arg(long)]
+    no_run: bool,
+
+    /// Do not abort if there is a build error
+    #[arg(long)]
+    keep_going: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -81,15 +89,34 @@ fn main() -> anyhow::Result<()> {
         None => known_issues::KnownIssues::default(),
     };
 
+    let mut did_fail_build = false;
+
     // for each module, build a test executable and run it through the
     // simulator, then fold the results.
     // TODO: it should be possible to parallelise
     let results = modules
         .iter()
         .map(|module| {
-            println!("Building {}/{}...", &args.suite, module);
-            let executable = cargo.build_test_executable(&args.suite, module)?;
-            println!("Running {}/{}...", &args.suite, module);
+            println!("Building {}/{} ...", args.suite, module);
+
+            let build_result = cargo.build_test_executable(&args.suite, module);
+
+            if build_result.is_err() {
+                if args.keep_going {
+                    // TODO: we should track compilation status in Results
+                    did_fail_build = true;
+                    return Ok(results::Results::default());
+                }
+            }
+
+            let executable = build_result?;
+
+            if args.no_run {
+                return Ok(results::Results::default());
+            }
+
+            println!("Running {}/{} ...", args.suite, module);
+
             let runner = runner::Runner::new(&args.simulator, executable, &known_issues);
             let results = runner.run()?;
             Ok(results)
@@ -119,6 +146,10 @@ fn main() -> anyhow::Result<()> {
                 .collect::<Vec<_>>()
                 .join("\n")
         );
+        anyhow::bail!("test suite unsuccessful")
+    }
+
+    if did_fail_build {
         anyhow::bail!("test suite unsuccessful")
     }
 
