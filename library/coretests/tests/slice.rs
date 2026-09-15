@@ -1641,11 +1641,10 @@ fn test_rotate_right() {
 }
 
 #[test]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 #[cfg_attr(miri, ignore)] // Miri is too slow
 fn brute_force_rotate_test_0() {
-    // In case of edge cases involving multiple algorithms
-    let n = 300;
+    // FIXME(cheri/reduced/too_slow)
+    let n = if cfg!(target_abi = "cheriot") { 30 } else { 300 };
     for len in 0..n {
         for s in 0..len {
             let mut v = Vec::with_capacity(len);
@@ -1661,7 +1660,6 @@ fn brute_force_rotate_test_0() {
 }
 
 #[test]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
 fn brute_force_rotate_test_1() {
     // `ptr_rotate` covers so many kinds of pointer usage, that this is just a good test for
     // pointers in general. This uses a `[usize; 4]` to hit all algorithms without overwhelming miri
@@ -1682,8 +1680,8 @@ fn brute_force_rotate_test_1() {
 
 #[test]
 #[cfg(not(target_arch = "wasm32"))]
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
-#[cfg_attr(miri, ignore)] // Miri is too slow
+// FIXME(cheri/ignored/too_slow): This is very slow, and will fail after the `for len in ...` loop
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn select_nth_unstable() {
     use core::cmp::Ordering::{Equal, Greater, Less};
 

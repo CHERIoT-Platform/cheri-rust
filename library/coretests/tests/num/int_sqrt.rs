@@ -61,8 +61,9 @@ macro_rules! tests {
                 //   and the previous perfect square
                 #[test]
                 // Skip this test on Miri, as it takes too long to run.
-                // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
-                #[cfg(not(any(miri, target_abi = "cheriot")))]
+                #[cfg(not(miri))]
+                // FIXME(cheri/ignored/too_slow): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
+                #[cfg_attr(target_abi = "cheriot", ignore)]
                 fn isqrt_extended() {
                     // The correct value is worked out by using the fact that
                     // the nth nonzero perfect square is the sum of the first n
