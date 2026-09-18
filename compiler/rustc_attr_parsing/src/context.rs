@@ -202,6 +202,7 @@ attribute_parsers!(
 
         // tidy-alphabetical-start
         Single<CfiEncodingParser>,
+        Single<CheriCompartmentParser>,
         Single<CheriotMMIOParser>,
         Single<CheriotSharedObjectParser>,
         Single<CollapseDebugInfoParser>,

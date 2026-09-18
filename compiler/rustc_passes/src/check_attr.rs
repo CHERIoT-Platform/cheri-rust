@@ -232,6 +232,10 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 self.check_linkage(*span, hir_id, target, item)
             }
 
+            AttributeKind::CheriCompartment { attr_span, .. } => {
+                self.check_cheri_compartment(hir_id, attr, *attr_span)
+            }
+
             AttributeKind::CheriotCapImport(CheriotCapImportAttr {
                 import_kind: CheriotCapImportKind::MMIO,
                 attr_span,
@@ -1734,6 +1738,51 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 self.tcx.dcx().emit_err(diagnostics::ConstFnLinkage { span });
             }
             _ => {}
+        }
+    }
+
+    fn check_cheri_compartment(&self, hir_id: HirId, attr: &AttributeKind, attr_span: Span) {
+        // Check if there are items in this foreign mod that are not function declarations.
+        if let Node::Item(Item { kind: ItemKind::ForeignMod { items, .. }, .. }) =
+            self.tcx.hir_node(hir_id)
+        {
+            for item in items.iter() {
+                let item_node = self.tcx.hir_node(item.hir_id());
+                let item_span = self.tcx.hir_span(item.hir_id());
+                if item_node.fn_decl().is_none() {
+                    self.dcx().emit_err(
+                        diagnostics::CHERIoTCompartmentOnExternWithNonFnDeclItems {
+                            attr_span,
+                            not_fn_decl_item_span: item_span,
+                        },
+                    );
+                    return;
+                }
+            }
+        }
+
+        // Check if this foreign function belongs to a foreign mod with a different cheri_compartment attribute.
+        if let Node::ForeignItem(ForeignItem { kind: rustc_hir::ForeignItemKind::Fn(..), .. }) =
+            self.tcx.hir_node(hir_id)
+        {
+            let AttributeKind::CheriCompartment { compartment_name, attr_span, .. } = attr else {
+                unreachable!()
+            };
+            for owner_id in self.tcx.hir_parent_id_iter(hir_id) {
+                let owner_node = self.tcx.hir_node(owner_id);
+                if let Node::Item(Item { kind: ItemKind::ForeignMod { .. }, .. }) = owner_node {
+                    if let Some((owner_compartment_attr, parent_foreign_module_span)) = find_attr!(self.tcx.hir_attrs(owner_id), CheriCompartment {compartment_name, attr_span, ..} => (*compartment_name, *attr_span))
+                    {
+                        if owner_compartment_attr != *compartment_name {
+                            self.dcx().emit_err(diagnostics::CHERIoTCompartmentNestedForeignMod {
+                                foreign_function_span: *attr_span,
+                                parent_foreign_module_span,
+                            });
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -10,7 +10,7 @@ use super::prelude::*;
 use crate::attributes::AttributeSafety;
 use crate::diagnostics::{
     CHERIoTCapImportPermissionsDuplicateSymbol, CHERIoTCapImportPermissionsUnknownSymbols,
-    CheriotCapImportMissingParameter, EmptyExportName, EmptySection,
+    CheriCompartmentEmptyName, CheriotCapImportMissingParameter, EmptyExportName, EmptySection,
     NakedFunctionIncompatibleAttribute, NullOnExport, NullOnObjcClass, NullOnObjcSelector,
     NullOnSection, ObjcClassExpectedStringLiteral, ObjcSelectorExpectedStringLiteral,
     SanitizeInvalidStatic, TargetFeatureOnLangItem, TrackCallerOnLangItem,
@@ -1059,5 +1059,37 @@ impl CheriotCapImportParser {
             permissions_span,
             attr_span: cx.attr_span,
         }))
+    }
+}
+
+pub(crate) struct CheriCompartmentParser;
+
+impl SingleAttributeParser for CheriCompartmentParser {
+    const PATH: &[Symbol] = &[sym::cheri_compartment];
+
+    const STABILITY: AttributeStability = unstable!(cheriot_attributes);
+
+    const ALLOWED_TARGETS: AllowedTargets<'_> = AllowedTargets::AllowList(&[
+        Allow(Target::ExternCrate),
+        Allow(Target::Crate),
+        Allow(Target::ForeignFn),
+        Allow(Target::ForeignMod),
+    ]);
+
+    const TEMPLATE: AttributeTemplate = template!(NameValueStr: "name");
+
+    fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<AttributeKind> {
+        let name_value = cx.expect_name_value(args, cx.attr_span, None)?;
+        let name = cx.expect_string_literal(name_value)?;
+        if name.is_empty() {
+            cx.emit_err(CheriCompartmentEmptyName { attr_span: cx.attr_span });
+            return None;
+        }
+
+        Some(AttributeKind::CheriCompartment {
+            compartment_name: name,
+            compartment_name_span: name_value.value_span,
+            attr_span: cx.attr_span,
+        })
     }
 }

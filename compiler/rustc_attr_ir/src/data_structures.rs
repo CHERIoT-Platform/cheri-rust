@@ -1058,7 +1058,14 @@ pub enum AttributeKind {
         encoding: Symbol,
     },
 
-    /// Represents `#[cheriot_mmio]` or `#[cheriot_shared_object]`
+    /// Represents `#[cheri_compartment]`.
+    CheriCompartment {
+        compartment_name: Symbol,
+        compartment_name_span: Span,
+        attr_span: Span,
+    },
+
+    /// Represents `#[cheriot_mmio]` or `#[cheriot_shared_object]`.
     CheriotCapImport(CheriotCapImportAttr),
 
     /// Represents `#[cold]`.

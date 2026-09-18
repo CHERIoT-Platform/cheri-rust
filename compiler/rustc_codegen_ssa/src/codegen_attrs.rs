@@ -310,6 +310,9 @@ fn process_builtin_attrs(
                     HirInstrumentFnAttr::Off => InstrumentFnAttr::Off,
                 };
             }
+            AttributeKind::CheriCompartment { compartment_name, .. } => {
+                codegen_fn_attrs.cheri_compartment = Some(*compartment_name)
+            }
             _ => {}
         }
     }
@@ -411,6 +414,23 @@ fn apply_overrides(tcx: TyCtxt<'_>, did: LocalDefId, codegen_fn_attrs: &mut Code
             //
             // if none of the exceptions apply; apply no_mangle
             codegen_fn_attrs.flags |= CodegenFnAttrFlags::NO_MANGLE;
+        }
+    }
+
+    // CHERI-specific.
+    if tcx.sess.target.is_like_cheri && codegen_fn_attrs.cheri_compartment.is_none() {
+        let hid = tcx.local_def_id_to_hir_id(did);
+        // Check if it is defined in an extern block, and whether that extern block
+        // has the `#[cheri_compartment]` attribute.
+        for owner_hid in tcx.hir_parent_id_iter(hid) {
+            codegen_fn_attrs.cheri_compartment = find_attr!( tcx.hir_attrs(owner_hid), CheriCompartment {compartment_name, ..} => *compartment_name);
+            if codegen_fn_attrs.cheri_compartment.is_some() {
+                break;
+            }
+        }
+
+        if codegen_fn_attrs.cheri_compartment.is_none() {
+            codegen_fn_attrs.cheri_compartment = find_attr!( tcx.hir_krate_attrs(), CheriCompartment {compartment_name, ..} => *compartment_name);
         }
     }
 }

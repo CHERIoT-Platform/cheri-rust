@@ -231,6 +231,7 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
     sym::instrument_fn,
 
     // CHERIoT-specific attributes.
+    sym::cheri_compartment,
     sym::cheriot_mmio,
     sym::cheriot_shared_object,
 
