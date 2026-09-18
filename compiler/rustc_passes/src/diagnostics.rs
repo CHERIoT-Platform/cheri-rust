@@ -1162,6 +1162,31 @@ pub(crate) struct CHERIoTCapImportPermissionsCoherence<'a> {
 }
 
 #[derive(Diagnostic)]
+#[diag("invalid item in a extern block with the `#[cheri_compartment]` attribute")]
+#[note(
+    "only function declarations are valid in extern blocks with the `#[cheri_compartment] attribute`"
+)]
+#[help("remove the items in this block that are not function declarations")]
+pub(crate) struct CHERIoTCompartmentOnExternWithNonFnDeclItems {
+    #[primary_span]
+    pub not_fn_decl_item_span: Span,
+
+    #[label("use of #[cheri_compartment] here")]
+    pub attr_span: Span,
+}
+
+#[derive(Diagnostic)]
+#[diag("use of nested `#[cheri_compartment]` attribute with different compartment names")]
+#[help("move the foreign function in a new foreign module")]
+pub(crate) struct CHERIoTCompartmentNestedForeignMod {
+    #[primary_span]
+    pub foreign_function_span: Span,
+
+    #[label("parent foreign module with #[cheri_compartment] here")]
+    pub parent_foreign_module_span: Span,
+}
+
+#[derive(Diagnostic)]
 #[diag("attribute `{$attr}` can be used on CHERIoT targets only")]
 pub(crate) struct NotCHERIoTTarget<'a> {
     #[primary_span]

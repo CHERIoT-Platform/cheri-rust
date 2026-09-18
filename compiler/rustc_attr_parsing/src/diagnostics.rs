@@ -2064,3 +2064,10 @@ pub(crate) struct UnusedDuplicate {
     )]
     pub warning: bool,
 }
+
+#[derive(Diagnostic)]
+#[diag("the compartment name in `#[cheri_compartment = \"<name>\"] cannot be empty")]
+pub(crate) struct CheriCompartmentEmptyName {
+    #[primary_span]
+    pub attr_span: Span,
+}
