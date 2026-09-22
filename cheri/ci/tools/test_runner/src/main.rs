@@ -26,6 +26,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use rayon::prelude::*;
 
 mod cargo;
 mod known_issues;
@@ -81,18 +82,21 @@ fn main() -> anyhow::Result<()> {
         None => known_issues::KnownIssues::default(),
     };
 
-    // for each module, build a test executable and run it through the
-    // simulator, then fold the results.
-    // TODO: it should be possible to parallelise
+    // build an executable for each module, then run them with some
+    // parallelisation and fold the results
     let results = modules
         .iter()
         .map(|module| {
             println!("Building {}/{}...", &args.suite, module);
             let executable = cargo.build_test_executable(&args.suite, module)?;
+            Ok((module, executable))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?
+        .into_par_iter()
+        .map(|(module, executable)| {
             println!("Running {}/{}...", &args.suite, module);
             let runner = runner::Runner::new(&args.simulator, executable, &known_issues);
-            let results = runner.run()?;
-            Ok(results)
+            runner.run()
         })
         .collect::<anyhow::Result<Vec<_>>>()?
         .into_iter()
