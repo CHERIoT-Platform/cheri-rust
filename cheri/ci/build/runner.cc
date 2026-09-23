@@ -83,6 +83,9 @@ extern "C" void cheriot_quarantine_flush() {
   Debug::Invariant(ret >= 0, "Allocator error on flush: {}", ret);
 }
 
+// Used in `library/std/src/sys/thread/cheriot.rs`.
+extern "C" uint16_t thread_id_get_wrapper(void) { return thread_id_get(); }
+
 // Re-export because `cleanup_list_head` is marked as `__always_inline static
 // inline`.
 extern "C" struct CleanupList **get_cleanup_list_head() {
