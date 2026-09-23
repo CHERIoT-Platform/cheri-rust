@@ -1,10 +1,64 @@
+use regex::RegexSet;
 use std::fmt;
 use std::ops::Add;
+use std::sync::LazyLock;
 
 pub enum FailureMode {
-    UnexpectedFail,
+    UnexpectedFail(Failure, String),
     UnexpectedPass,
     UnexpectedIgnore,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum Failure {
+    MissingLibcall,
+    TagViolation,
+    BoundsViolation,
+    PermitExecuteViolation,
+    InstructionSelection,
+    Transmute,
+    RelocationRange,
+    NoThreads,
+    FailedAssertion,
+    ExplicitPanic,
+    OutOfMemory,
+    Misalignment,
+    Unhandled,
+    Unknown,
+}
+
+impl std::fmt::Display for Failure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+const FAILURE_PATTERNS: &[(Failure, &str)] = &[
+    (Failure::MissingLibcall, r"undefined symbol: __library_export_libcalls_"),
+    (Failure::TagViolation, r"TagViolation"),
+    (Failure::BoundsViolation, r"BoundsViolation"),
+    (Failure::PermitExecuteViolation, r"PermitExecuteViolation"),
+    (Failure::InstructionSelection, r"Cannot select"),
+    (Failure::Transmute, r"cannot transmute"),
+    (Failure::RelocationRange, r"relocation R_RISCV_CHERIOT\d?_COMPARTMENT_SIZE out of range"),
+    (Failure::NoThreads, r"failed to spawn thread"),
+    (Failure::FailedAssertion, r"(?m)^assertion.*failed$|^assertion failed:.*$"),
+    (Failure::ExplicitPanic, r"explicit panic"),
+    (Failure::OutOfMemory, r"Allocator error on alloc: -13"),
+    (Failure::Misalignment, r"misaligned pointer dereference"),
+    (Failure::Unhandled, r"Unhandled error 0x2"),
+];
+
+static PATTERNS: LazyLock<RegexSet> =
+    LazyLock::new(|| RegexSet::new(FAILURE_PATTERNS.iter().map(|(_, pattern)| pattern)).unwrap());
+
+pub fn categorise(stdout: &str) -> Failure {
+    PATTERNS
+        .matches(stdout)
+        .into_iter()
+        .next()
+        .map(|i| FAILURE_PATTERNS[i].0)
+        .unwrap_or(Failure::Unknown)
 }
 
 #[derive(Default)]
@@ -38,10 +92,11 @@ impl Results {
         self.passed += 1;
     }
 
-    pub fn fail_unexpected(&mut self, name: String) {
+    pub fn fail_unexpected(&mut self, name: String, stdout: String) {
         self.fail();
         self.failed_unexpected += 1;
-        self.failures.push((name, FailureMode::UnexpectedFail))
+        let failure = categorise(&stdout);
+        self.failures.push((name, FailureMode::UnexpectedFail(failure, stdout)))
     }
 
     pub fn ignore_unexpected(&mut self, name: String) {

@@ -89,11 +89,7 @@ extern "C" struct CleanupList **get_cleanup_list_head() {
   return cleanup_list_head();
 }
 
-// Provide a weak implementation so that we can run a successful `xmake build`
-// without providing our Rust objects
-extern "C" __attribute__((weak)) int rust_main() {
-    Debug::Invariant(false, "Missing rust_main");
-}
+extern "C" int rust_main();
 
 // We probably want `Allocator::check_gm` but this is not exposed. We want to
 // ensure that the allocator is working, and print the size of the heap which

@@ -35,6 +35,8 @@ mod runner;
 
 use results::FailureMode;
 
+use crate::results::Failure;
+
 #[derive(Parser)]
 struct Args {
     /// E.g. "coretests", "alloctests"
@@ -92,32 +94,6 @@ fn main() -> anyhow::Result<()> {
 
     let mut did_fail_build = false;
 
-    // // for each module, build a test executable and run it through the
-    // // simulator, then fold the results.
-    // // TODO: it should be possible to parallelise
-    // let results = modules
-    //     .iter()
-    //     .map(|module| {
-    //         println!("Building {}/{} ...", args.suite, module);
-
-    //         let build_result = cargo.build_test_executable(&args.suite, module);
-
-    //         if build_result.is_err() {
-    //             if args.keep_going {
-    //                 // TODO: we should track compilation status in Results
-    //                 did_fail_build = true;
-    //                 return Ok(results::Results::default());
-    //             }
-    //         }
-
-    //         let executable = build_result?;
-
-    //         if args.no_run {
-    //             return Ok(results::Results::default());
-    //         }
-
-    //         println!("Running {}/{} ...", args.suite, module);
-
     // build an executable for each module, then run them with some
     // parallelisation and fold the results
     let results = modules
@@ -170,9 +146,12 @@ fn main() -> anyhow::Result<()> {
                     "  {}{}",
                     test,
                     match failure_mode {
-                        FailureMode::UnexpectedFail => " - failed",
-                        FailureMode::UnexpectedPass => " - ok, but in known issues",
-                        FailureMode::UnexpectedIgnore => " - ignored, but in known issues",
+                        FailureMode::UnexpectedFail(Failure::Unknown, stdout) =>
+                            format!(" Uncategorised\n{}", stdout),
+                        FailureMode::UnexpectedFail(failure, _) => format!(" {}", failure),
+                        FailureMode::UnexpectedPass => " - ok, but in known issues".to_string(),
+                        FailureMode::UnexpectedIgnore =>
+                            " - ignored, but in known issues".to_string(),
                     }
                 ))
                 .collect::<Vec<_>>()
