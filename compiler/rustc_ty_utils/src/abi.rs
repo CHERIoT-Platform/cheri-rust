@@ -549,7 +549,53 @@ fn fn_abi_new_uncached<'tcx>(
     let tcx = cx.tcx();
 
     let abi_map = AbiMap::from_target(&tcx.sess.target);
-    let conv = abi_map.canonize_abi(sig.abi(), sig.c_variadic()).unwrap();
+    let mut conv = abi_map.canonize_abi(sig.abi(), sig.c_variadic()).unwrap();
+
+    // CHERI-specific: adjust the CC for cross-compartment calls
+    if let Some(fn_def_id) = determined_fn_def_id
+        && tcx.sess.target.is_like_cheri
+    {
+        let mut is_public = !fn_def_id.is_local();
+
+        if let Some(local_fn_def_id) = fn_def_id.as_local() {
+            if let Some(vis) = tcx.effective_visibilities(()).effective_vis(local_fn_def_id) {
+                if vis.public_at_level().is_some() {
+                    is_public = true
+                }
+            }
+        }
+
+        if is_public {
+            // Check if there is a crate-wide attribute that specifies the compartment for the current crate.
+            let maybe_crate_compartment = find_attr!(tcx.hir_krate_attrs(), CheriCompartment {compartment_name, ..} => *compartment_name);
+            let maybe_function_compartment = tcx.codegen_fn_attrs(fn_def_id).cheri_compartment;
+
+            match (maybe_function_compartment, maybe_crate_compartment) {
+                (None, Some(_)) => {
+                    if let Some(local_fn_def_id) = fn_def_id.as_local() {
+                        if !tcx.local_visibility(local_fn_def_id).is_public() {
+                            conv = rustc_abi::CanonAbi::CHERIoT(
+                                rustc_abi::CHERIoTCall::CompartmentCallee,
+                            );
+                        }
+                    }
+                }
+                (Some(_), None) => {
+                    conv = rustc_abi::CanonAbi::CHERIoT(rustc_abi::CHERIoTCall::CompartmentCall);
+                }
+                (Some(fn_c), Some(k_c)) => {
+                    if fn_c == k_c {
+                        conv =
+                            rustc_abi::CanonAbi::CHERIoT(rustc_abi::CHERIoTCall::CompartmentCallee);
+                    } else {
+                        conv =
+                            rustc_abi::CanonAbi::CHERIoT(rustc_abi::CHERIoTCall::CompartmentCall);
+                    }
+                }
+                (None, None) => {}
+            }
+        }
+    }
 
     let mut inputs = sig.inputs();
     let extra_args = if sig.abi() == ExternAbi::RustCall {

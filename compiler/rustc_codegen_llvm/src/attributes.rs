@@ -673,6 +673,18 @@ pub(crate) fn llfn_attrs_from_instance<'ll, 'tcx>(
         }
     }
 
+    if sess.target.is_like_cheri {
+        if let Some(cheri_compartment) = codegen_fn_attrs.cheri_compartment {
+            to_add.push(llvm::CreateAttrStringValue(
+                cx.llcx,
+                "cheri-compartment",
+                cheri_compartment.as_str(),
+            ));
+
+            to_add.push(llvm::CreateAttrStringValue(cx.llcx, "interrupt-state", "enabled"));
+        }
+    }
+
     if sess.pointer_authentication() {
         let cfg = sess.pointer_auth_config.as_ref().unwrap();
         for ptrauth_attr in cfg.fn_attrs() {
