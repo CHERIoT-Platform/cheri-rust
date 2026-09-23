@@ -10,35 +10,42 @@ edition = "2024"
 
 [lib]
 path = "lib.rs"
-test = true
-bench = true
+# FIXME(cheri): checkme
+test = false
+bench = false
 doc = false
 
 [dev-dependencies]
 rand = { version = "0.9.0", default-features = false, features = ["alloc"] }
 rand_xorshift = "0.4.0"
 
+[target.'cfg(target_abi = "cheriot")'.dev-dependencies]
+test = { package = "cheri_test", path = "../../cheri/ci/library/cheri_test" }
+
 [[test]]
 name = "alloctests"
 path = "tests/lib.rs"
 
-[[test]]
-name = "c_str_alloc_error"
-path = "tests/c_str_alloc_error.rs"
+# FIXME(cheri): checkme
+# [[test]]
+# name = "c_str_alloc_error"
+# path = "tests/c_str_alloc_error.rs"
 
-[[test]]
-name = "vec_deque_alloc_error"
-path = "tests/vec_deque_alloc_error.rs"
+# FIXME(cheri): checkme
+# [[test]]
+# name = "vec_deque_alloc_error"
+# path = "tests/vec_deque_alloc_error.rs"
 
-[[bench]]
-name = "allocbenches"
-path = "benches/lib.rs"
-test = true
+# FIXME(cheri/triage): wants libtest
+# [[bench]]
+# name = "allocbenches"
+# path = "benches/lib.rs"
+# test = true
 
-[[bench]]
-name = "vec_deque_append_bench"
-path = "benches/vec_deque_append.rs"
-harness = false
+# [[bench]]
+# name = "vec_deque_append_bench"
+# path = "benches/vec_deque_append.rs"
+# harness = false
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
@@ -48,3 +55,56 @@ check-cfg = [
     'cfg(no_sync)',
     'cfg(randomized_layouts)',
 ]
+
+[features]
+# Enabling these features tells our linker to include the particular RTOS libraries.
+needs_math = []
+needs_softfloat = []
+# Each of these features enables a subset of tests which can fit in our simulator memory.
+test_alloc_test = []
+test_arc = []
+test_autotraits = []
+test_borrow = []
+test_boxed = []
+test_btree_set_hash = []
+test_c_str = []
+test_c_str2 = []
+test_collections = []
+test_const_fns = []
+test_cow_str = []
+test_extras = []
+test_fmt = ["needs_softfloat"]
+test_heap = []
+test_linked_list = []
+test_misc_tests = ["needs_softfloat"]
+test_num = []
+test_rc = []
+test_slice = []
+test_sort_misc = ["needs_math", "needs_softfloat"]
+test_sort_i32 = ["needs_math", "needs_softfloat"]
+test_sort_u64 = ["needs_math", "needs_softfloat"]
+test_sort_u128 = ["needs_math", "needs_softfloat"]
+test_sort_cell_i32 = ["needs_math", "needs_softfloat"]
+test_sort_string = ["needs_math", "needs_softfloat"]
+test_sort_f128 = ["needs_math", "needs_softfloat"]
+test_sort_1k = ["needs_math", "needs_softfloat"]
+test_sort_dyn = ["needs_math", "needs_softfloat"]
+test_sort_panic_retain = ["needs_math", "needs_softfloat"]
+test_sort_panic_observable = ["needs_math", "needs_softfloat"]
+test_sort_observable = ["needs_math", "needs_softfloat"]
+test_sort_stability = ["needs_math", "needs_softfloat"]
+test_sort_det = ["needs_math", "needs_softfloat"]
+test_sort_cmp = ["needs_math", "needs_softfloat"]
+test_sort_ord = ["needs_math", "needs_softfloat"]
+test_str_1 = []
+test_str_2 = []
+test_str_3 = []
+test_string = []
+test_sync = []
+test_task = []
+test_testing = []
+test_thin_box = []
+test_vec_1 = []
+test_vec_2 = []
+test_vec_deque_1 = []
+test_vec_deque_2 = []

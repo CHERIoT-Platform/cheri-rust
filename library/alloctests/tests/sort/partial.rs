@@ -81,7 +81,7 @@ fn random_patterns() {
     check_is_partial_sorted_ranges(&patterns::random(50));
 
     // Longer tests would take hours to run under Miri.
-    if !cfg!(miri) {
+    if !cfg!(any(miri, target_abi = "cheriot")) {
         check_is_partial_sorted_ranges(&patterns::random(100));
         check_is_partial_sorted_ranges(&patterns::random(1000));
     }
