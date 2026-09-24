@@ -761,6 +761,11 @@ fn self_cmp<T: Ord + Clone + Debug, S: Sort>(
 
 gen_sort_test_fns_with_default_patterns_3_ty!(self_cmp, self_cmp, []);
 
+// FIXME(jacobpake): these tests partially rely on unwind, so we should ignore them.
+// however, they throw a tagviolation regardless, I believe this is due to the closures
+// related to get_random_0_1_or_2 and invalid_ord_comp_functions violating global/local
+// ordering. if so, it should be possible to "fix" the test not to do that. but even
+// if we fix the test, we will still need to ignore it.
 fn violate_ord_retain_orig_set<T: Ord, S: Sort>(
     len: usize,
     type_into_fn: impl Fn(i32) -> T + Copy,
@@ -1185,30 +1190,30 @@ define_instantiate_sort_tests!(
     [miri_no, "test_sort_cmp", panic_no, self_cmp_string_ascending],
     [miri_no, "test_sort_cmp", panic_no, self_cmp_string_descending],
     [miri_no, "test_sort_cmp", panic_no, self_cmp_string_saw_mixed],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_i32_random],
-    [miri_yes, "test_sort_ord", panic_no, violate_ord_retain_orig_set_i32_random_z1],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_i32_random_d2],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_i32_random_d20],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_i32_random_s95],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_i32_ascending],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_i32_descending],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_i32_saw_mixed],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_cell_i32_random],
-    [miri_yes, "test_sort_ord", panic_no, violate_ord_retain_orig_set_cell_i32_random_z1],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_cell_i32_random_d2],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_cell_i32_random_d20],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_cell_i32_random_s95],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_cell_i32_ascending],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_cell_i32_descending],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_cell_i32_saw_mixed],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_string_random],
-    [miri_yes, "test_sort_ord", panic_no, violate_ord_retain_orig_set_string_random_z1],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_string_random_d2],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_string_random_d20],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_string_random_s95],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_string_ascending],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_string_descending],
-    [miri_no, "test_sort_ord", panic_no, violate_ord_retain_orig_set_string_saw_mixed],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random],
+    [miri_yes, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random_z1],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random_d2],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random_d20],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random_s95],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_ascending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_descending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_saw_mixed],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random],
+    [miri_yes, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random_z1],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random_d2],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random_d20],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random_s95],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_ascending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_descending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_saw_mixed],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random],
+    [miri_yes, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random_z1],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random_d2],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random_d20],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random_s95],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_ascending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_descending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_saw_mixed],
 );
 
 macro_rules! instantiate_sort_tests {
