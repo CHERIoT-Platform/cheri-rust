@@ -61,7 +61,7 @@ impl Cargo {
         cmd.args([
             subcmd,
             "--manifest-path", self.alloc_manifest.to_str().unwrap(),
-            "--frozen"
+            "--locked"
         ]);
 
         cmd
