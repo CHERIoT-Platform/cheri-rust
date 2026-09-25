@@ -1,0 +1,41 @@
+{
+    "devices": {
+        "clint": {
+            "start": 0x2000000,
+            "length": 0x10000
+        },
+        "uart": {
+            "start": 0x10000000,
+            "end": 0x10000100
+        },
+        "shadow": {
+            "start": 0x83000000,
+            "end": 0x83002000
+        }
+    },
+    "instruction_memory": {
+        "start": 0x80000000,
+        "end": 0x80080000
+    },
+    "heap": {
+        "end": 0x80080000
+    },
+    "interrupts": [
+        {
+            "name": "FakeInterrupt",
+            "number": 4,
+            "priority": 2
+        }
+    ],
+    "defines": ["SAIL", "RISCV_HTIF"],
+    "driver_includes": [
+        "${sdk}/include/platform/sail",
+        "${sdk}/include/platform/generic-riscv"
+    ],
+    "timer_hz": 2000,
+    "tickrate_hz": 10,
+    "revoker": "software",
+    "stack_high_water_mark": true,
+    "run_command": "cheriot_sim",
+    "simulation": true
+}
