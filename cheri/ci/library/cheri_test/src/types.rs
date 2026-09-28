@@ -46,6 +46,7 @@ impl fmt::Display for TestName {
 pub enum TestType {
     /// Integration-style tests are expected to be in the `tests` folder of the crate.
     IntegrationTest,
+    Unknown,
 }
 
 pub enum TestFn {
