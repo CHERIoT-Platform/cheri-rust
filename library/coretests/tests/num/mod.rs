@@ -38,13 +38,23 @@ mod u8;
 mod bignum;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num"))]
 mod carryless_mul;
-#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): not checked
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_num_cast_checked_uint",
+        feature = "test_num_cast_checked_int",
+        feature = "test_num_cast_bounded_uint",
+        feature = "test_num_cast_bounded_int"
+    )
+))]
 mod cast;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod const_from;
-// FIXME(cheri/triage): rustc-LLVM ERROR: Cannot select: t117: i32 = fp_to_fp16 t18
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_dec2flt"))]
 mod dec2flt;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_dec2flt_parse"))]
+#[path = "dec2flt/parse.rs"]
+mod dec2flt_parse;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_ieee754"))]
 mod float_ieee754_flt2dec_dec2flt;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
@@ -60,11 +70,18 @@ mod float_iter_sum_identity;
     )
 ))]
 mod floats;
-// FIXME(cheri/triage): rustc-LLVM ERROR: Cannot select: t99: i32 = fp_to_fp16 t16
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_num_flt2dec",
+        feature = "test_num_flt2dec_dragon_1",
+        feature = "test_num_flt2dec_dragon_2",
+        feature = "test_num_flt2dec_grisu_1",
+        feature = "test_num_flt2dec_grisu_2",
+    )
+))]
 mod flt2dec;
-// FIXME(cheri/triage): hangs, needs investigation
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_int_log"))]
 mod int_log;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod int_sqrt;
@@ -103,19 +120,50 @@ macro_rules! assume_usize_width {
 
 /// Return `a * 2^b`.
 #[cfg(target_has_reliable_f16)]
-#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_num_dec2flt",
+        feature = "test_num_flt2dec",
+        feature = "test_num_flt2dec_dragon_1",
+        feature = "test_num_flt2dec_dragon_2",
+        feature = "test_num_flt2dec_grisu_1",
+        feature = "test_num_flt2dec_grisu_2",
+    )
+))]
 fn ldexp_f16(a: f16, b: i32) -> f16 {
-    ldexp_f64(a as f64, b) as f16
+    // FIXME(cheri/patch): https://github.com/CHERIoT-Platform/cheri-rust/issues/275
+    ldexp_f64(a as f64, b) as f32 as f16
 }
 
 /// Return `a * 2^b`.
-#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_num_dec2flt",
+        feature = "test_num_flt2dec",
+        feature = "test_num_flt2dec_dragon_1",
+        feature = "test_num_flt2dec_dragon_2",
+        feature = "test_num_flt2dec_grisu_1",
+        feature = "test_num_flt2dec_grisu_2",
+    )
+))]
 fn ldexp_f32(a: f32, b: i32) -> f32 {
     ldexp_f64(a as f64, b) as f32
 }
 
 /// Return `a * 2^b`.
-#[cfg(not(target_abi = "cheriot"))] // used by flt2dec
+#[cfg(any(
+    not(target_abi = "cheriot"),
+    any(
+        feature = "test_num_dec2flt",
+        feature = "test_num_flt2dec",
+        feature = "test_num_flt2dec_dragon_1",
+        feature = "test_num_flt2dec_dragon_2",
+        feature = "test_num_flt2dec_grisu_1",
+        feature = "test_num_flt2dec_grisu_2",
+    )
+))]
 fn ldexp_f64(a: f64, b: i32) -> f64 {
     unsafe extern "C" {
         fn ldexp(x: f64, n: i32) -> f64;
@@ -220,7 +268,6 @@ fn test_can_not_overflow() {
     // Negative tests:
 
     // Not currently in std lib (issue: #27728)
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
     fn format_radix<T>(mut x: T, radix: T) -> String
     where
         T: std::ops::Rem<Output = T>,
@@ -247,7 +294,6 @@ fn test_can_not_overflow() {
         result.into_iter().rev().collect()
     }
 
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
     macro_rules! check {
         ($($t:ty)*) => ($(
         for base in 2..=36 {
@@ -261,11 +307,8 @@ fn test_can_not_overflow() {
         )*)
     }
 
-    #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
     check! { i8 i16 i32 i64 i128 isize usize u8 u16 u32 u64 }
 
-    // FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/103
-    #[cfg(not(target_abi = "cheriot"))]
     // Check u128 separately:
     for base in 2..=36 {
         let num = <u128>::MAX;

@@ -4,6 +4,8 @@ mod decimal;
 mod decimal_seq;
 mod float;
 mod lemire;
+// cheriot: imported in num/mod.rs under `test_num_dec2flt_parse`
+#[cfg(not(target_abi = "cheriot"))]
 mod parse;
 
 // Take a float literal, turn it into a string in various ways (that are all trusted
