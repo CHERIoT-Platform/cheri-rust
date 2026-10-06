@@ -614,6 +614,7 @@ symbols! {
         checked_type_aliases,
         cheri,
         cheri_address_get,
+        cheri_compartment,
         cheri_without_provenance,
         cheriot_attributes,
         cheriot_mmio,
