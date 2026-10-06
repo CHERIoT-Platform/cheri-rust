@@ -418,6 +418,9 @@ fn apply_overrides(tcx: TyCtxt<'_>, did: LocalDefId, codegen_fn_attrs: &mut Code
     }
 
     // CHERI-specific.
+    // `extern` functions with an explicit CHERIoT compartment use that
+    // compartment, otherwise they inherit the compartment used by the
+    /// containing `extern` block or crate (if any).
     if tcx.sess.target.is_like_cheri && codegen_fn_attrs.cheri_compartment.is_none() {
         let hid = tcx.local_def_id_to_hir_id(did);
         // Check if it is defined in an extern block, and whether that extern block
