@@ -13,9 +13,9 @@ extern "C" void cheriot_print_str(char *s)
 
 extern "C" void *cheriot_alloc(size_t size)
 {
-	// debug_log("Trying to allocate {} bytes!", size);
-	Timeout timeout{5};
-	void   *ret = heap_allocate(&timeout, MALLOC_CAPABILITY, size);
+    // wait for revocation, don't wait for free
+    void *ret = heap_allocate(TimeoutWaitForever, MALLOC_CAPABILITY, size,
+        AllocateWaitRevocationNeeded);
 
 	Debug::Invariant(CHERI::Capability{ret}.is_valid(),
 	                 "Allocation is invalid, got pointer: {} -- {}",
