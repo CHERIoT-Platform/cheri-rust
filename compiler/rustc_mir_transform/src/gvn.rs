@@ -98,7 +98,9 @@ use std::hash::{Hash, Hasher};
 
 use either::Either;
 use itertools::Itertools as _;
-use rustc_abi::{self as abi, BackendRepr, FIRST_VARIANT, FieldIdx, Primitive, Size, VariantIdx};
+use rustc_abi::{
+    self as abi, BackendRepr, FIRST_VARIANT, FieldIdx, HasDataLayout, Primitive, Size, VariantIdx,
+};
 use rustc_arena::DroplessArena;
 use rustc_const_eval::const_eval::DummyMachine;
 use rustc_const_eval::interpret::{
@@ -119,6 +121,7 @@ use rustc_middle::ty::layout::HasTypingEnv;
 use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitableExt, Unnormalized};
 use rustc_mir_dataflow::{Analysis, ResultsCursor};
 use rustc_span::{DUMMY_SP, bug};
+use rustc_target::spec::HasTargetSpec;
 use smallvec::SmallVec;
 use tracing::{debug, instrument, trace};
 
@@ -1445,7 +1448,17 @@ impl<'body, 'a, 'tcx> VnState<'body, 'a, 'tcx> {
             let constant = self.eval_to_const(value)?;
             if layout.backend_repr.is_scalar() {
                 let scalar = self.ecx.read_scalar(constant).discard_err()?;
-                scalar.to_bits(constant.layout.size).discard_err()
+                let mut size = constant.layout.size;
+
+                // CHERI-specific: if the constant is of any ptr type,
+                // what we want to read here is the *data* size of the pointer
+                // (i.e. the address), not the full in-memory size of the pointer;
+                // otherwise, the next to_bits will fail.
+                if self.tcx.target_spec().is_like_cheri && constant.layout.ty.is_any_ptr() {
+                    size = self.tcx.data_layout().address_size();
+                }
+
+                scalar.to_bits(size).discard_err()
             } else {
                 // `constant` is a wide pointer. Do not evaluate to bits.
                 None
