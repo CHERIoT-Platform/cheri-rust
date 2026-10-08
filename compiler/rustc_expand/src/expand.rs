@@ -19,19 +19,19 @@ use rustc_attr_parsing::{
     AttributeParser, AttributeSafety, CFG_TEMPLATE, EvalConfigResult, ShouldEmit,
     eval_config_entry, parse_cfg, validate_attr,
 };
-use rustc_data_structures::Limit;
 use rustc_data_structures::flat_map_in_place::FlatMapInPlace;
 use rustc_errors::PResult;
 use rustc_feature::Features;
 use rustc_hir::def::MacroKinds;
+use rustc_lint_defs::builtin::{UNUSED_ATTRIBUTES, UNUSED_DOC_COMMENTS};
 use rustc_parse::parser::{
     AllowConstBlockItems, AttemptLocalParseRecovery, CommaRecoveryMode, ForceCollect, Parser,
     RecoverColon, RecoverComma, Recovery, token_descr,
 };
 use rustc_session::diagnostics::feature_err;
-use rustc_session::lint::builtin::{UNUSED_ATTRIBUTES, UNUSED_DOC_COMMENTS};
 use rustc_span::hygiene::SyntaxContext;
 use rustc_span::{ErrorGuaranteed, FileName, Ident, LocalExpnId, Span, Symbol, sym};
+use rustc_structures::Limit;
 use smallvec::SmallVec;
 
 use crate::base::*;
@@ -898,7 +898,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                             }
                         }
                         Err(err) => {
-                            let _guar = err.emit();
+                            err.emit();
                             fragment_kind.expect_from_annotatables(iter::once(item))
                         }
                     }
@@ -1068,7 +1068,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                     err.span(span);
                 }
                 annotate_err_with_kind(&mut err, kind, span);
-                let guar = err.emit();
+                let guar = err.emit_err();
                 self.cx.macro_error_and_trace_macros_diag();
                 kind.dummy(span, guar)
             }
@@ -1229,7 +1229,7 @@ enum AddSemicolon {
 
 /// A trait implemented for all `AstFragment` nodes and providing all pieces
 /// of functionality used by `InvocationCollector`.
-trait InvocationCollectorNode: HasAttrs + HasNodeId + Sized {
+trait InvocationCollectorNode: HasAttrs + HasNodeId + Sized + DeclaredIdents {
     type OutputTy = SmallVec<[Self; 1]>;
     type ItemKind = ItemKind;
     const KIND: AstFragmentKind;
@@ -1281,13 +1281,44 @@ trait InvocationCollectorNode: HasAttrs + HasNodeId + Sized {
         collector.cx.dcx().emit_err(RemoveNodeNotSupported { span, descr: Self::descr() });
     }
 
+    fn as_target(&self) -> Target;
+}
+
+pub trait DeclaredIdents {
     /// All of the identifiers (items) declared by this node.
     /// This is an approximation and should only be used for diagnostics.
     fn declared_idents(&self) -> Vec<Ident> {
         vec![]
     }
+}
 
-    fn as_target(&self) -> Target;
+macro_rules! declared_idents {
+    ($($ty:ty),*) => {
+        $(impl DeclaredIdents for $ty {})*
+    };
+}
+
+// Use the default "empty" list of idents for the following:
+declared_idents! {
+    AstNodeWrapper<Box<ast::AssocItem>, TraitItemTag>,
+    AstNodeWrapper<Box<ast::AssocItem>, ImplItemTag>,
+    AstNodeWrapper<Box<ast::AssocItem>, TraitImplItemTag>,
+    Box<ast::ForeignItem>,
+    ast::Variant,
+    ast::WherePredicate,
+    ast::FieldDef,
+    ast::PatField,
+    ast::ExprField,
+    ast::Param,
+    ast::GenericParam,
+    ast::Arm,
+    ast::Stmt,
+    ast::Crate,
+    ast::Ty,
+    ast::Pat,
+    ast::Expr,
+    AstNodeWrapper<Box<ast::Expr>, OptExprTag>,
+    AstNodeWrapper<ast::Expr, MethodReceiverTag>
 }
 
 impl InvocationCollectorNode for Box<ast::Item> {
@@ -1351,7 +1382,11 @@ impl InvocationCollectorNode for Box<ast::Item> {
                 // This lets `parse_external_mod` catch cycles if it's self-referential.
                 let file_path = match inline {
                     Inline::Yes => None,
-                    Inline::No { .. } => mod_file_path_from_attr(ecx.sess, &node.attrs, &dir_path),
+                    Inline::No { .. } => mod_file_path_from_attr(
+                        ecx.sess,
+                        &node.attrs,
+                        &ecx.current_expansion.module.dir_path,
+                    ),
                 };
                 (file_path, dir_path, dir_ownership)
             }
@@ -1415,6 +1450,12 @@ impl InvocationCollectorNode for Box<ast::Item> {
         res
     }
 
+    fn as_target(&self) -> Target {
+        Target::from_ast_item(self)
+    }
+}
+
+impl DeclaredIdents for Box<ast::Item> {
     fn declared_idents(&self) -> Vec<Ident> {
         if let ItemKind::Use(ut) = &self.kind {
             fn collect_use_tree_leaves(ut: &ast::UseTree, idents: &mut Vec<Ident>) {
@@ -1422,8 +1463,8 @@ impl InvocationCollectorNode for Box<ast::Item> {
                     ast::UseTreeKind::Glob(_) => {}
                     ast::UseTreeKind::Simple(_) => idents.push(ut.ident()),
                     ast::UseTreeKind::Nested { items, .. } => {
-                        for (ut, _) in items {
-                            collect_use_tree_leaves(ut, idents);
+                        for tree in items {
+                            collect_use_tree_leaves(&tree.inner, idents);
                         }
                     }
                 }
@@ -1434,10 +1475,6 @@ impl InvocationCollectorNode for Box<ast::Item> {
         } else {
             self.kind.ident().into_iter().collect()
         }
-    }
-
-    fn as_target(&self) -> Target {
-        Target::from_ast_item(self)
     }
 }
 
@@ -1711,22 +1748,10 @@ impl InvocationCollectorNode for ast::GenericParam {
         walk_flat_map_generic_param(collector, self)
     }
     fn as_target(&self) -> Target {
-        let mut has_default = false;
-        Target::GenericParam {
-            kind: match &self.kind {
-                rustc_ast::GenericParamKind::Lifetime => {
-                    rustc_attr_ir::target::GenericParamKind::Lifetime
-                }
-                rustc_ast::GenericParamKind::Type { default } => {
-                    has_default = default.is_some();
-                    rustc_attr_ir::target::GenericParamKind::Type
-                }
-                rustc_ast::GenericParamKind::Const { default, .. } => {
-                    has_default = default.is_some();
-                    rustc_attr_ir::target::GenericParamKind::Const
-                }
-            },
-            has_default,
+        match self.kind {
+            rustc_ast::GenericParamKind::Lifetime => Target::LifetimeParam,
+            rustc_ast::GenericParamKind::Type { .. } => Target::TypeParam,
+            rustc_ast::GenericParamKind::Const { .. } => Target::ConstParam,
         }
     }
 }
@@ -2212,15 +2237,13 @@ impl<'a, 'b> InvocationCollector<'a, 'b> {
         attr
     }
 
-    // Detect use of feature-gated or invalid attributes on macro invocations
+    // Run attributes through the attribute parser
     // since they will not be detected after macro expansion.
     fn check_attributes(&self, attrs: &[ast::Attribute], call: &ast::MacCall) {
         use SyntheticAttr::*;
-        let features = self.cx.ecfg.features;
         let mut attrs = attrs.iter().peekable();
         let mut span: Option<Span> = None;
         while let Some(attr) = attrs.next() {
-            rustc_ast_passes::feature_gate::check_attribute(attr, self.cx.sess, features);
             validate_attr::check_attr(&self.cx.sess.psess, attr);
             AttributeParser::parse_limited_all(
                 self.cx.sess,
@@ -2335,13 +2358,13 @@ impl<'a, 'b> InvocationCollector<'a, 'b> {
                         let res = self.expand_cfg_true(&mut node, attr, pos);
                         match res {
                             EvalConfigResult::True => continue,
-                            EvalConfigResult::False { reason, reason_span } => {
+                            EvalConfigResult::False { reason } => {
                                 for ident in node.declared_idents() {
                                     self.cx.resolver.append_stripped_cfg_item(
                                         self.cx.current_expansion.lint_node_id,
                                         ident,
                                         reason.clone(),
-                                        reason_span,
+                                        reason.span(),
                                     )
                                 }
                             }

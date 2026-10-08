@@ -10,11 +10,10 @@
 //! generic constants mentioned in the `caller_bounds` of the current environment.
 
 use rustc_infer::infer::InferCtxt;
-use rustc_middle::bug;
 use rustc_middle::traits::ObligationCause;
 use rustc_middle::ty::abstract_const::NotConstEvaluatable;
 use rustc_middle::ty::{self, TyCtxt, TypeVisitable, TypeVisitableExt, TypeVisitor};
-use rustc_span::{DUMMY_SP, Span};
+use rustc_span::{DUMMY_SP, Span, bug};
 use tracing::{debug, instrument};
 
 use super::EvaluateConstErr;
@@ -67,7 +66,9 @@ pub fn is_const_evaluatable<'tcx>(
                 tcx.dcx().span_bug(span, "evaluating `ConstKind::Expr` is not currently supported");
             }
             ty::ConstKind::Alias(_, _) => {
-                match crate::traits::try_evaluate_const(infcx, unexpanded_ct, param_env) {
+                match crate::traits::try_evaluate_const(infcx, unexpanded_ct, param_env, |ty| {
+                    Ok::<_, !>(ty.skip_norm_wip())
+                }) {
                     Err(EvaluateConstErr::HasGenericsOrInfers) => {
                         Err(NotConstEvaluatable::Error(infcx.dcx().span_delayed_bug(
                             span,
@@ -83,7 +84,7 @@ pub fn is_const_evaluatable<'tcx>(
             }
             _ => bug!("unexpected constkind in `is_const_evalautable: {unexpanded_ct:?}`"),
         }
-    } else if tcx.features().min_generic_const_args() {
+    } else if tcx.features().gca_min_const_items() {
         // This is a sanity check to make sure that non-generics consts are checked to
         // be evaluatable in case they aren't cchecked elsewhere. This will NOT error
         // if the const uses generics, as desired.
@@ -98,7 +99,9 @@ pub fn is_const_evaluatable<'tcx>(
             _ => bug!("unexpected constkind in `is_const_evalautable: {unexpanded_ct:?}`"),
         };
 
-        match crate::traits::try_evaluate_const(infcx, unexpanded_ct, param_env) {
+        match crate::traits::try_evaluate_const(infcx, unexpanded_ct, param_env, |ty| {
+            Ok::<_, !>(ty.skip_norm_wip())
+        }) {
             // If we're evaluating a generic foreign constant, under a nightly compiler while
             // the current crate does not enable `feature(generic_const_exprs)`, abort
             // compilation with a useful error.
@@ -124,7 +127,7 @@ pub fn is_const_evaluatable<'tcx>(
                         "#![feature(generic_const_exprs)]\n",
                         rustc_errors::Applicability::MaybeIncorrect,
                     )
-                    .emit()
+                    .emit_fatal()
             }
 
             Err(EvaluateConstErr::HasGenericsOrInfers) => {

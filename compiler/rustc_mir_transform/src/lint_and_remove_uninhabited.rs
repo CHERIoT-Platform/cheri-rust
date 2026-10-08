@@ -1,7 +1,7 @@
 use rustc_hir::def::DefKind;
+use rustc_lint_defs::builtin::UNREACHABLE_CODE;
 use rustc_middle::mir::*;
 use rustc_middle::ty::TyCtxt;
-use rustc_session::lint::builtin::UNREACHABLE_CODE;
 
 use crate::PassPolicy;
 use crate::diagnostics::UnreachableDueToUninhabited;
@@ -83,7 +83,7 @@ impl<'tcx> crate::MirPass<'tcx> for LintAndRemoveUninhabited {
         }
     }
 
-    fn policy(&self, _sess: &rustc_session::Session) -> PassPolicy {
+    fn policy(&self, _ctx: &crate::PassCtx<'_>) -> PassPolicy {
         // Removing visibly uninhabited return edges determines the control flow seen by MIR checks.
         // Cannot remove UB: removing the return edge would *introduce* UB if the call actually returned.
         PassPolicy::Required

@@ -3,11 +3,10 @@ use std::fmt;
 use rustc_errors::ErrorGuaranteed;
 use rustc_infer::infer::canonical::Canonical;
 use rustc_infer::infer::outlives::env::RegionBoundPairs;
-use rustc_middle::bug;
 use rustc_middle::mir::{Body, ConstraintCategory};
 use rustc_middle::ty::{self, Ty, TyCtxt, TypeFoldable, Unnormalized, Upcast};
-use rustc_span::Span;
 use rustc_span::def_id::DefId;
+use rustc_span::{Span, bug};
 use rustc_trait_selection::traits::ObligationCause;
 use rustc_trait_selection::traits::query::type_op::{self, TypeOpOutput};
 use tracing::{debug, instrument};
@@ -131,9 +130,9 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         category: ConstraintCategory<'tcx>,
     ) {
         self.prove_clause(
-            ty::ClauseKind::Trait(ty::TraitPredicate {
+            ty::ClauseKind::Trait(ty::TraitClause {
                 trait_ref,
-                polarity: ty::PredicatePolarity::Positive,
+                polarity: ty::ClausePolarity::Positive,
             }),
             locations,
             category,

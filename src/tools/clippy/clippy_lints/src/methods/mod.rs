@@ -78,6 +78,7 @@ mod map_flatten;
 mod map_identity;
 mod map_or_identity;
 mod map_unwrap_or;
+mod map_unwrap_or_default;
 mod map_unwrap_or_else;
 mod map_with_unused_argument_over_ranges;
 mod mut_mutex_lock;
@@ -94,6 +95,7 @@ mod open_options;
 mod option_as_ref_cloned;
 mod option_as_ref_deref;
 mod option_map_or_none;
+mod option_zip_none;
 mod or_fun_call;
 mod or_then_unwrap;
 mod path_buf_push_overwrite;
@@ -119,12 +121,14 @@ mod stable_sort_primitive;
 mod str_split;
 mod str_splitn;
 mod string_extend_chars;
+mod string_from_utf8_as_bytes;
 mod string_lit_chars_any;
 mod suspicious_command_arg_space;
 mod suspicious_map;
 mod suspicious_splitn;
 mod suspicious_to_owned;
 mod swap_with_temporary;
+mod trim_split_white_space;
 mod type_id_on_box;
 mod unbuffered_bytes;
 mod uninit_assumed_init;
@@ -162,9 +166,8 @@ use clippy_utils::res::{MaybeDef as _, MaybeTypeckRes as _};
 use clippy_utils::{contains_return, iter_input_pats, peel_blocks, sym};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::{self as hir, Expr, ExprKind, Node, Stmt, StmtKind, TraitItem, TraitItemKind};
-use rustc_lint::{LateContext, LateLintPass, LintContext as _};
+use rustc_lint::{LateContext, LateLintPass, LintContext as _, impl_lint_pass};
 use rustc_middle::ty::TraitRef;
-use rustc_session::impl_lint_pass;
 use rustc_span::{Span, Symbol};
 
 use crate::matches::manual_filter;
@@ -385,7 +388,7 @@ declare_clippy_lint! {
     /// let (chunks, remainder) = slice.as_chunks::<2>();
     /// for chunk in chunks {}
     /// ```
-    #[clippy::version = "1.93.0"]
+    #[clippy::version = "1.98.0"]
     pub CHUNKS_EXACT_TO_AS_CHUNKS,
     style,
     "using `chunks_exact` with constant when `as_chunks` is more ergonomic"
@@ -1775,7 +1778,7 @@ declare_clippy_lint! {
     /// ### Example
     /// ```no_run
     /// # use std::ffi::CStr;
-    /// # mod libc { pub unsafe fn puts(_: *const i8) {} }
+    /// # mod libc { pub unsafe fn puts(_: *const std::ffi::c_char) {} }
     /// fn needs_cstr(_: &CStr) {}
     ///
     /// needs_cstr(CStr::from_bytes_with_nul(b"Hello\0").unwrap());
@@ -1784,7 +1787,7 @@ declare_clippy_lint! {
     /// Use instead:
     /// ```no_run
     /// # use std::ffi::CStr;
-    /// # mod libc { pub unsafe fn puts(_: *const i8) {} }
+    /// # mod libc { pub unsafe fn puts(_: *const std::ffi::c_char) {} }
     /// fn needs_cstr(_: &CStr) {}
     ///
     /// needs_cstr(c"Hello");
@@ -2440,12 +2443,12 @@ declare_clippy_lint! {
 
 declare_clippy_lint! {
     /// ### What it does
-    /// Checks for usage of `option.map(_).unwrap_or(_)` or `option.map(_).unwrap_or_else(_)` or
-    /// `result.map(_).unwrap_or_else(_)`.
+    /// Checks the usage of `map(_).unwrap_or(_)`, `map(_).unwrap_or_default()`
+    /// or `map(_).unwrap_or_else(_)` for `Option` and `Result` types.
     ///
     /// ### Why is this bad?
     /// Readability, these can be written more concisely (resp.) as
-    /// `option.map_or(_, _)`, `option.map_or_else(_, _)` and `result.map_or_else(_, _)`.
+    /// `map_or(_, _)`, `map_or_default(_)` or `map_or_else(_, _)`.
     ///
     /// ### Known problems
     /// The order of the arguments is not in execution order
@@ -2457,6 +2460,7 @@ declare_clippy_lint! {
     /// # fn some_function(foo: ()) -> usize { 1 }
     /// option.map(|a| a + 1).unwrap_or(0);
     /// option.map(|a| a > 10).unwrap_or(false);
+    /// result.map(|a| vec![a]).unwrap_or_default();
     /// result.map(|a| a + 1).unwrap_or_else(some_function);
     /// ```
     ///
@@ -2467,12 +2471,13 @@ declare_clippy_lint! {
     /// # fn some_function(foo: ()) -> usize { 1 }
     /// option.map_or(0, |a| a + 1);
     /// option.is_some_and(|a| a > 10);
+    /// result.map_or_default(|a| vec![a]);
     /// result.map_or_else(some_function, |a| a + 1);
     /// ```
     #[clippy::version = "1.45.0"]
     pub MAP_UNWRAP_OR,
     pedantic,
-    "using `.map(f).unwrap_or(a)` or `.map(f).unwrap_or_else(func)`, which are more succinctly expressed as `map_or(a, f)` or `map_or_else(a, f)`"
+    "using `.map(f).unwrap_or(a)`, `map(f).unwrap_or_default()` or `.map(f).unwrap_or_else(func)`, which are more succinctly expressed as `map_or(a, f)`, `map_or_default(f)` or `map_or_else(a, f)`"
 }
 
 declare_clippy_lint! {
@@ -2977,6 +2982,28 @@ declare_clippy_lint! {
     pub OPTION_MAP_OR_NONE,
     style,
     "using `Option.map_or(None, f)`, which is more succinctly expressed as `and_then(f)`"
+}
+
+declare_clippy_lint! {
+    /// ### What it does
+    /// Checks for calls of the form `Option::zip(_, None)` or `Option::zip(None, _)`.
+    ///
+    /// ### Why is this bad?
+    /// `Option::zip` with `None` always returns `None`.
+    ///
+    /// ### Example
+    /// ```ignore
+    /// let foo = Some(5);
+    /// foo.zip(None);
+    /// ```
+    /// Use instead:
+    /// ```ignore
+    /// None
+    /// ```
+    #[clippy::version = "1.99.0"]
+    pub OPTION_ZIP_NONE,
+    suspicious,
+    "calling `.zip(None)` on an `Option` always returns `None`"
 }
 
 declare_clippy_lint! {
@@ -3786,6 +3813,28 @@ declare_clippy_lint! {
 
 declare_clippy_lint! {
     /// ### What it does
+    /// Check if the string is transformed to byte array and casted back to string.
+    ///
+    /// ### Why is this bad?
+    /// It's unnecessary, the string can be used directly.
+    ///
+    /// ### Example
+    /// ```no_run
+    /// std::str::from_utf8(&"Hello World!".as_bytes()[6..11]).unwrap();
+    /// ```
+    ///
+    /// Use instead:
+    /// ```no_run
+    /// &"Hello World!"[6..11];
+    /// ```
+    #[clippy::version = "1.50.0"]
+    pub STRING_FROM_UTF8_AS_BYTES,
+    complexity,
+    "casting string slices to byte slices and back"
+}
+
+declare_clippy_lint! {
+    /// ### What it does
     /// Checks for `<string_lit>.chars().any(|i| i == c)`.
     ///
     /// ### Why is this bad?
@@ -4024,6 +4073,27 @@ declare_clippy_lint! {
 
 declare_clippy_lint! {
     /// ### What it does
+    /// Warns about calling `str::trim` (or variants) before `str::split_whitespace`.
+    ///
+    /// ### Why is this bad?
+    /// `split_whitespace` already ignores leading and trailing whitespace.
+    ///
+    /// ### Example
+    /// ```no_run
+    /// " A B C ".trim().split_whitespace();
+    /// ```
+    /// Use instead:
+    /// ```no_run
+    /// " A B C ".split_whitespace();
+    /// ```
+    #[clippy::version = "1.62.0"]
+    pub TRIM_SPLIT_WHITESPACE,
+    style,
+    "using `str::trim()` or alike before `str::split_whitespace`"
+}
+
+declare_clippy_lint! {
+    /// ### What it does
     /// Looks for calls to `.type_id()` on a `Box<dyn _>`.
     ///
     /// ### Why is this bad?
@@ -4171,7 +4241,7 @@ declare_clippy_lint! {
     /// ### Why is this bad?
     /// In those cases, the `TryInto` and `TryFrom` trait implementation is a blanket impl that forwards
     /// to `Into` or `From`, which always succeeds.
-    /// The returned `Result<_, Infallible>` requires error handling to get the contained value
+    /// The returned `Result<_, !>` requires error handling to get the contained value
     /// even though the conversion can never fail.
     ///
     /// ### Example
@@ -4282,7 +4352,8 @@ declare_clippy_lint! {
     /// ### What it does
     /// Checks for usage of `fold` when a more succinct alternative exists.
     /// Specifically, this checks for `fold`s which could be replaced by `any`, `all`,
-    /// `sum` or `product`.
+    /// `sum` or `product`, and for folds over an `Option`'s iterator which could be
+    /// replaced by `map_or`.
     ///
     /// ### Why is this bad?
     /// Readability.
@@ -4290,11 +4361,15 @@ declare_clippy_lint! {
     /// ### Example
     /// ```no_run
     /// (0..3).fold(false, |acc, x| acc || x > 2);
+    /// # let opt = Some(1);
+    /// opt.iter().fold(0, |acc, x| acc | x);
     /// ```
     ///
     /// Use instead:
     /// ```no_run
     /// (0..3).any(|x| x > 2);
+    /// # let opt = Some(1);
+    /// opt.as_ref().map_or(0, |x| 0 | x);
     /// ```
     #[clippy::version = "pre 1.29.0"]
     pub UNNECESSARY_FOLD,
@@ -4430,37 +4505,41 @@ declare_clippy_lint! {
 
 declare_clippy_lint! {
     /// ### What it does
-    /// Converts some constructs mapping an Enum value for equality comparison.
+    /// Converts some constructs mapping an enum value for equality or variant checks.
     ///
     /// ### Why is this bad?
     /// Calls such as `opt.map_or(false, |val| val == 5)` are needlessly long and cumbersome,
     /// and can be reduced to, for example, `opt == Some(5)` assuming `opt` implements `PartialEq`.
     /// Also, calls such as `opt.map_or(true, |val| val == 5)` can be reduced to
     /// `opt.is_none_or(|val| val == 5)`.
+    /// Calls that map the two variants of a `Result` to opposite boolean constants can be
+    /// reduced to `is_ok()` or `is_err()`.
     /// This lint offers readability and conciseness improvements.
     ///
     /// ### Example
     /// ```no_run
-    /// pub fn a(x: Option<i32>) -> (bool, bool) {
+    /// pub fn a(x: Option<i32>, result: Result<i32, i32>) -> (bool, bool, bool) {
     ///     (
     ///         x.map_or(false, |n| n == 5),
     ///         x.map_or(true, |n| n > 5),
+    ///         result.map_or_else(|_| false, |_| true),
     ///     )
     /// }
     /// ```
     /// Use instead:
     /// ```no_run
-    /// pub fn a(x: Option<i32>) -> (bool, bool) {
+    /// pub fn a(x: Option<i32>, result: Result<i32, i32>) -> (bool, bool, bool) {
     ///     (
     ///         x == Some(5),
     ///         x.is_none_or(|n| n > 5),
+    ///         result.is_ok(),
     ///     )
     /// }
     /// ```
     #[clippy::version = "1.84.0"]
     pub UNNECESSARY_MAP_OR,
     style,
-    "reduce unnecessary calls to `.map_or(bool, …)`"
+    "reduce unnecessary calls to `.map_or(bool, …)` and `.map_or_else(…, …)`"
 }
 
 declare_clippy_lint! {
@@ -5019,6 +5098,7 @@ impl_lint_pass!(Methods => [
     OPTION_AS_REF_DEREF,
     OPTION_FILTER_MAP,
     OPTION_MAP_OR_NONE,
+    OPTION_ZIP_NONE,
     OR_FUN_CALL,
     OR_THEN_UNWRAP,
     PATH_BUF_PUSH_OVERWRITE,
@@ -5044,6 +5124,7 @@ impl_lint_pass!(Methods => [
     SOME_FILTER,
     STABLE_SORT_PRIMITIVE,
     STRING_EXTEND_CHARS,
+    STRING_FROM_UTF8_AS_BYTES,
     STRING_LIT_CHARS_ANY,
     STR_SPLIT_AT_NEWLINE,
     SUSPICIOUS_COMMAND_ARG_SPACE,
@@ -5052,6 +5133,7 @@ impl_lint_pass!(Methods => [
     SUSPICIOUS_SPLITN,
     SUSPICIOUS_TO_OWNED,
     SWAP_WITH_TEMPORARY,
+    TRIM_SPLIT_WHITESPACE,
     TYPE_ID_ON_BOX,
     UNBUFFERED_BYTES,
     UNINIT_ASSUMED_INIT,
@@ -5161,6 +5243,7 @@ impl<'tcx> LateLintPass<'tcx> for Methods {
                 swap_with_temporary::check(cx, expr, func, args);
                 ip_constant::check(cx, expr, func, args);
                 clone_on_copy::check_function(cx, expr);
+                string_from_utf8_as_bytes::check_call(cx, expr, func, args);
                 unwrap_expect_used::check_call(
                     cx,
                     expr,
@@ -5173,6 +5256,7 @@ impl<'tcx> LateLintPass<'tcx> for Methods {
                     &self.unwrap_allowed_ids,
                     &self.unwrap_allowed_aliases,
                 );
+                option_zip_none::check_call(cx, expr, func, args);
             },
             ExprKind::MethodCall(..) => {
                 self.check_methods(cx, expr);
@@ -5521,7 +5605,7 @@ impl Methods {
                 },
                 (sym::fold, [init, acc]) => {
                     manual_try_fold::check(cx, expr, init, acc, call_span, self.msrv);
-                    unnecessary_fold::check(cx, expr, init, acc, span);
+                    unnecessary_fold::check(cx, expr, recv, init, acc, span);
                 },
                 (sym::for_each, [arg]) => match method_call(recv) {
                     Some((sym::inspect, _, [_], span2, _)) => inspect_for_each::check(cx, expr, span2),
@@ -5639,6 +5723,7 @@ impl Methods {
                 (sym::map_or_else, [def, map]) => {
                     result_map_or_else_none::check(cx, expr, recv, def, map);
                     unnecessary_map_or_else::check(cx, expr, recv, def, map, call_span);
+                    unnecessary_map_or::check_map_or_else(cx, expr, recv, def, map);
                 },
                 (sym::next, []) => {
                     if let Some((name2, recv2, args2, _, _)) = method_call(recv) {
@@ -5863,6 +5948,7 @@ impl Methods {
                         },
                         Some((sym::map, m_recv, [arg], span, _)) => {
                             manual_is_variant_and::check_map_unwrap_or_default(cx, expr, m_recv, arg, span, self.msrv);
+                            map_unwrap_or_default::check(cx, expr, recv, m_recv, span, self.msrv);
                         },
                         Some((then_method @ (sym::then | sym::then_some), t_recv, [t_arg], _, _)) => {
                             obfuscated_if_else::check(
@@ -5963,7 +6049,9 @@ impl Methods {
                 (sym::map_or, [def, map]) => {
                     map_or_identity::check(cx, expr, recv, call_span, def, map);
                 },
-
+                (sym::split_whitespace, []) => {
+                    trim_split_white_space::check(cx, expr, recv, call_span);
+                },
                 (sym::to_string, []) => {
                     inefficient_to_string::check(cx, expr, recv, self.msrv);
                 },
@@ -5995,6 +6083,9 @@ impl Methods {
                         &self.unwrap_allowed_aliases,
                         unwrap_expect_used::Variant::Unwrap,
                     );
+                },
+                (sym::zip, [arg]) => {
+                    option_zip_none::check_method(cx, expr, recv, arg);
                 },
                 _ => {},
             }

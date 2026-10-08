@@ -2,10 +2,11 @@ use clippy_config::Conf;
 use clippy_utils::attrs::is_doc_hidden;
 use clippy_utils::diagnostics::{span_lint, span_lint_and_help, span_lint_and_then};
 use clippy_utils::{is_entrypoint_fn, is_trait_impl_item};
+use rustc_attr_ir::Attribute;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_errors::Applicability;
-use rustc_hir::{Attribute, FieldDef, ImplItemKind, ItemKind, Node, Safety, TraitItemKind};
-use rustc_lint::{EarlyContext, EarlyLintPass, LateContext, LateLintPass, LintContext as _};
+use rustc_hir::{FieldDef, ImplItemKind, ItemKind, Node, Safety, TraitItemKind};
+use rustc_lint::{EarlyContext, EarlyLintPass, LateContext, LateLintPass, LintContext as _, impl_lint_pass};
 use rustc_resolve::rustdoc::pulldown_cmark::Event::{
     Code, DisplayMath, End, FootnoteReference, HardBreak, Html, InlineHtml, InlineMath, Rule, SoftBreak, Start,
     TaskListMarker, Text,
@@ -18,7 +19,6 @@ use rustc_resolve::rustdoc::{
     DocFragment, add_doc_fragment, attrs_to_doc_fragments, main_body_opts, pulldown_cmark,
     source_span_for_markdown_range, span_of_fragments,
 };
-use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 use std::ops::Range;
 use url::Url;

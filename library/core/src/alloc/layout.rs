@@ -122,7 +122,7 @@ impl Layout {
     ///
     /// # Safety
     ///
-    /// This function is unsafe as it does not verify the preconditions from
+    /// The arguments passed must meet the preconditions from
     /// [`Layout::from_size_align`].
     #[stable(feature = "alloc_layout", since = "1.28.0")]
     #[rustc_const_stable(feature = "const_alloc_layout_unchecked", since = "1.36.0")]
@@ -252,8 +252,8 @@ impl Layout {
     ///
     /// [trait object]: ../../book/ch17-02-trait-objects.html
     /// [extern type]: ../../unstable-book/language-features/extern-types.html
-    #[stable(feature = "layout_for_ptr", since = "CURRENT_RUSTC_VERSION")]
-    #[rustc_const_stable(feature = "layout_for_ptr", since = "CURRENT_RUSTC_VERSION")]
+    #[stable(feature = "layout_for_ptr", since = "1.99.0")]
+    #[rustc_const_stable(feature = "layout_for_ptr", since = "1.99.0")]
     #[must_use]
     #[inline]
     pub const unsafe fn for_value_raw<T: ?Sized>(val: *const T) -> Self {

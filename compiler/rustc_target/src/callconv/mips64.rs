@@ -31,6 +31,7 @@ where
                 match float {
                     // C does not have the f16 type
                     Float::F16 => None,
+                    Float::F16B => unreachable!("`f16b` unsupported on mips64"),
                     Float::F32 => Some(Reg::f32()),
                     Float::F64 => Some(Reg::f64()),
                     Float::F128 => Some(Reg::f128()),
@@ -96,7 +97,7 @@ where
 
     // Detect need for padding
     let align = Ord::clamp(arg.layout.align.abi, dl.i64_align, dl.i128_align);
-    let pad_i32 = !offset.is_aligned(align);
+    let pad_i32 = u8::from(!offset.is_aligned(align));
 
     if !arg.layout.is_aggregate() {
         extend_integer_width_mips(arg, 64);

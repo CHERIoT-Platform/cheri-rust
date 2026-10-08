@@ -1,14 +1,14 @@
 use std::fmt;
+use std::num::NonZero;
 
 use either::{Either, Left, Right};
 use rustc_abi::{HasDataLayout, Size};
 use rustc_apfloat::Float;
 use rustc_apfloat::ieee::{Double, Half, Quad, Single};
 use rustc_macros::{StableHash, TyDecodable, TyEncodable};
+use rustc_span::bug;
 
-use super::{
-    AllocId, CtfeProvenance, InterpResult, Pointer, Provenance, ScalarSizeMismatch, interp_ok,
-};
+use super::{AllocId, CtfeProvenance, InterpResult, Pointer, Provenance, interp_ok};
 use crate::ty::ScalarInt;
 
 /// A `Scalar` represents an immediate, primitive value existing outside of a
@@ -35,7 +35,7 @@ pub enum Scalar<Prov = CtfeProvenance> {
     /// that is not the case, and pointers have an in-memory size (intended as their the size of their
     /// in-memory representation) which is different from their capacity (intended as the size of
     /// the memory address that they can hold in them).
-    Ptr { ptr: Pointer<Prov>, in_memory_size: u8, capacity: u8 },
+    Ptr { ptr: Pointer<Prov>, in_memory_size: NonZero<u8>, capacity: NonZero<u8> },
 }
 
 #[cfg(target_pointer_width = "64")]
@@ -111,8 +111,11 @@ impl<Prov> Scalar<Prov> {
         let dl = cx.data_layout();
         Scalar::Ptr {
             ptr,
-            in_memory_size: u8::try_from(dl.pointer_size().bytes()).unwrap(),
-            capacity: u8::try_from(dl.address_size().bytes()).unwrap(),
+            in_memory_size: u8::try_from(dl.pointer_size().bytes())
+                .ok()
+                .and_then(NonZero::new)
+                .unwrap(),
+            capacity: u8::try_from(dl.address_size().bytes()).ok().and_then(NonZero::new).unwrap(),
         }
     }
 
@@ -247,25 +250,23 @@ impl<Prov> Scalar<Prov> {
     /// This throws UB (instead of ICEing) on a size mismatch since size mismatches can arise in
     /// Miri when someone declares a function that we shim (such as `malloc`) with a wrong type.
     #[inline]
-    pub fn to_bits_or_ptr_internal(
-        self,
-        target_size: Size,
-    ) -> Result<Either<u128, Pointer<Prov>>, ScalarSizeMismatch> {
-        assert_ne!(target_size.bytes(), 0, "you should never look at the bits of a ZST");
-        Ok(match self {
-            Scalar::Int(int) => Left(int.try_to_bits(target_size).map_err(|size| {
-                ScalarSizeMismatch { target_size: target_size.bytes(), data_size: size.bytes() }
-            })?),
+    pub fn to_bits_or_ptr_internal(self, expected_size: Size) -> Either<u128, Pointer<Prov>> {
+        match self {
+            Scalar::Int(int) => Left(int.to_bits(expected_size)),
             Scalar::Ptr { ptr, capacity, .. } => {
-                if target_size.bytes() != u64::from(capacity) {
-                    return Err(ScalarSizeMismatch {
-                        target_size: target_size.bytes(),
-                        data_size: capacity.into(),
-                    });
+                let self_size = u64::from(capacity.get());
+                if expected_size.bytes() != self_size {
+                    #[cold]
+                    fn invalid(expected_size: u64, self_size: u64) -> ! {
+                        panic!("Scalar pointer has size {self_size} but expected {expected_size}")
+                    }
+
+                    invalid(expected_size.bytes(), self_size)
                 }
+
                 Right(ptr)
             }
-        })
+        }
     }
 
     /// Retrieve how many bits it takes to represent in memory this [`Scalar`].
@@ -285,7 +286,7 @@ impl<Prov> Scalar<Prov> {
     pub fn in_memory_size(self) -> Size {
         match self {
             Scalar::Int(int) => int.size(),
-            Scalar::Ptr { in_memory_size, .. } => Size::from_bytes(in_memory_size),
+            Scalar::Ptr { in_memory_size, .. } => Size::from_bytes(in_memory_size.get()),
         }
     }
 
@@ -306,21 +307,18 @@ impl<Prov> Scalar<Prov> {
     pub fn data_size(self) -> Size {
         match self {
             Scalar::Int(int) => int.size(),
-            Scalar::Ptr { capacity, .. } => Size::from_bytes(capacity),
+            Scalar::Ptr { capacity, .. } => Size::from_bytes(capacity.get()),
         }
     }
 }
 
 impl<'tcx, Prov: Provenance> Scalar<Prov> {
-    pub fn to_pointer(self, cx: &impl HasDataLayout) -> InterpResult<'tcx, Pointer<Option<Prov>>> {
-        match self
-            .to_bits_or_ptr_internal(cx.data_layout().address_size())
-            .map_err(|s| err_ub!(ScalarSizeMismatch(s)))?
-        {
-            Right(ptr) => interp_ok(ptr.into()),
+    pub fn to_pointer(self, cx: &impl HasDataLayout) -> Pointer<Option<Prov>> {
+        match self.to_bits_or_ptr_internal(cx.data_layout().address_size()) {
+            Right(ptr) => ptr.into(),
             Left(bits) => {
                 let addr = u64::try_from(bits).unwrap();
-                interp_ok(Pointer::without_provenance(addr))
+                Pointer::without_provenance(addr)
             }
         }
     }
@@ -340,8 +338,11 @@ impl<'tcx, Prov: Provenance> Scalar<Prov> {
             Scalar::Int(int) => Ok(int),
             Scalar::Ptr { ptr, in_memory_size, capacity } => {
                 if Prov::OFFSET_IS_ADDR {
-                    Ok(ScalarInt::try_from_uint(ptr.offset.bytes(), Size::from_bytes(capacity))
-                        .unwrap())
+                    Ok(ScalarInt::try_from_uint(
+                        ptr.offset.bytes(),
+                        Size::from_bytes(capacity.get()),
+                    )
+                    .unwrap())
                 } else {
                     // We know `offset` is relative, since `OFFSET_IS_ADDR == false`.
                     let (prov, offset) = ptr.into_raw_parts();
@@ -379,15 +380,7 @@ impl<'tcx, Prov: Provenance> Scalar<Prov> {
     #[inline]
     pub fn to_bits(self, target_size: Size) -> InterpResult<'tcx, u128> {
         assert_ne!(target_size.bytes(), 0, "you should never look at the bits of a ZST");
-        self.to_scalar_int()?
-            .try_to_bits(target_size)
-            .map_err(|size| {
-                err_ub!(ScalarSizeMismatch(ScalarSizeMismatch {
-                    target_size: target_size.bytes(),
-                    data_size: size.bytes(),
-                }))
-            })
-            .into()
+        interp_ok(self.to_scalar_int()?.to_bits(target_size))
     }
 
     pub fn to_bool(self) -> InterpResult<'tcx, bool> {

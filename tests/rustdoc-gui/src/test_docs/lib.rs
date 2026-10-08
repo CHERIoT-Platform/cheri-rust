@@ -14,6 +14,7 @@
 #![feature(macro_derive)]
 #![feature(negative_impls)]
 #![feature(doc_notable_trait)]
+#![feature(decl_macro)]
 
 /*!
 Enable the feature <span class="stab portability"><code>some-feature</code></span> to enjoy
@@ -679,12 +680,12 @@ pub mod long_list {
     //!
     //! Another list:
     //!
-    //! * [`TryFromBytes`](#a) indicates that a type may safely be converted from certain byte
-    //!   sequence (conditional on runtime checks)
-    //! * [`FromZeros`](#a) indicates that a sequence of zero bytes represents a valid instance of
-    //!   a type
-    //! * [`FromBytes`](#a) indicates that a type may safely be converted from an arbitrary byte
-    //!   sequence
+    //! 100. [`TryFromBytes`](#a) indicates that a type may safely be converted from certain byte
+    //!      sequence (conditional on runtime checks)
+    //! 101. [`FromZeros`](#a) indicates that a sequence of zero bytes represents a valid instance of
+    //!      a type
+    //! 102. [`FromBytes`](#a) indicates that a type may safely be converted from an arbitrary byte
+    //!      sequence
 }
 
 pub struct ImplDoc;
@@ -821,4 +822,8 @@ pub mod notable {
 
     pub struct Wrapper;
     impl Labeled for Wrapper {}
+}
+
+pub macro decl_macro {
+    () => { "bar" }
 }

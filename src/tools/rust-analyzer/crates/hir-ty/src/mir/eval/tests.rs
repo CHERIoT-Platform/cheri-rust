@@ -5,19 +5,14 @@ use syntax::{TextRange, TextSize};
 use test_fixture::WithFixture;
 
 use crate::{
-    db::HirDatabase,
-    display::DisplayTarget,
-    mir::MirLowerError,
-    next_solver::{DbInterner, GenericArgs},
-    setup_tracing,
-    test_db::TestDB,
+    db::HirDatabase, display::DisplayTarget, mir::MirLowerError, next_solver::GenericArgs,
+    setup_tracing, test_db::TestDB,
 };
 
 use super::{MirEvalError, interpret_mir};
 
 fn eval_main(db: &TestDB, file_id: EditionedFileId) -> Result<(String, String), MirEvalError<'_>> {
     crate::attach_db(db, || {
-        let interner = DbInterner::new_no_crate(db);
         let module_id = db.module_for_file(file_id.file_id(db));
         let def_map = module_id.def_map(db);
         let scope = &def_map[module_id].scope;
@@ -39,7 +34,7 @@ fn eval_main(db: &TestDB, file_id: EditionedFileId) -> Result<(String, String), 
         let body = db
             .monomorphized_mir_body(
                 func_id.into(),
-                GenericArgs::empty(interner).store(),
+                GenericArgs::empty().store(),
                 crate::ParamEnvAndCrate {
                     param_env: db.trait_environment(func_id.into()),
                     krate: func_id.krate(db),
@@ -455,6 +450,29 @@ fn main() {
     s.f(5i64);
 }
         "#,
+    );
+}
+
+#[test]
+fn region_infer_var_does_not_escape_impl_lookup() {
+    check_pass(
+        r#"
+//- minicore: fn, sized
+
+trait Bound<T> {}
+trait Trait { fn f(self); }
+
+struct S;
+
+impl<'a> Bound<&'a ()> for S {}
+impl<'a, T: Bound<&'a ()>> Trait for T {
+    fn f(self) { make::<'a>(); }
+}
+
+fn make<'a>() -> impl Fn(&'a ()) { |_| {} }
+
+fn main() { S.f(); }
+"#,
     );
 }
 

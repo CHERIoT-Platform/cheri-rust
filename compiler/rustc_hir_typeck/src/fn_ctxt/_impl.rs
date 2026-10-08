@@ -10,7 +10,7 @@ use rustc_errors::{
 use rustc_hir::attrs::lang_items::LangItem;
 use rustc_hir::def::{CtorOf, DefKind, Res};
 use rustc_hir::def_id::DefId;
-use rustc_hir::intravisit::VisitorExt;
+use rustc_hir::intravisit::Visitor;
 use rustc_hir::{self as hir, AmbigArg, ExprKind, GenericArg, HirId, Node, QPath, intravisit};
 use rustc_hir_analysis::hir_ty_lowering::errors::GenericsArgsErrExtend;
 use rustc_hir_analysis::hir_ty_lowering::generics::{
@@ -23,7 +23,7 @@ use rustc_hir_analysis::hir_ty_lowering::{
 use rustc_infer::infer::canonical::{Canonical, OriginalQueryValues, QueryResponse};
 use rustc_infer::infer::{DefineOpaqueTypes, InferResult};
 use rustc_infer::traits::TraitErrors;
-use rustc_lint::builtin::SELF_CONSTRUCTOR_FROM_OUTER_ITEM;
+use rustc_lint_defs::builtin::{SELF_CONSTRUCTOR_FROM_OUTER_ITEM, UNREACHABLE_CODE};
 use rustc_middle::ty::adjustment::{
     Adjust, Adjustment, AutoBorrow, AutoBorrowMutability, DerefAdjustKind,
 };
@@ -32,11 +32,9 @@ use rustc_middle::ty::{
     SizedTraitKind, SplattedDef, Ty, TyCtxt, TypeFoldable, TypeVisitable, TypeVisitableExt,
     Unnormalized, UserArgs, UserSelfTy,
 };
-use rustc_middle::{bug, span_bug};
-use rustc_session::lint;
-use rustc_span::Span;
 use rustc_span::def_id::LocalDefId;
 use rustc_span::hygiene::DesugaringKind;
+use rustc_span::{Span, bug, span_bug};
 use rustc_trait_selection::error_reporting::infer::need_type_info::TypeAnnotationNeeded;
 use rustc_trait_selection::traits::{
     self, NormalizeExt, ObligationCauseCode, StructurallyNormalizeExt, TraitEngine,
@@ -49,38 +47,6 @@ use crate::method::{self, MethodCallee};
 use crate::{BreakableCtxt, Diverges, Expectation, FnCtxt, LoweredTy};
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
-    /// Transform generic args for inherent associated type constants (IACs).
-    ///
-    /// IACs have a different generic parameter structure than regular associated constants:
-    /// - Regular assoc const: parent (impl) generic params + own generic params
-    /// - IAC (type_const): Self type + own generic params
-    pub(crate) fn transform_args_for_inherent_type_const(
-        &self,
-        def_id: DefId,
-        args: GenericArgsRef<'tcx>,
-    ) -> GenericArgsRef<'tcx> {
-        let tcx = self.tcx;
-        if !tcx.is_type_const(def_id) {
-            return args;
-        }
-        let Some(assoc_item) = tcx.opt_associated_item(def_id) else {
-            return args;
-        };
-        if !matches!(assoc_item.container, ty::AssocContainer::InherentImpl) {
-            return args;
-        }
-
-        let impl_def_id = assoc_item.container_id(tcx);
-        let generics = tcx.generics_of(def_id);
-        let impl_args = &args[..generics.parent_count];
-        let self_ty = tcx.type_of(impl_def_id).instantiate(tcx, impl_args).skip_norm_wip();
-        // Build new args: [Self, own_args...]
-        let own_args = &args[generics.parent_count..];
-        tcx.mk_args_from_iter(
-            std::iter::once(ty::GenericArg::from(self_ty)).chain(own_args.iter().copied()),
-        )
-    }
-
     /// Produces warning on the given node, if the current point in the
     /// function is unreachable, and there hasn't been another warning.
     pub(crate) fn warn_if_unreachable(&self, id: HirId, span: Span, kind: &str) {
@@ -91,8 +57,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             custom_note: Option<&'b str>,
         }
 
-        impl<'a, 'b, 'c> Diagnostic<'a, ()> for UnreachableItem<'b, 'c> {
-            fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+        impl<'a, 'b, 'c> Diagnostic<'a> for UnreachableItem<'b, 'c> {
+            fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a> {
                 let Self { kind, span, orig_span, custom_note } = self;
                 let msg = format!("unreachable {kind}");
                 Diag::new(dcx, level, msg.clone()).with_span_label(span, msg).with_span_label(
@@ -133,7 +99,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         debug!("warn_if_unreachable: id={:?} span={:?} kind={}", id, span, kind);
 
         self.tcx().emit_node_span_lint(
-            lint::builtin::UNREACHABLE_CODE,
+            UNREACHABLE_CODE,
             id,
             span,
             UnreachableItem { kind, span, orig_span, custom_note },
@@ -141,11 +107,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     }
 
     /// Resolves type and const variables in `t` if possible. Unlike the infcx
-    /// version (resolve_vars_if_possible), this version will
+    /// version (deeply_resolve_ignoring_regions), this version will
     /// also select obligations if it seems useful, in an effort
     /// to get more type information.
     #[instrument(skip(self), level = "debug", ret)]
-    pub(crate) fn resolve_vars_with_obligations<T: TypeFoldable<TyCtxt<'tcx>>>(
+    pub(crate) fn deeply_resolve_ignoring_regions_with_obligations<
+        T: TypeFoldable<TyCtxt<'tcx>>,
+    >(
         &self,
         mut t: T,
     ) -> T {
@@ -156,7 +124,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
 
         // If `t` is a type variable, see whether we already know what it is.
-        t = self.resolve_vars_if_possible(t);
+        t = self.deeply_resolve_ignoring_regions(t);
         if !t.has_non_region_infer() {
             debug!(?t);
             return t;
@@ -167,7 +135,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // indirect dependencies that don't seem worth tracking
         // precisely.
         self.select_obligations_where_possible(|_| {});
-        self.resolve_vars_if_possible(t)
+        self.deeply_resolve_ignoring_regions(t)
     }
 
     pub(crate) fn record_deferred_call_resolution(
@@ -199,7 +167,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     #[inline]
     pub(crate) fn write_ty(&self, id: HirId, ty: Ty<'tcx>) {
-        debug!("write_ty({:?}, {:?}) in fcx {}", id, self.resolve_vars_if_possible(ty), self.tag());
+        debug!(
+            "write_ty({:?}, {:?}) in fcx {}",
+            id,
+            self.deeply_resolve_ignoring_regions(ty),
+            self.tag()
+        );
         let mut typeck = self.typeck_results.borrow_mut();
         let mut node_ty = typeck.node_types_mut();
 
@@ -261,7 +234,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     pub(crate) fn write_splatted_call(
         &self,
         hir_id: HirId,
-        span: Span,
         fn_id: SplatLoweringInfo<'tcx>,
         callee_generic_args: Option<GenericArgsRef<'tcx>>,
         first_tupled_arg_index: u16,
@@ -569,7 +541,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
     }
 
-    pub(crate) fn lower_ty(&self, hir_ty: &hir::Ty<'tcx>) -> LoweredTy<'tcx> {
+    pub(crate) fn lower_ty(&self, hir_ty: &hir::Ty<'_>) -> LoweredTy<'tcx> {
         let ty = self.lowerer().lower_ty(hir_ty);
         self.register_wf_obligation(ty.into(), hir_ty.span, ObligationCauseCode::WellFormed(None));
         LoweredTy::from_raw(self, hir_ty.span, ty)
@@ -629,7 +601,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     pub(crate) fn lower_const_arg(
         &self,
-        const_arg: &'tcx hir::ConstArg<'tcx>,
+        const_arg: &hir::ConstArg<'_>,
         ty: Ty<'tcx>,
     ) -> ty::Const<'tcx> {
         let ct = self.lowerer().lower_const_arg(const_arg, ty);
@@ -1034,6 +1006,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         span: Span,
         path_span: Span,
         hir_id: HirId,
+        has_args: bool,
     ) -> (Ty<'tcx>, Res) {
         let tcx = self.tcx;
 
@@ -1072,7 +1045,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             Res::Def(DefKind::Ctor(CtorOf::Variant, _), _) => {
                 err_extend = GenericsArgsErrExtend::DefVariant(segments);
             }
-            Res::Def(DefKind::AssocFn | DefKind::AssocConst { .. }, def_id) => {
+            Res::Def(DefKind::AssocFn | DefKind::AssocConst, def_id) => {
                 let assoc_item = tcx.associated_item(def_id);
                 let container = assoc_item.container;
                 let container_id = assoc_item.container_id(tcx);
@@ -1266,7 +1239,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     let (ctor_kind, ctor_def_id) = adt_def.non_enum_variant().ctor.unwrap();
                     // Check the visibility of the ctor.
                     let vis = tcx.visibility(ctor_def_id);
-                    if !vis.is_accessible_from(tcx.parent_module(hir_id).to_def_id(), tcx) {
+                    if !vis.is_accessible_from(self.mod_id, tcx) {
                         self.dcx()
                             .emit_err(CtorIsPrivate { span, def: tcx.def_path_str(adt_def.did()) });
                     }
@@ -1281,22 +1254,55 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         "the `Self` constructor can only be used with tuple or unit structs",
                     );
                     if let Some(adt_def) = ty.normalized.ty_adt_def() {
-                        match adt_def.adt_kind() {
-                            AdtKind::Enum => {
-                                err.help("did you mean to use one of the enum's variants?");
-                            }
-                            AdtKind::Struct | AdtKind::Union => {
-                                err.span_suggestion(
-                                    span,
-                                    "use curly brackets",
-                                    "Self { /* fields */ }",
-                                    Applicability::HasPlaceholders,
-                                );
+                        let def_id = self.body_def_id.to_def_id();
+                        if !has_args
+                            && let Some(assoc) = tcx.opt_associated_item(def_id)
+                            && assoc.is_method()
+                        {
+                            let self_ty =
+                                tcx.fn_sig(def_id).instantiate_identity().skip_binder().inputs()[0];
+                            let applicability = if let ty::Adt(..) = self_ty.kind() {
+                                // We're within a method that takes ownership of `Self`, likely a
+                                // builder, so this is most likely a typo.
+                                Applicability::MachineApplicable
+                            } else {
+                                // We still might have meant `self` instead of `Self`.
+                                Applicability::MaybeIncorrect
+                            };
+                            err.span_suggestion_verbose(
+                                span,
+                                format!(
+                                    "you might have meant to refer to the `self` binding of type \
+                                     `{self_ty}`",
+                                ),
+                                "self".to_string(),
+                                applicability,
+                            );
+                        } else {
+                            match adt_def.adt_kind() {
+                                AdtKind::Enum => {
+                                    err.span_help(
+                                        tcx.def_span(adt_def.did()),
+                                        if adt_def.variants().is_empty() {
+                                            "the enum is unconstructable because it has no variants"
+                                        } else {
+                                            "you might have meant to use one of the enum's variants"
+                                        },
+                                    );
+                                }
+                                AdtKind::Struct | AdtKind::Union => {
+                                    err.span_suggestion_verbose(
+                                        span,
+                                        "use curly brackets",
+                                        "Self { /* fields */ }",
+                                        Applicability::HasPlaceholders,
+                                    );
+                                }
                             }
                         }
                     }
-                    let reported = err.emit();
-                    return (Ty::new_error(tcx, reported), res);
+                    let guar = err.emit_err();
+                    return (Ty::new_error(tcx, guar), res);
                 }
             }
         } else {
@@ -1346,7 +1352,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 &mut self,
                 preceding_args: &[ty::GenericArg<'tcx>],
                 param: &ty::GenericParamDef,
-                arg: &GenericArg<'tcx>,
+                arg: &GenericArg<'_>,
             ) -> ty::GenericArg<'tcx> {
                 match (&param.kind, arg) {
                     (GenericParamDefKind::Lifetime, GenericArg::Lifetime(lt)) => self
@@ -1400,7 +1406,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         }
 
-        let args_raw = implicit_args.unwrap_or_else(|| {
+        let args_for_user_type = implicit_args.unwrap_or_else(|| {
             lower_generic_args(
                 self,
                 def_id,
@@ -1418,17 +1424,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             )
         });
 
-        let args_for_user_type = if let Res::Def(DefKind::AssocConst { .. }, def_id) = res {
-            self.transform_args_for_inherent_type_const(def_id, args_raw)
-        } else {
-            args_raw
-        };
-
         // First, store the "user args" for later.
         self.write_user_type_annotation_from_args(hir_id, def_id, args_for_user_type, user_self_ty);
 
         // Normalize only after registering type annotations.
-        let args = self.normalize(span, Unnormalized::new_wip(args_raw));
+        let args = self.normalize(span, Unnormalized::new_wip(args_for_user_type));
 
         self.add_required_obligations_for_hir(span, def_id, args, hir_id);
 
@@ -1465,12 +1465,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
 
         debug!("instantiate_value_path: type of {:?} is {:?}", hir_id, ty_instantiated);
-
-        let args = if let Res::Def(DefKind::AssocConst { .. }, def_id) = res {
-            self.transform_args_for_inherent_type_const(def_id, args)
-        } else {
-            args
-        };
 
         self.write_args(hir_id, args);
 
@@ -1518,7 +1512,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         sp: Span,
         ct: ty::Const<'tcx>,
     ) -> ty::Const<'tcx> {
-        let ct = self.resolve_vars_with_obligations(ct);
+        let ct = self.deeply_resolve_ignoring_regions_with_obligations(ct);
 
         if self.next_trait_solver()
             && let ty::ConstKind::Alias(..) = ct.kind()
@@ -1553,7 +1547,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// If no resolution is possible, then an error is reported.
     /// Numeric inference variables may be left unresolved.
     pub(crate) fn structurally_resolve_type(&self, sp: Span, ty: Ty<'tcx>) -> Ty<'tcx> {
-        let ty = self.resolve_vars_with_obligations(ty);
+        let ty = self.deeply_resolve_ignoring_regions_with_obligations(ty);
 
         if !ty.is_ty_var() { ty } else { self.type_must_be_known_at_this_point(sp, ty) }
     }
@@ -1569,7 +1563,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     TypeAnnotationNeeded::E0282,
                     true,
                 )
-                .emit()
+                .emit_err()
         });
         let err = Ty::new_error(self.tcx, guar);
         self.demand_suptype(sp, err, ty);
@@ -1595,7 +1589,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         TypeAnnotationNeeded::E0282,
                         true,
                     )
-                    .emit()
+                    .emit_err()
             });
             // FIXME: Infer `?ct = {const error}`?
             ty::Const::new_error(self.tcx, e)

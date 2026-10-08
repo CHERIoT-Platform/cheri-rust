@@ -18,6 +18,7 @@ efiapi
 fastcall
 fastcall-unwind
 gpu-kernel
+llvm-intrinsic
 msp430-interrupt
 ptx-kernel
 riscv-interrupt-m
@@ -35,7 +36,6 @@ sysv64-unwind
 tail
 thiscall
 thiscall-unwind
-unadjusted
 vectorcall
 vectorcall-unwind
 win64

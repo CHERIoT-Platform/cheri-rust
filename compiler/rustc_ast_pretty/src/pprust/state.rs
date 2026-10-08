@@ -364,20 +364,18 @@ fn space_between(tt1: &TokenTree, tt2: &TokenTree) -> bool {
 
         // IDENT + `!`: `println!()`, but `if !x { ... }` needs a space after the `if`
         (
-            Tok(tk::Token { kind: tk::Ident(sym, is_raw), span }, _),
+            Tok(tk::Token { kind: tk::Ident(sym, kind), span }, _),
             Tok(tk::Token { kind: tk::Bang, .. }, _),
-        ) if !Ident::new(*sym, *span).is_reserved() || matches!(is_raw, tk::IdentIsRaw::Yes) => {
-            false
-        }
+        ) if !Ident::new(*sym, *span).is_reserved() || matches!(kind, tk::IdentKind::Raw) => false,
 
         // IDENT|`fn`|`Self`|`pub` + `(`: `f(3)`, `fn(x: u8)`, `Self()`, `pub(crate)`,
         //      but `let (a, b) = (1, 2)` needs a space after the `let`
-        (Tok(tk::Token { kind: tk::Ident(sym, is_raw), span }, _), Del(_, _, Parenthesis, _))
+        (Tok(tk::Token { kind: tk::Ident(sym, kind), span }, _), Del(_, _, Parenthesis, _))
             if !Ident::new(*sym, *span).is_reserved()
                 || *sym == kw::Fn
                 || *sym == kw::SelfUpper
                 || *sym == kw::Pub
-                || matches!(is_raw, tk::IdentIsRaw::Yes) =>
+                || matches!(kind, tk::IdentKind::Raw) =>
         {
             false
         }
@@ -1076,17 +1074,17 @@ pub trait PrintState<'a>: std::ops::Deref<Target = pp::Printer> + std::ops::Dere
             tk::Literal(lit) => literal_to_string(lit).into(),
 
             /* Name components */
-            tk::Ident(name, is_raw) => {
-                IdentPrinter::new(name, is_raw.to_print_mode_ident(), convert_dollar_crate)
+            tk::Ident(name, kind) => {
+                IdentPrinter::new(name, kind.to_print_mode_ident(), convert_dollar_crate)
                     .to_string()
                     .into()
             }
-            tk::NtIdent(ident, is_raw) => {
-                IdentPrinter::for_ast_ident(ident, is_raw.to_print_mode_ident()).to_string().into()
+            tk::NtIdent(ident, kind) => {
+                IdentPrinter::for_ast_ident(ident, kind.to_print_mode_ident()).to_string().into()
             }
 
-            tk::Lifetime(name, is_raw) | tk::NtLifetime(Ident { name, .. }, is_raw) => {
-                IdentPrinter::new(name, is_raw.to_print_mode_lifetime(), None).to_string().into()
+            tk::Lifetime(name, kind) | tk::NtLifetime(Ident { name, .. }, kind) => {
+                IdentPrinter::new(name, kind.to_print_mode_lifetime(), None).to_string().into()
             }
 
             /* Other */
@@ -1462,8 +1460,8 @@ impl<'a> State<'a> {
                 self.print_type(ty);
                 self.print_view(fields);
             }
-            ast::TyKind::DirectConstArg(expr) => {
-                self.word_nbsp("core::direct_const_arg!");
+            ast::TyKind::GcaMacro(expr) => {
+                self.word_nbsp("core::gca!");
                 self.popen();
                 self.print_expr(expr, FixupContext::default());
                 self.pclose();
@@ -2011,10 +2009,6 @@ impl<'a> State<'a> {
                 }
                 self.pclose();
             }
-            PatKind::Box(inner) => {
-                self.word("box ");
-                self.print_pat_paren_if_or(inner);
-            }
             PatKind::Deref(inner) => {
                 self.word("deref!");
                 self.popen();
@@ -2111,15 +2105,15 @@ impl<'a> State<'a> {
         }
     }
 
-    fn print_coroutine_kind(&mut self, coroutine_kind: ast::CoroutineKind) {
-        match coroutine_kind {
-            ast::CoroutineKind::Gen { .. } => {
+    fn print_coroutine_marker(&mut self, coroutine_marker: ast::CoroutineMarker) {
+        match coroutine_marker.kind {
+            ast::CoroutineKind::Gen => {
                 self.word_nbsp("gen");
             }
-            ast::CoroutineKind::Async { .. } => {
+            ast::CoroutineKind::Async => {
                 self.word_nbsp("async");
             }
-            ast::CoroutineKind::AsyncGen { .. } => {
+            ast::CoroutineKind::AsyncGen => {
                 self.word_nbsp("async");
                 self.word_nbsp("gen");
             }
@@ -2294,7 +2288,9 @@ impl<'a> State<'a> {
 
     fn print_fn_header_info(&mut self, header: ast::FnHeader) {
         self.print_constness(header.constness);
-        header.coroutine_kind.map(|coroutine_kind| self.print_coroutine_kind(coroutine_kind));
+        header
+            .coroutine_marker
+            .map(|coroutine_marker| self.print_coroutine_marker(coroutine_marker));
         self.print_safety(header.safety);
 
         match header.ext {

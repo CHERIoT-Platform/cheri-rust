@@ -12,9 +12,8 @@ use itertools::Itertools as _;
 use rustc_errors::{Applicability, Diag};
 use rustc_hir::def::Res;
 use rustc_hir::{Arm, BinOpKind, Block, Expr, ExprKind, HirId, PatKind, PathSegment, PrimTy, QPath, StmtKind};
-use rustc_lint::{LateContext, LateLintPass};
+use rustc_lint::{LateContext, LateLintPass, impl_lint_pass};
 use rustc_middle::ty::Ty;
-use rustc_session::impl_lint_pass;
 use rustc_span::{Span, SyntaxContext};
 use std::cmp::Ordering;
 use std::ops::Deref;
@@ -206,7 +205,7 @@ fn maybe_emit_suggestion<'tcx>(cx: &LateContext<'tcx>, suggestion: &ClampSuggest
     };
     let suggestion = format!("{assignment}{input}.clamp({min}, {max}){semicolon}");
     let msg = "clamp-like pattern without using clamp function";
-    let lint_builder = |d: &mut Diag<'_, ()>| {
+    let lint_builder = |d: &mut Diag<'_>| {
         d.span_suggestion(*span, "replace with clamp", suggestion, Applicability::MaybeIncorrect);
         if *is_float {
             d.note("clamp will panic if max < min, min.is_nan(), or max.is_nan()")
@@ -645,8 +644,8 @@ impl<'tcx> BinaryOp<'tcx> {
 ///
 ///     - Which can appear on the left or right side of either statement
 ///
-///     - The binary operators must define a finite range for the shared argument. To put this in
-///       the terms of Rust `std` library, the following ranges are acceptable
+///     - The binary operators must define a finite range for the shared argument. To put this in the terms of Rust
+///       `std` library, the following ranges are acceptable
 ///
 ///         - `Range`
 ///         - `RangeInclusive`
@@ -654,8 +653,8 @@ impl<'tcx> BinaryOp<'tcx> {
 ///       And all other range types are not accepted. For the purposes of `clamp` it's irrelevant
 ///       whether the range is inclusive or not, the output is the same.
 ///
-/// - The result of each if statement must be equal to the argument unique to that if statement. The
-///   result can not be the shared argument in either case.
+/// - The result of each if statement must be equal to the argument unique to that if statement. The result can not be
+///   the shared argument in either case.
 fn is_clamp_meta_pattern<'tcx>(
     cx: &LateContext<'tcx>,
     ctxt: SyntaxContext,

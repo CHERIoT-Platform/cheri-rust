@@ -3,9 +3,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::core::backend::CodegenBackendKind;
 use crate::core::build_steps::compile::{
-    ArtifactKeepMode, add_to_sysroot, run_cargo, rustc_cargo, rustc_cargo_env, std_cargo,
-    std_crates_for_make_run,
+    ArtifactKeepMode, add_to_sysroot, run_cargo, rustc_cargo, std_cargo, std_crates_for_make_run,
 };
 use crate::core::build_steps::tool;
 use crate::core::build_steps::tool::{
@@ -16,10 +16,11 @@ use crate::core::builder::{
     self, Alias, Builder, Cargo, CommandLineStep, Kind, RunConfig, ShouldRun, Step, StepMetadata,
     crate_description,
 };
-use crate::core::config::{Subcommand, TargetSelection};
+use crate::core::compiler::Compiler;
+use crate::core::config::TargetSelection;
+use crate::core::session::Mode;
 use crate::utils::build_stamp::{self, BuildStamp};
 use crate::utils::helpers::t;
-use crate::{CodegenBackendKind, Compiler, Mode};
 
 /// Allows individual check-step instances to keep track of whether they
 /// represent `cargo check` or `cargo fix`, independently of [`Builder::kind`].
@@ -110,7 +111,7 @@ impl CommandLineStep for Std {
         );
 
         std_cargo(builder, target, &mut cargo, &self.crates);
-        if matches!(builder.config.cmd, Subcommand::Fix) {
+        if matches!(builder.kind, Kind::Fix) {
             // By default, cargo tries to fix all targets. Tell it not to fix tests until we've added `test` to the sysroot.
             cargo.arg("--lib");
         }
@@ -249,6 +250,7 @@ impl Step for PrepareRustcRmetaSysroot {
 
         // Copy the generated rmeta artifacts to a separate directory
         let dir = builder
+            .config
             .out
             .join(build_compiler.host)
             .join(format!("stage{}-rustc-rmeta-artifacts", build_compiler.stage + 1));
@@ -287,6 +289,7 @@ impl Step for PrepareStdRmetaSysroot {
 
         // Copy the generated rmeta artifacts to a separate directory
         let dir = builder
+            .config
             .out
             .join(self.build_compiler.host)
             .join(format!("stage{}-std-rmeta-artifacts", self.build_compiler.stage));
@@ -381,6 +384,16 @@ impl CommandLineStep for Rustc {
         // than just the leaf crate.
         for krate in &*self.crates {
             cargo.arg("-p").arg(krate);
+        }
+        // When we run `x check compiler --all-targets`, then the `Rustc` step is executed in
+        // two "modes" - one with all in-tree rustc crates, and a second time with empty crates
+        // in `PrepareRustcRmetaSysroot`, to prepare .rmeta files for RustcPrivate tools.
+        // If we use `--all-targets` for both, then we will end up with a duplicated .rmeta file
+        // in the sysroot, which breaks everything.
+        // So we only use `--all-targets` for the default case where crates are empty.
+        // This will also be used when someone does `x check compiler/<rustc-crate>`.
+        if !self.crates.is_empty() && builder.sess.config.cmd.check_all_targets() {
+            cargo.arg("--all-targets");
         }
 
         let _guard = builder.msg(
@@ -580,7 +593,6 @@ impl CommandLineStep for CraneliftCodegenBackend {
         cargo
             .arg("--manifest-path")
             .arg(builder.src.join("compiler/rustc_codegen_cranelift/Cargo.toml"));
-        rustc_cargo_env(builder, &mut cargo, target);
         self.build_compiler.configure_cargo(&mut cargo);
 
         let _guard = builder.msg(
@@ -645,7 +657,7 @@ impl CommandLineStep for GccCodegenBackend {
 
     fn run(self, builder: &Builder<'_>) {
         // FIXME: remove once https://github.com/rust-lang/rust/issues/112393 is resolved
-        if builder.build.config.vendor {
+        if builder.sess.config.vendor {
             println!("Skipping checking of `rustc_codegen_gcc` with vendoring enabled.");
             return;
         }
@@ -663,7 +675,6 @@ impl CommandLineStep for GccCodegenBackend {
         );
 
         cargo.arg("--manifest-path").arg(builder.src.join("compiler/rustc_codegen_gcc/Cargo.toml"));
-        rustc_cargo_env(builder, &mut cargo, target);
         self.build_compiler.configure_cargo(&mut cargo);
 
         let _guard =

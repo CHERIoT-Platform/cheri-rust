@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use rustc_data_structures::fingerprint::{Fingerprint, PackedFingerprint};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_data_structures::profiling::QueryInvocationId;
-use rustc_data_structures::sharded::{self, ShardedHashMap};
+use rustc_data_structures::sharded::ShardedHashMap;
 use rustc_data_structures::stable_hash::{StableHash, StableHasher};
 use rustc_data_structures::sync::{AtomicU64, Lock, WorkerLocal};
 use rustc_data_structures::unord::UnordMap;
@@ -48,7 +48,7 @@ pub enum QuerySideEffect {
     /// effect dep node as a dependency.
     Diagnostic(DiagInner),
     /// Records the feature used during query execution.
-    /// This feature will be inserted into `sess.used_features`
+    /// This feature will be inserted into `query_system.used_features`
     /// if we mark the query as green, as that query will have
     /// the side effect dep node as a dependency.
     CheckFeature { symbol: Symbol },
@@ -779,7 +779,7 @@ impl DepGraphData {
                     tcx.dcx().emit_diagnostic(diagnostic.clone());
                 }
                 QuerySideEffect::CheckFeature { symbol } => {
-                    tcx.sess.used_features.lock().insert(*symbol, dep_node_index.as_u32());
+                    tcx.query_system.used_features.lock().insert(*symbol, dep_node_index);
                 }
             }
 
@@ -1143,6 +1143,13 @@ pub struct WorkProduct {
     pub saved_files: UnordMap<String, String>,
 }
 
+impl WorkProduct {
+    /// The metadata work product is not produced by any CGU and thus its
+    /// name cannot be derived from `CodegenUnit`. Both the writers and readers
+    /// of the metadata work product use this constant to agree on the name.
+    pub const METADATA_WORKPRODUCT_CGU_NAME: &str = "metadata";
+}
+
 pub type WorkProductMap = UnordMap<WorkProductId, WorkProduct>;
 
 // Index type for `DepNodeData`'s edges.
@@ -1230,8 +1237,7 @@ impl CurrentDepGraph {
         CurrentDepGraph {
             encoder: GraphEncoder::new(session, encoder, prev_index_space_len, previous),
             anon_node_to_index: ShardedHashMap::with_capacity(
-                // FIXME: The count estimate is off as anon nodes are only a portion of the nodes.
-                new_node_count_estimate / sharded::shards(),
+                3 * new_node_count_estimate / 100, // Reserve capacity for 3% anon nodes
             ),
             anon_id_seed,
             #[cfg(debug_assertions)]

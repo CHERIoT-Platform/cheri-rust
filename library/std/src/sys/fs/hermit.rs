@@ -1,6 +1,6 @@
 use crate::ffi::{CStr, OsStr, OsString};
 use crate::fs::TryLockError;
-use crate::io::{self, BorrowedCursor, Error, ErrorKind, IoSlice, IoSliceMut, SeekFrom};
+use crate::io::{self, BorrowedCursor, ErrorKind, IoSlice, IoSliceMut, SeekFrom};
 use crate::mem::MaybeUninit;
 use crate::os::hermit::ffi::OsStringExt;
 use crate::os::hermit::hermit_abi::{
@@ -411,7 +411,8 @@ impl File {
     }
 
     pub fn fsync(&self) -> io::Result<()> {
-        unsupported()
+        unsafe { cvt(hermit_abi::fsync(self.as_raw_fd()))? };
+        Ok(())
     }
 
     pub fn datasync(&self) -> io::Result<()> {

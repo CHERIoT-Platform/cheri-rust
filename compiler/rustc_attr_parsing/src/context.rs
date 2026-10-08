@@ -14,9 +14,10 @@ use rustc_attr_ir::{AttrPath, Attribute, AttributeKind};
 use rustc_data_structures::sync::{DynSend, DynSync};
 use rustc_errors::{Diag, DiagCtxtHandle, Diagnostic, Level, MultiSpan};
 use rustc_feature::AttributeStability;
+use rustc_lint_defs::builtin::UNUSED_ATTRIBUTES;
+use rustc_lint_defs::{Lint, LintId};
 use rustc_parse::parser::Recovery;
 use rustc_session::Session;
-use rustc_session::lint::{Lint, LintId};
 use rustc_span::{ErrorGuaranteed, Ident, Span, Symbol};
 
 // Glob imports to avoid big, bitrotty import lists
@@ -247,10 +248,8 @@ attribute_parsers!(
         Single<RustcLintOptDenyFieldAccessParser>,
         Single<RustcMacroTransparencyParser>,
         Single<RustcMustImplementOneOfParser>,
-        Single<RustcNeverTypeOptionsParser>,
         Single<RustcObjcClassParser>,
         Single<RustcObjcSelectorParser>,
-        Single<RustcReservationImplParser>,
         Single<RustcScalableVectorParser>,
         Single<RustcSimdMonomorphizeLaneLimitParser>,
         Single<RustcSkipDuringMethodDispatchParser>,
@@ -262,6 +261,7 @@ attribute_parsers!(
         Single<UnrollParser>,
         Single<WindowsSubsystemParser>,
         Single<WithoutArgs<AllowInternalUnsafeParser>>,
+        Single<WithoutArgs<AlwaysGcaParser>>,
         Single<WithoutArgs<AutomaticallyDerivedParser>>,
         Single<WithoutArgs<ColdParser>>,
         Single<WithoutArgs<CompilerBuiltinsParser>>,
@@ -309,13 +309,13 @@ attribute_parsers!(
         Single<WithoutArgs<RustcDelayedBugFromInsideQueryParser>>,
         Single<WithoutArgs<RustcDenyExplicitImplParser>>,
         Single<WithoutArgs<RustcDoNotConstCheckParser>>,
+        Single<WithoutArgs<RustcDumpClausesParser>>,
         Single<WithoutArgs<RustcDumpDefParentsParser>>,
         Single<WithoutArgs<RustcDumpGenericsParser>>,
         Single<WithoutArgs<RustcDumpHiddenTypeOfOpaquesParser>>,
         Single<WithoutArgs<RustcDumpInferredOutlivesParser>>,
         Single<WithoutArgs<RustcDumpItemBoundsParser>>,
         Single<WithoutArgs<RustcDumpObjectLifetimeDefaultsParser>>,
-        Single<WithoutArgs<RustcDumpPredicatesParser>>,
         Single<WithoutArgs<RustcDumpUserArgsParser>>,
         Single<WithoutArgs<RustcDumpVariancesOfOpaquesParser>>,
         Single<WithoutArgs<RustcDumpVariancesParser>>,
@@ -356,7 +356,6 @@ attribute_parsers!(
         Single<WithoutArgs<RustcSpecializationTraitParser>>,
         Single<WithoutArgs<RustcStdInternalSymbolParser>>,
         Single<WithoutArgs<RustcStrictCoherenceParser>>,
-        Single<WithoutArgs<RustcTestEntrypointMarkerParser>>,
         Single<WithoutArgs<RustcTrivialFieldReadsParser>>,
         Single<WithoutArgs<SplatParser>>,
         Single<WithoutArgs<ThreadLocalParser>>,
@@ -421,7 +420,7 @@ impl<'f, 'sess: 'f> SharedContext<'f, 'sess> {
     pub(crate) fn emit_lint(
         &mut self,
         lint: &'static Lint,
-        diagnostic: impl for<'x> Diagnostic<'x, ()> + DynSend + DynSync + 'static,
+        diagnostic: impl for<'x> Diagnostic<'x> + DynSend + DynSync + 'static,
         span: impl Into<MultiSpan>,
     ) {
         self.emit_lint_inner(
@@ -432,7 +431,7 @@ impl<'f, 'sess: 'f> SharedContext<'f, 'sess> {
     }
 
     pub(crate) fn emit_lint_with_sess<
-        F: for<'a> FnOnce(DiagCtxtHandle<'a>, Level, &Session) -> Diag<'a, ()>
+        F: for<'a> FnOnce(DiagCtxtHandle<'a>, Level, &Session) -> Diag<'a>
             + DynSend
             + DynSync
             + 'static,
@@ -464,7 +463,7 @@ impl<'f, 'sess: 'f> SharedContext<'f, 'sess> {
 
     pub(crate) fn warn_unused_duplicate(&mut self, used_span: Span, unused_span: Span) {
         self.emit_lint(
-            rustc_session::lint::builtin::UNUSED_ATTRIBUTES,
+            UNUSED_ATTRIBUTES,
             UnusedDuplicate { this: unused_span, other: used_span, warning: false },
             unused_span,
         )
@@ -476,7 +475,7 @@ impl<'f, 'sess: 'f> SharedContext<'f, 'sess> {
         unused_span: Span,
     ) {
         self.emit_lint(
-            rustc_session::lint::builtin::UNUSED_ATTRIBUTES,
+            UNUSED_ATTRIBUTES,
             UnusedDuplicate { this: unused_span, other: used_span, warning: true },
             unused_span,
         )
@@ -837,6 +836,10 @@ pub(crate) struct FinalizeCheckContext<'p, 'sess> {
     ///
     /// Unlike [`all_attrs`](Self::all_attrs), this contains the fully parsed attributes.
     pub(crate) parsed_attrs: &'p [Attribute],
+
+    /// The AST item these attributes were applied to, when the target is an item.
+    /// Used by `finalize_check` to inspect item structure that is not encoded in [`Target`].
+    pub(crate) target_item: Option<&'p rustc_ast::ast::Item>,
 }
 
 impl<'p, 'sess: 'p> Deref for FinalizeCheckContext<'p, 'sess> {
@@ -867,12 +870,6 @@ impl<'p, 'sess: 'p> DerefMut for SharedContext<'p, 'sess> {
     }
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
-pub enum OmitDoc {
-    Lower,
-    Skip,
-}
-
 #[derive(Copy, Clone, Debug)]
 pub enum ShouldEmit {
     /// The operations will emit errors, and lints, and errors are fatal.
@@ -900,9 +897,9 @@ pub enum ShouldEmit {
 impl ShouldEmit {
     pub(crate) fn emit_err(self, diag: Diag<'_>) -> ErrorGuaranteed {
         match self {
-            ShouldEmit::EarlyFatal { .. } if diag.level() == Level::DelayedBug => diag.emit(),
-            ShouldEmit::EarlyFatal { .. } => diag.upgrade_to_fatal().emit(),
-            ShouldEmit::ErrorsAndLints { .. } => diag.emit(),
+            ShouldEmit::EarlyFatal { .. } if diag.level() == Level::DelayedBug => diag.emit_err(),
+            ShouldEmit::EarlyFatal { .. } => diag.upgrade_to_fatal().emit_fatal(),
+            ShouldEmit::ErrorsAndLints { .. } => diag.emit_err(),
             ShouldEmit::Nothing => diag.delay_as_bug(),
         }
     }
@@ -1107,7 +1104,7 @@ impl<'a, 'f, 'sess: 'f> AttributeDiagnosticContext<'a, 'f, 'sess> {
         let attr_path = self.attr_path.to_string();
         let valid_without_list = self.template.word;
         self.emit_lint(
-            rustc_session::lint::builtin::UNUSED_ATTRIBUTES,
+            UNUSED_ATTRIBUTES,
             crate::diagnostics::EmptyAttributeList {
                 attr_span: span,
                 attr_path,

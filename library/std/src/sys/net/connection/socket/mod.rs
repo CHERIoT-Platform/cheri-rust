@@ -54,24 +54,27 @@ cfg_select! {
         target_os = "nuttx",
         target_vendor = "apple",
     ) => {
-        use c::IPV6_JOIN_GROUP as IPV6_ADD_MEMBERSHIP;
-        use c::IPV6_LEAVE_GROUP as IPV6_DROP_MEMBERSHIP;
+        use c::{IPV6_JOIN_GROUP as IPV6_ADD_MEMBERSHIP, IPV6_LEAVE_GROUP as IPV6_DROP_MEMBERSHIP};
     }
     _ => {
-        use c::IPV6_ADD_MEMBERSHIP;
-        use c::IPV6_DROP_MEMBERSHIP;
+        use c::{IPV6_ADD_MEMBERSHIP, IPV6_DROP_MEMBERSHIP};
     }
 }
 
 cfg_select! {
     any(
-        target_os = "linux", target_os = "android",
+        target_os = "linux",
+        target_os = "android",
         target_os = "hurd",
-        target_os = "dragonfly", target_os = "freebsd",
-        target_os = "openbsd", target_os = "netbsd",
-        target_os = "solaris", target_os = "illumos",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "solaris",
+        target_os = "illumos",
         target_os = "haiku",
-        target_os = "nto", target_os = "qnx",
+        target_os = "nto",
+        target_os = "qnx",
         target_os = "cygwin",
     ) => {
         use libc::MSG_NOSIGNAL;
@@ -83,10 +86,14 @@ cfg_select! {
 
 cfg_select! {
     any(
-        target_os = "dragonfly", target_os = "freebsd",
-        target_os = "openbsd", target_os = "netbsd",
-        target_os = "solaris", target_os = "illumos",
-        target_os = "nto", target_os = "qnx",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "solaris",
+        target_os = "illumos",
+        target_os = "nto",
+        target_os = "qnx",
     ) => {
         use crate::ffi::c_uchar;
         type IpV4MultiCastType = c_uchar;
@@ -777,13 +784,11 @@ impl UdpSocket {
     }
 
     pub fn set_multicast_ttl_v4(&self, multicast_ttl_v4: u32) -> io::Result<()> {
+        let ttl: u8 = multicast_ttl_v4
+            .try_into()
+            .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
         unsafe {
-            setsockopt(
-                &self.inner,
-                c::IPPROTO_IP,
-                c::IP_MULTICAST_TTL,
-                multicast_ttl_v4 as IpV4MultiCastType,
-            )
+            setsockopt(&self.inner, c::IPPROTO_IP, c::IP_MULTICAST_TTL, ttl as IpV4MultiCastType)
         }
     }
 

@@ -91,7 +91,7 @@ fn disable_error_reporting<F: FnOnce() -> R, R>(f: F) -> R {
 }
 
 /// The platform-specific library name
-fn get_lib_name(name: &str, aux_type: AuxType) -> Option<String> {
+fn get_lib_name(name: &str, aux_type: AuxType, wasm_proc_macros: bool) -> Option<String> {
     match aux_type {
         AuxType::Bin => None,
         // In some cases (e.g. MUSL), we build a static
@@ -99,6 +99,8 @@ fn get_lib_name(name: &str, aux_type: AuxType) -> Option<String> {
         // In this case, the only path we can pass
         // with '--extern-meta' is the '.rlib' file
         AuxType::Lib => Some(format!("lib{name}.rlib")),
+        // FIXME maybe use `rustc --print file-names` instead?
+        AuxType::ProcMacro if wasm_proc_macros => Some(format!("{name}.wasm")),
         AuxType::Dylib | AuxType::ProcMacro => Some(dylib_name(name)),
     }
 }
@@ -1038,21 +1040,63 @@ impl<'test> TestCx<'test> {
             .arg(file_to_doc)
             .arg("-A")
             .arg("internal_features")
+            // FIXME(#160895): While the new solver is enabled by default on nightly,
+            // we don't want to use it in our tests for now.
+            .arg("-Znext-solver=coherence")
             .args(&self.props.compile_flags)
             .args(&self.props.doc_flags);
 
         match kind {
-            DocKind::Html => {}
-            DocKind::Json => {
-                rustdoc.arg("--output-format").arg("json").arg("-Zunstable-options");
+            DocKind::Html => {
+                if self.props.use_rustdoc_cci_doc_meta_merge {
+                    rustdoc.arg("--write-doc-meta-dir").arg(out_dir.as_ref().join("doc.meta"));
+                }
             }
+            DocKind::Json => {
+                rustdoc.arg("--output-format").arg("json");
+            }
+        }
+
+        // Both JSON output and `--disable-minification` are unstable rustdoc options.
+        if matches!(kind, DocKind::Json)
+            || self.config.disable_minification
+            || self.props.use_rustdoc_cci_doc_meta_merge
+        {
+            rustdoc.arg("-Zunstable-options");
+        }
+        if self.config.disable_minification {
+            rustdoc.arg("--disable-minification");
         }
 
         if let Some(ref linker) = self.config.target_linker {
             rustdoc.arg(format!("-Clinker={}", linker));
         }
 
-        self.compose_and_run_compiler(rustdoc, None)
+        let docres = self.compose_and_run_compiler(rustdoc, None);
+        if !docres.status.success() {
+            return docres;
+        }
+        if kind == DocKind::Html && self.props.use_rustdoc_cci_doc_meta_merge {
+            let mut rustdoc_merge = Command::new(rustdoc_path);
+            let current_dir = self.output_base_dir();
+            rustdoc_merge.current_dir(current_dir);
+            rustdoc_merge
+                .arg("-o")
+                .arg(out_dir.as_ref())
+                .args(&self.props.compile_flags)
+                .args(&self.props.doc_flags)
+                .arg("--read-doc-meta-dir")
+                .arg(out_dir.as_ref().join("doc.meta"))
+                .arg("-Zunstable-options");
+            if self.config.disable_minification {
+                rustdoc_merge.arg("--disable-minification");
+            }
+            let docmerge = self.compose_and_run_compiler(rustdoc_merge, None);
+            if !docmerge.status.success() {
+                return docmerge;
+            }
+        }
+        docres
     }
 
     fn exec_compiled_test(&self) -> ProcRes {
@@ -1248,7 +1292,8 @@ impl<'test> TestCx<'test> {
                           aux_name: &str,
                           aux_path: &str,
                           aux_type: AuxType| {
-            let lib_name = get_lib_name(&path_to_crate_name(aux_path), aux_type);
+            let lib_name =
+                get_lib_name(&path_to_crate_name(aux_path), aux_type, self.config.wasm_proc_macros);
             if let Some(lib_name) = lib_name {
                 let modifiers_and_name = match extern_modifiers {
                     Some(modifiers) => format!("{modifiers}:{aux_name}"),
@@ -1279,7 +1324,11 @@ impl<'test> TestCx<'test> {
         // to `-Zcodegen-backend` when compiling the test file.
         if let Some(aux_file) = &self.props.aux.codegen_backend {
             let aux_type = self.build_auxiliary(aux_file, aux_dir, None);
-            if let Some(lib_name) = get_lib_name(aux_file.trim_end_matches(".rs"), aux_type) {
+            if let Some(lib_name) = get_lib_name(
+                aux_file.trim_end_matches(".rs"),
+                aux_type,
+                self.config.wasm_proc_macros,
+            ) {
                 let lib_path = aux_dir.join(&lib_name);
                 rustc.arg(format!("-Zcodegen-backend={}", lib_path));
             }
@@ -1555,7 +1604,8 @@ impl<'test> TestCx<'test> {
             // Exhaustively match all other suites.
             // Note that some suites never actually use this method, so the
             // return value for those suites is not necessarily meaningful.
-            TestSuite::AssemblyLlvm
+            TestSuite::AssemblyGcc
+            | TestSuite::AssemblyLlvm
             | TestSuite::BuildStd
             | TestSuite::CodegenLlvm
             | TestSuite::CodegenUnits
@@ -1599,6 +1649,15 @@ impl<'test> TestCx<'test> {
         // Enable wasm proc macros.
         if self.config.wasm_proc_macros {
             compiler.arg("-Zwasm-proc-macros");
+        }
+
+        // `--disable-minification` is an unstable rustdoc option. Rustdoc UI tests intentionally
+        // exercise diagnostics for unstable options, so don't enable them for that suite.
+        if compiler_kind == CompilerKind::Rustdoc
+            && self.config.disable_minification
+            && self.config.mode != TestMode::Ui
+        {
+            compiler.arg("-Zunstable-options").arg("--disable-minification");
         }
 
         // Hide libstd sources from ui tests to make sure we generate the stderr
@@ -1872,6 +1931,10 @@ impl<'test> TestCx<'test> {
                 }
             },
         }
+
+        // FIXME(#160895): While the new solver is enabled by default on nightly,
+        // we don't want to use it in our tests for now.
+        compiler.args(["-Znext-solver=coherence"]);
 
         match self.config.compare_mode {
             Some(CompareMode::Polonius) => {

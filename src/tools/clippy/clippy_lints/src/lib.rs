@@ -1,12 +1,13 @@
-#![feature(box_patterns)]
 #![feature(control_flow_into_value)]
+#![feature(deref_patterns)]
 #![feature(exact_div)]
 #![feature(f128)]
 #![feature(f16)]
 #![feature(iter_intersperse)]
 #![feature(iter_partition_in_place)]
+#![feature(macro_metavar_expr)]
 #![feature(macro_metavar_expr_concat)]
-#![feature(never_type)]
+#![cfg_attr(bootstrap, feature(never_type))]
 #![feature(rustc_private)]
 #![feature(stmt_expr_attributes)]
 #![feature(unwrap_infallible)]
@@ -25,6 +26,7 @@ extern crate rustc_abi;
 extern crate rustc_arena;
 extern crate rustc_ast;
 extern crate rustc_ast_pretty;
+extern crate rustc_attr_ir;
 extern crate rustc_data_structures;
 extern crate rustc_errors;
 extern crate rustc_hir;
@@ -38,8 +40,8 @@ extern crate rustc_lint;
 extern crate rustc_middle;
 extern crate rustc_parse_format;
 extern crate rustc_resolve;
-extern crate rustc_session;
 extern crate rustc_span;
+extern crate rustc_structures;
 extern crate rustc_target;
 extern crate rustc_trait_selection;
 
@@ -263,6 +265,7 @@ mod needless_for_each;
 mod needless_ifs;
 mod needless_late_init;
 mod needless_maybe_sized;
+mod needless_nonzero_get;
 mod needless_parens_on_range_literals;
 mod needless_pass_by_ref_mut;
 mod needless_pass_by_value;
@@ -421,7 +424,7 @@ use rustc_middle::ty::TyCtxt;
 use utils::attr_collector::AttrStorage;
 
 pub fn explain(name: &str) -> i32 {
-    let target = format!("clippy::{name}");
+    let target = format!("clippy::{}", name.to_ascii_uppercase());
     if let Some(info) = declared_lints::LINTS.iter().find(|info| info.lint.name == target) {
         println!("{}", sanitize_explanation(info.explanation));
         // Check if the lint has configuration
@@ -627,7 +630,7 @@ rustc_lint::late_lint_methods!(
         CopyAndPaste: ifs::CopyAndPaste<'tcx> = ifs::CopyAndPaste::new(tcx, conf),
         CopyIterator: copy_iterator::CopyIterator = copy_iterator::CopyIterator,
         UselessFormat: format::UselessFormat = format::UselessFormat::new(format_args.clone()),
-        Swap: swap::Swap = swap::Swap,
+        Swap: swap::Swap = swap::Swap::new(conf),
         PanickingOverflowChecks: panicking_overflow_checks::PanickingOverflowChecks = panicking_overflow_checks::PanickingOverflowChecks,
         NewWithoutDefault: new_without_default::NewWithoutDefault = <new_without_default::NewWithoutDefault>::default(),
         DisallowedNames: disallowed_names::DisallowedNames = disallowed_names::DisallowedNames::new(conf),
@@ -690,7 +693,7 @@ rustc_lint::late_lint_methods!(
         ToDigitIsSome: to_digit_is_some::ToDigitIsSome = to_digit_is_some::ToDigitIsSome::new(conf),
         LargeStackArrays: large_stack_arrays::LargeStackArrays = large_stack_arrays::LargeStackArrays::new(conf),
         LargeConstArrays: large_const_arrays::LargeConstArrays = large_const_arrays::LargeConstArrays::new(conf),
-        FloatingPointArithmetic: floating_point_arithmetic::FloatingPointArithmetic = floating_point_arithmetic::FloatingPointArithmetic,
+        FloatingPointArithmetic: floating_point_arithmetic::FloatingPointArithmetic = floating_point_arithmetic::FloatingPointArithmetic::new(conf),
         AsConversions: as_conversions::AsConversions = as_conversions::AsConversions,
         LetUnderscore: let_underscore::LetUnderscore = let_underscore::LetUnderscore,
         ExcessiveBools: excessive_bools::ExcessiveBools = excessive_bools::ExcessiveBools::new(conf),
@@ -745,7 +748,6 @@ rustc_lint::late_lint_methods!(
         UnnecessaryOwnedEmptyStrings: unnecessary_owned_empty_strings::UnnecessaryOwnedEmptyStrings = unnecessary_owned_empty_strings::UnnecessaryOwnedEmptyStrings,
         FormatPushString: format_push_string::FormatPushString = format_push_string::FormatPushString::new(format_args.clone()),
         LargeIncludeFile: large_include_file::LargeIncludeFile = large_include_file::LargeIncludeFile::new(conf),
-        TrimSplitWhitespace: strings::TrimSplitWhitespace = strings::TrimSplitWhitespace,
         RcCloneInVecInit: rc_clone_in_vec_init::RcCloneInVecInit = rc_clone_in_vec_init::RcCloneInVecInit,
         SwapPtrToRef: swap_ptr_to_ref::SwapPtrToRef = swap_ptr_to_ref::SwapPtrToRef,
         TypeParamMismatch: mismatching_type_param_order::TypeParamMismatch = mismatching_type_param_order::TypeParamMismatch,
@@ -867,6 +869,7 @@ rustc_lint::late_lint_methods!(
         RestWhenDestructuringStruct: rest_when_destructuring_struct::RestWhenDestructuringStruct = rest_when_destructuring_struct::RestWhenDestructuringStruct,
         BlockScrutinee: block_scrutinee::BlockScrutinee = block_scrutinee::BlockScrutinee,
         NonnullUncheckedOnBoxPtr: nonnull_unchecked_on_box_ptr::NonnullUncheckedOnBoxPtr = nonnull_unchecked_on_box_ptr::NonnullUncheckedOnBoxPtr::new(conf),
+        NeedlessNonzeroGet: needless_nonzero_get::NeedlessNonzeroGet = needless_nonzero_get::NeedlessNonzeroGet::new(conf),
         // add late passes here, used by `cargo dev new_lint`
     ]]
 );

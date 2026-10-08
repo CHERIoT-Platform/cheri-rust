@@ -290,15 +290,6 @@ fn main() {
         cfg.flag(&*flag);
     }
 
-    // Remap ci-llvm include paths in debug info for reproducible builds.
-    if let Some(maps) = tracked_env_var_os("RUSTC_DEBUGINFO_MAP")
-        && let Some(maps_str) = maps.to_str()
-    {
-        for map in maps_str.split('\t') {
-            cfg.flag_if_supported(&format!("-ffile-prefix-map={map}"));
-        }
-    }
-
     for component in &components {
         let mut flag = String::from("LLVM_COMPONENT_");
         flag.push_str(&component.to_uppercase());
@@ -493,9 +484,8 @@ fn main() {
     let llvm_static_stdcpp = tracked_env_var_os("LLVM_STATIC_STDCPP");
     let llvm_use_libcxx = tracked_env_var_os("LLVM_USE_LIBCXX");
 
-    let stdcppname = if target.contains("openbsd") {
-        if target.contains("sparc64") { "estdc++" } else { "c++" }
-    } else if target.contains("darwin")
+    let stdcppname = if target.contains("openbsd")
+        || target.contains("darwin")
         || target.contains("freebsd")
         || target.contains("windows-gnullvm")
         || target.contains("aix")
