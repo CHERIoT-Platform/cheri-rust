@@ -24,7 +24,7 @@ unsafe extern "Rust" {
 
 #[no_mangle]
 pub unsafe fn test() -> bool {
-    // CHECK: %_1 = load i32, ptr addrspace(200) @UART0, align 4, !noundef !2
+    // CHECK: %_1 = load i32, ptr addrspace(200) @UART0, align 4, !noundef !{{[0-9]+}}
     // CHECK: %0 = icmp eq i32 %_1, 0
     // CHECK: %_3 = load i32, ptr addrspace(200) @SHARED_OBJ, align 4
     // CHECK: %1 = icmp eq i32 %_3, 0

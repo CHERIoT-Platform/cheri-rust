@@ -1,11 +1,18 @@
 //! Currently offloaded to the RTOS.
 
+use super::MIN_ALIGN;
 use crate::alloc::Layout;
+use crate::ptr;
 use crate::sys::pal::abi;
 
 #[inline]
 pub unsafe fn alloc(layout: Layout) -> *mut u8 {
-    unsafe { abi::cheriot_alloc(layout.size() as _, layout.align() as _) as _ }
+    if layout.align() > MIN_ALIGN {
+        // we do not currently support overalignment
+        return ptr::null_mut();
+    }
+
+    unsafe { abi::cheriot_alloc(layout.size() as u32) }
 }
 #[inline]
 pub unsafe fn dealloc(ptr: *mut u8, _layout: Layout) {
