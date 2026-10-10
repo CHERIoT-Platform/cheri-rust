@@ -7,7 +7,6 @@
 #[path = "unsupported.rs"]
 mod unsupported_stdio;
 
-use crate::ffi::CString;
 use crate::io::{self};
 use crate::sys::pal::abi;
 
@@ -29,13 +28,8 @@ impl Stderr {
 
 impl io::Write for Stdout {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let cstr = CString::new(buf).unwrap();
-
-        unsafe {
-            abi::cheriot_print(cstr.as_ptr());
-        }
-
-        Ok(buf.len())
+        let written = unsafe { abi::cheriot_write(buf.as_ptr(), buf.len()) };
+        Ok(written)
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -45,13 +39,8 @@ impl io::Write for Stdout {
 
 impl io::Write for Stderr {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let cstr = CString::new(buf).unwrap();
-
-        unsafe {
-            abi::cheriot_print(cstr.as_ptr());
-        }
-
-        Ok(buf.len())
+        let written = unsafe { abi::cheriot_write(buf.as_ptr(), buf.len()) };
+        Ok(written)
     }
 
     fn flush(&mut self) -> io::Result<()> {

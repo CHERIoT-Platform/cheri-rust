@@ -301,6 +301,9 @@ pub struct PointerSpec {
     /// Pointers into this address space contain extra metadata
     /// FIXME(workingjubilee): Consider adequately reflecting this in the compiler?
     _is_fat: bool,
+    /// Pointers have additional state data stored elsewhere.
+    /// FIXME(cheri): is this useful, or should we just throw it away?
+    _has_external_state: bool,
 }
 
 /// Parsed [Data layout](https://llvm.org/docs/LangRef.html#data-layout)
@@ -369,6 +372,7 @@ impl Default for TargetDataLayout {
                 pointer_align: align(64),
                 address_size: Size::from_bits(64),
                 _is_fat: false,
+                _has_external_state: false,
             },
             address_space_info: vec![],
             instruction_address_space: AddressSpace::ZERO,
@@ -509,6 +513,7 @@ impl TargetDataLayout {
                 [p, s, a, _pr, i] if p.starts_with("p") => {
                     let mut p = p.strip_prefix('p').unwrap();
                     let mut _is_fat = false;
+                    let mut _has_external_state = false;
 
                     // Some targets, such as CHERI, use the 'f' suffix in the p- spec to signal that
                     // they use 'fat' pointers. The resulting prefix may look like `pf<addr_space>`.
@@ -516,6 +521,13 @@ impl TargetDataLayout {
                     if p.starts_with('f') {
                         p = p.strip_prefix('f').unwrap();
                         _is_fat = true;
+                    }
+
+                    // The pointer has 'external' state. For example, on CHERI targets, each pointer
+                    // has an additional 'tag' bit, used to track the validity of the capability.
+                    if p.starts_with("e") {
+                        p = p.strip_prefix('e').unwrap();
+                        _has_external_state = true;
                     }
 
                     // However, we currently don't take into account further specifications:
@@ -537,6 +549,7 @@ impl TargetDataLayout {
                         pointer_align: parse_align_str(a, "p-")?,
                         address_size: parse_size(i, "p-")?,
                         _is_fat,
+                        _has_external_state,
                     };
 
                     if addr_space == default_address_space {
@@ -553,6 +566,7 @@ impl TargetDataLayout {
                 [p, s, a @ ..] if p.starts_with("p") => {
                     let mut p = p.strip_prefix('p').unwrap();
                     let mut _is_fat = false;
+                    let mut _has_external_state = false;
 
                     // Some targets, such as CHERI, use the 'f' suffix in the p- spec to signal that
                     // they use 'fat' pointers. The resulting prefix may look like `pf<addr_space>`.
@@ -560,6 +574,13 @@ impl TargetDataLayout {
                     if p.starts_with('f') {
                         p = p.strip_prefix('f').unwrap();
                         _is_fat = true;
+                    }
+
+                    // The pointer has 'external' state. For example, on CHERI targets, each pointer
+                    // has an additional 'tag' bit, used to track the validity of the capability.
+                    if p.starts_with("e") {
+                        p = p.strip_prefix('e').unwrap();
+                        _has_external_state = true;
                     }
 
                     // However, we currently don't take into account further specifications:
@@ -583,6 +604,7 @@ impl TargetDataLayout {
                         pointer_size,
                         pointer_align,
                         _is_fat,
+                        _has_external_state,
                     };
                     if addr_space == default_address_space {
                         dl.default_address_space_pointer_spec = info;
