@@ -16,7 +16,6 @@ use rustc_hir::intravisit::{Visitor, walk_block, walk_expr};
 use rustc_hir::{CoroutineDesugaring, CoroutineKind, CoroutineSource, PatField, find_attr};
 use rustc_index::bit_set::DenseBitSet;
 use rustc_infer::traits::TraitErrors;
-use rustc_middle::bug;
 use rustc_middle::hir::nested_filter::OnlyBodies;
 use rustc_middle::mir::{
     self, AggregateKind, BindingForm, BorrowKind, ClearCrossCrate, ConstraintCategory,
@@ -26,13 +25,13 @@ use rustc_middle::mir::{
 };
 use rustc_middle::ty::print::PrintTraitRefExt as _;
 use rustc_middle::ty::{
-    self, PredicateKind, RegionExt, Ty, TyCtxt, TypeSuperVisitable, TypeVisitor, Upcast,
+    self, PredicateKind, Ty, TyCtxt, TypeSuperVisitable, TypeVisitor, Upcast,
     suggest_constraining_type_params,
 };
 use rustc_mir_dataflow::move_paths::{Init, InitKind, InitLocation, MoveOutIndex, MovePathIndex};
 use rustc_span::def_id::{DefId, LocalDefId};
 use rustc_span::hygiene::DesugaringKind;
-use rustc_span::{BytePos, ExpnKind, Ident, MacroKind, Span, Symbol, kw, sym};
+use rustc_span::{BytePos, ExpnKind, Ident, MacroKind, Span, Symbol, bug, kw, sym};
 use rustc_trait_selection::error_reporting::InferCtxtErrorExt;
 use rustc_trait_selection::error_reporting::traits::FindExprBySpan;
 use rustc_trait_selection::error_reporting::traits::call_kind::CallKind;
@@ -285,7 +284,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
             let place = &self.move_data.move_paths[mpi].place;
             let ty = place.ty(self.body, self.infcx.tcx).ty;
 
-            if self.infcx.param_env.caller_bounds().iter().any(|c| {
+            if self.infcx.param_env.caller_bounds().any(|c| {
                 c.as_trait_clause().is_some_and(|pred| {
                     pred.skip_binder().self_ty() == ty && self.infcx.tcx.is_fn_trait(pred.def_id())
                 })
@@ -691,7 +690,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
         if !clauses.instantiate_identity(tcx).clauses.iter().any(|clause| {
             clause.as_trait_clause().is_some_and(|tc| {
                 tc.self_ty().skip_binder().is_param(param.index)
-                    && tc.polarity() == ty::PredicatePolarity::Positive
+                    && tc.polarity() == ty::ClausePolarity::Positive
                     && supertrait_def_ids(tcx, tc.def_id())
                         .flat_map(|trait_did| tcx.associated_items(trait_did).in_definition_order())
                         .any(|item| item.is_method())
@@ -1202,17 +1201,15 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
                 }
                 // Point at all the loops that are between this move and the parent item.
                 for span in loop_spans {
-                    spans.push_span_label(sm.guess_head_span(span), "");
+                    spans.push_span_context(sm.guess_head_span(span));
                 }
 
                 // note: verify that your loop breaking logic is correct
                 //   --> $DIR/nested-loop-moved-value-wrong-continue.rs:41:17
                 //    |
                 // 28 |     for foo in foos {
-                //    |     ---------------
                 // ...
                 // 33 |         for bar in &bars {
-                //    |         ----------------
                 // ...
                 // 41 |                 continue;
                 //    |                 ^^^^^^^^ this `continue` advances the loop at line 33
@@ -1271,10 +1268,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
         let hir::ExprKind::Path(hir::QPath::Resolved(None, path)) = base.kind else { return };
         let (hir::def::Res::Local(_)
         | hir::def::Res::Def(
-            DefKind::Const { .. }
-            | DefKind::ConstParam
-            | DefKind::Static { .. }
-            | DefKind::AssocConst { .. },
+            DefKind::Const | DefKind::ConstParam | DefKind::Static { .. } | DefKind::AssocConst,
             _,
         )) = path.res
         else {
@@ -4268,6 +4262,13 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
                                     place_ty.ty.is_box(),
                                     "Drop of value behind a reference or raw pointer"
                                 );
+                                StorageDeadOrDrop::BoxedStorageDead
+                            }
+                            StorageDeadOrDrop::Destructor(_) => kind,
+                        },
+                        ProjectionElem::PhantomDeref => match kind {
+                            StorageDeadOrDrop::LocalStorageDead
+                            | StorageDeadOrDrop::BoxedStorageDead => {
                                 StorageDeadOrDrop::BoxedStorageDead
                             }
                             StorageDeadOrDrop::Destructor(_) => kind,

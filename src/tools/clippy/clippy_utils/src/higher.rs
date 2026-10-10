@@ -7,7 +7,7 @@ use crate::res::MaybeDef as _;
 use crate::{is_expn_of, sym};
 
 use rustc_ast::ast;
-use rustc_hir::attrs::lang_items::LangItem;
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_hir::{
     self as hir, Arm, Block, Expr, ExprKind, HirId, LetStmt, LocalSource, LoopSource, MatchSource, Node, Pat, QPath,
     StructTailExpr,
@@ -370,9 +370,14 @@ impl<'a> VecArgs<'a> {
     pub fn hir(cx: &LateContext<'_>, expr: &'a Expr<'_>) -> Option<VecArgs<'a>> {
         if let ExprKind::Call(fun, args) = expr.kind
             && let ExprKind::Path(ref qpath) = fun.kind
-            && is_expn_of(fun.span, sym::vec).is_some()
             && let Some(fun_def_id) = cx.qpath_res(qpath, fun.hir_id).opt_def_id()
             && let Some(name) = cx.tcx.get_diagnostic_name(fun_def_id)
+            && matches!(
+                name,
+                sym::vec_from_elem | sym::box_assume_init_into_vec_unsafe | sym::vec_new
+            )
+            // Do the cheap checks first, since `is_expn_of` walks the whole expansion chain.
+            && is_expn_of(fun.span, sym::vec).is_some()
         {
             return match (name, args) {
                 (sym::vec_from_elem, [elem, size]) => {

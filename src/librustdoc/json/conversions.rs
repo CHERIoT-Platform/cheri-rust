@@ -15,10 +15,9 @@ use rustc_hir::def_id::DefId;
 use rustc_hir::{HeaderSafety, Safety, find_attr, intravisit};
 use rustc_hir_pretty::PpAnn;
 use rustc_metadata::rendered_const;
-use rustc_middle::ty::TyCtxt;
-use rustc_middle::{bug, ty};
+use rustc_middle::ty::{self, TyCtxt};
 use rustc_span::def_id::ModId;
-use rustc_span::{Pos, Symbol, kw, sym};
+use rustc_span::{Pos, Symbol, bug, kw, sym};
 use rustdoc_json_types::*;
 
 use crate::clean::{self, ItemId};
@@ -829,7 +828,7 @@ impl FromClean<clean::Impl> for Impl {
             clean::ImplKind::Blanket(ty) => (false, Some(ty)),
         };
         let is_negative = match polarity {
-            ty::ImplPolarity::Positive | ty::ImplPolarity::Reservation => false,
+            ty::ImplPolarity::Positive => false,
             ty::ImplPolarity::Negative => true,
         };
         Impl {

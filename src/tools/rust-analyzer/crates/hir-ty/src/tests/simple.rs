@@ -4163,6 +4163,27 @@ extern "C" fn foo() -> ! {
 }
 
 #[test]
+fn asm_label_can_diverge() {
+    check_no_mismatches(
+        r#"
+//- minicore: asm
+fn foo() {
+    loop {
+        unsafe {
+            core::arch::asm!(
+                "/* {} */",
+                label {
+                    break;
+                }
+            );
+        }
+    }
+}
+    "#,
+    );
+}
+
+#[test]
 fn regression_21478() {
     check_infer(
         r#"
@@ -4374,7 +4395,7 @@ fn hrtb_fn_ptr() {
 fn foo<'b>(f: for <'a> fn(&'a u32, &'b u32)) {}
 "#,
         expect![[r#"
-            12..13 'f': fn(&'_ u32, &'_ u32)
+            12..13 'f': fn(&'?0.0 u32, &'_ u32)
             46..48 '{}': ()
         "#]],
     );

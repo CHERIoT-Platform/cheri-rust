@@ -15,7 +15,8 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         dest: &MPlaceTy<'tcx>,
     ) -> InterpResult<'tcx> {
         let this = self.eval_context_mut();
-        let [flags] = this.check_shim_sig_lenient(abi, CanonAbi::Rust, link_name, args)?;
+        let [flags] =
+            this.check_shim_sig(shim_sig!(extern "Rust" fn(u64) -> usize), (link_name, abi, args))?;
 
         let flags = this.read_scalar(flags)?.to_u64()?;
         if flags != 0 {
@@ -34,10 +35,11 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         args: &[OpTy<'tcx>],
     ) -> InterpResult<'tcx> {
         let this = self.eval_context_mut();
-        let ptr_ty = this.machine.layouts.mut_raw_ptr.ty;
+        let ptr_ty = this.machine.layouts.unit_ptr_mut.ty;
         let ptr_layout = this.layout_of(ptr_ty)?;
 
-        let [flags, buf] = this.check_shim_sig_lenient(abi, CanonAbi::Rust, link_name, args)?;
+        let [flags, buf] = this
+            .check_shim_sig(shim_sig!(extern "Rust" fn(u64, *()) -> ()), (link_name, abi, args))?;
 
         let flags = this.read_scalar(flags)?.to_u64()?;
         let buf_place = this.deref_pointer_as(buf, ptr_layout)?;
@@ -114,7 +116,7 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         dest: &MPlaceTy<'tcx>,
     ) -> InterpResult<'tcx> {
         let this = self.eval_context_mut();
-        let [ptr, flags] = this.check_shim_sig_lenient(abi, CanonAbi::Rust, link_name, args)?;
+        let [ptr, flags] = this.check_shim_sig_deprecated(abi, CanonAbi::Rust, link_name, args)?;
 
         let flags = this.read_scalar(flags)?.to_u64()?;
 
@@ -191,8 +193,10 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
     ) -> InterpResult<'tcx> {
         let this = self.eval_context_mut();
 
-        let [ptr, flags, name_ptr, filename_ptr] =
-            this.check_shim_sig_lenient(abi, CanonAbi::Rust, link_name, args)?;
+        let [ptr, flags, name_ptr, filename_ptr] = this.check_shim_sig(
+            shim_sig!(extern "Rust" fn(*(), u64, *(), *()) -> ()),
+            (link_name, abi, args),
+        )?;
 
         let flags = this.read_scalar(flags)?.to_u64()?;
         if flags != 0 {

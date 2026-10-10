@@ -27,10 +27,9 @@ use rustc_middle::mir::RETURN_PLACE;
 use rustc_middle::ty::print::with_no_trimmed_paths;
 use rustc_middle::ty::{
     self, BoundVariableKind, GenericArgs, GenericArgsRef, InlineConstArgs, InlineConstArgsParts,
-    List, RegionExt, RegionVid, Ty, TyCtxt, TypeFoldable, TypeVisitableExt, fold_regions,
+    List, RegionVid, Ty, TyCtxt, TypeFoldable, TypeVisitableExt, fold_regions,
 };
-use rustc_middle::{bug, span_bug};
-use rustc_span::{ErrorGuaranteed, kw, sym};
+use rustc_span::{ErrorGuaranteed, bug, kw, span_bug, sym};
 use tracing::{debug, instrument};
 
 use crate::BorrowckInferCtxt;
@@ -138,7 +137,17 @@ impl<'tcx> DefiningTy<'tcx> {
     pub(crate) fn new(tcx: TyCtxt<'tcx>, body_def_id: LocalDefId) -> DefiningTy<'tcx> {
         match tcx.hir_body_owner_kind(body_def_id) {
             BodyOwnerKind::Closure | BodyOwnerKind::Fn => {
-                let defining_ty = tcx.type_of(body_def_id).instantiate_identity().skip_norm_wip();
+                let defining_ty =
+                    tcx.type_of(body_def_id).instantiate_identity().skip_normalization();
+                let defining_ty = if tcx.next_trait_solver_globally() {
+                    // Closure types come from HIR typeck results, where they were already
+                    // normalized during writeback. Wrapping them in an `EarlyBinder`
+                    // conservatively makes aliases non-rigid, so restore their rigidness
+                    // instead of normalizing them again during borrowck.
+                    ty::set_aliases_to_rigid(tcx, defining_ty)
+                } else {
+                    defining_ty
+                };
                 match *defining_ty.kind() {
                     ty::Closure(def_id, args) => DefiningTy::Closure(def_id, args),
                     ty::Coroutine(def_id, args) => DefiningTy::Coroutine(def_id, args),
@@ -605,7 +614,7 @@ impl<'tcx> UniversalRegions<'tcx> {
     /// that this region imposes on others. The methods in this file
     /// handle the part about dumping the inference context internal
     /// state.
-    pub(crate) fn annotate(&self, tcx: TyCtxt<'tcx>, err: &mut Diag<'_, ()>) {
+    pub(crate) fn annotate(&self, tcx: TyCtxt<'tcx>, err: &mut Diag<'_>) {
         match self.defining_ty {
             DefiningTy::Closure(def_id, args) => {
                 let v = with_no_trimmed_paths!(

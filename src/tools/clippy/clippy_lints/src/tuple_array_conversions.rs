@@ -8,13 +8,13 @@ use clippy_utils::{SpanlessEq, is_from_proc_macro};
 use core::ops::ControlFlow::{Break, Continue};
 use core::{iter, mem};
 use rustc_ast::LitKind;
+use rustc_middle::ty::consts::ConstExt;
 use rustc_ast::visit::{VisitorResult, try_visit, visit_opt, walk_list};
 use rustc_data_structures::packed::Pu128;
 use rustc_hir::intravisit::Visitor;
 use rustc_hir::{Arm, Expr, ExprKind, HirId, ImplItemKind, ItemKind, Node, PatKind, Stmt, TraitFn, TraitItemKind};
-use rustc_lint::{LateContext, LateLintPass};
+use rustc_lint::{LateContext, LateLintPass, impl_lint_pass};
 use rustc_middle::ty::{self, TyCtxt};
-use rustc_session::impl_lint_pass;
 use rustc_span::sym;
 
 declare_clippy_lint! {

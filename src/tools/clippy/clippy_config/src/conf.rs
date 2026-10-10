@@ -5,10 +5,10 @@ use crate::types::{
     PubUnderscoreFieldsBehaviour, Rename, SourceItemOrdering, SourceItemOrderingModuleItemGroupings,
     SourceItemOrderingTraitAssocItemKinds, SourceItemOrderingWithinModuleItemGroupings, TraitImplItemOrder,
 };
+use rustc_attr_ir::RustcVersion;
 use rustc_attr_parsing::parse_version;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_errors::Applicability;
-use rustc_hir::attrs::RustcVersion;
 use rustc_session::Session;
 use rustc_span::{Pos as _, SourceFile, Symbol};
 use std::path::PathBuf;
@@ -37,7 +37,7 @@ static DEFAULT_DOC_VALID_IDENTS: &[&str] = &[
     "OCaml",
     "OpenAL", "OpenDNS", "OpenGL", "OpenMP", "OpenSSH", "OpenSSL", "OpenStreetMap", "OpenTelemetry",
     "OpenType",
-    "WebGL", "WebGL2", "WebGPU", "WebRTC", "WebSocket", "WebTransport",
+    "WebAuthn", "WebGL", "WebGL2", "WebGPU", "WebRTC", "WebSocket", "WebTransport",
     "WebP", "OpenExr", "YCbCr", "sRGB",
     "TensorFlow",
     "TrueType",

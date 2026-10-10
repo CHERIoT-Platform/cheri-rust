@@ -22,13 +22,14 @@ use rustc_middle::dep_graph::WorkProductMap;
 use rustc_middle::ty::{CurrentGcx, TyCtxt};
 use rustc_query_impl::{CollectActiveJobsKind, collect_active_query_jobs};
 use rustc_session::config::{
-    Cfg, CrateType, Jobs, OutFileName, OutputFilenames, OutputTypes, Sysroot, host_tuple,
+    Cfg, Jobs, OutFileName, OutputFilenames, OutputTypes, Sysroot, host_tuple,
 };
-use rustc_session::{EarlyDiagCtxt, IncrCompSession, Session, filesearch};
+use rustc_session::{EarlyDiagCtxt, EarlySession, IncrCompSession, Session, filesearch};
 use rustc_span::edition::Edition;
 use rustc_span::source_map::SourceMapInputs;
 use rustc_span::{SessionGlobals, Symbol, sym};
-use rustc_target::spec::Target;
+use rustc_structures::CrateType;
+use rustc_target::spec::{Arch, Target};
 use tracing::info;
 
 use crate::diagnostics;
@@ -41,52 +42,50 @@ type MakeBackendFn = fn() -> Box<dyn CodegenBackend>;
 /// specific features (SSE, NEON etc.).
 ///
 /// This is performed by checking whether a set of permitted features
-/// is available on the target machine, by querying the codegen backend.
+/// is available on the target machine, by querying the `TargetConfig` from the codegen backend.
 pub(crate) fn add_configuration(
     cfg: &mut Cfg,
-    sess: &mut Session,
-    codegen_backend: &dyn CodegenBackend,
+    target_config: &TargetConfig,
+    target: &Target,
+    is_nightly_build: bool,
+    is_crt_static: bool,
 ) {
-    let tf = sym::target_feature;
-    let tf_cfg = codegen_backend.target_config(sess);
-
     // Add some of the target features to `cfg`.
     cfg.extend(
-        sess.target
+        target
             .rust_target_features()
             .iter()
             .filter_map(|(feature, gate, _)| {
                 if gate.in_cfg()
-                    && (sess.is_nightly_build()
-                        || gate.requires_nightly(/* in_cfg */ true).is_none())
+                    && (is_nightly_build || gate.requires_nightly(/* in_cfg */ true).is_none())
                 {
                     Some(Symbol::intern(feature))
                 } else {
                     None
                 }
             })
-            .filter(|feature| tf_cfg.internal_target_features.contains(&feature))
+            .filter(|feature| target_config.internal_target_features.contains(&feature))
             .map(|feature| (sym::target_feature, Some(feature))),
     );
 
-    // Store all of them in the session.
-    sess.internal_target_features.extend(tf_cfg.internal_target_features.into_sorted_stable_ord());
-
-    if tf_cfg.has_reliable_f16 {
+    if target_config.has_reliable_f16 {
         cfg.insert((sym::target_has_reliable_f16, None));
     }
-    if tf_cfg.has_reliable_f16_math {
+    if target_config.has_reliable_f16_math {
         cfg.insert((sym::target_has_reliable_f16_math, None));
     }
-    if tf_cfg.has_reliable_f128 {
+    if target_config.has_reliable_f16b {
+        cfg.insert((sym::target_has_reliable_f16b, None));
+    }
+    if target_config.has_reliable_f128 {
         cfg.insert((sym::target_has_reliable_f128, None));
     }
-    if tf_cfg.has_reliable_f128_math {
+    if target_config.has_reliable_f128_math {
         cfg.insert((sym::target_has_reliable_f128_math, None));
     }
 
-    if sess.crt_static(None) {
-        cfg.insert((tf, Some(sym::crt_dash_static)));
+    if is_crt_static {
+        cfg.insert((sym::target_feature, Some(sym::crt_dash_static)));
     }
 }
 
@@ -106,22 +105,44 @@ pub(crate) fn check_abi_required_features(sess: &Session) {
         );
     }
 
+    // Make this a hard error on ARM since starting with LLVM24, the backend will otherwise
+    // emit a (less friendly) hard error.
+    // Also make it a hard error on x86, where we use SSE registers for the "Rust" ABI. The
+    // post-mono ABI check only systematically checks "C" calls, so we better reject this here.
+    let hard_error = matches!(sess.target.arch, Arch::Arm | Arch::X86);
+
     for feature in abi_feature_constraints.required {
         if !sess.internal_target_features.contains(&Symbol::intern(feature)) {
-            sess.dcx()
-                .emit_warn(diagnostics::AbiRequiredTargetFeature { feature, enabled: "enabled" });
+            let diag = diagnostics::AbiRequiredTargetFeature {
+                feature,
+                enabled: "enabled",
+                fcw: !hard_error,
+            };
+            if hard_error {
+                sess.dcx().emit_err(diag);
+            } else {
+                sess.dcx().emit_warn(diag);
+            }
         }
     }
     for feature in abi_feature_constraints.incompatible {
         if sess.internal_target_features.contains(&Symbol::intern(feature)) {
-            sess.dcx()
-                .emit_warn(diagnostics::AbiRequiredTargetFeature { feature, enabled: "disabled" });
+            let diag = diagnostics::AbiRequiredTargetFeature {
+                feature,
+                enabled: "disabled",
+                fcw: !hard_error,
+            };
+            if hard_error {
+                sess.dcx().emit_err(diag);
+            } else {
+                sess.dcx().emit_warn(diag);
+            }
         }
     }
 }
 
 pub static STACK_SIZE: OnceLock<usize> = OnceLock::new();
-pub const DEFAULT_STACK_SIZE: usize = 16 * 1024 * 1024;
+pub const DEFAULT_STACK_SIZE: usize = 17 * 1024 * 1024;
 
 fn init_stack_size(early_dcx: &EarlyDiagCtxt) -> usize {
     // Obey the environment setting or default
@@ -143,7 +164,7 @@ fn init_stack_size(early_dcx: &EarlyDiagCtxt) -> usize {
                         r#"`RUST_MIN_STACK` should be a number of bytes, but was "{s}""#,
                     ));
                     err.note("you can also unset `RUST_MIN_STACK` to use the default stack size");
-                    err.emit()
+                    err.emit_fatal()
                 })
             })
             // otherwise pick a consistent default
@@ -320,7 +341,7 @@ internal compiler error: query cycle handler thread panicked, aborting process";
                     diag.help(
                         "try lowering `-Z threads` or checking the operating system's resource limits",
                     );
-                    diag.emit()
+                    diag.emit_fatal()
                 })
         })
     })
@@ -383,7 +404,7 @@ impl CodegenBackend for DummyCodegenBackend {
         "dummy"
     }
 
-    fn target_config(&self, sess: &Session) -> TargetConfig {
+    fn target_config(&self, sess: &EarlySession) -> TargetConfig {
         let abi_required_features = sess.target.abi_required_features();
         let internal_target_features = internal_target_features::<0>(
             sess,
@@ -401,6 +422,7 @@ impl CodegenBackend for DummyCodegenBackend {
             internal_target_features,
             has_reliable_f16: true,
             has_reliable_f16_math: true,
+            has_reliable_f16b: true,
             has_reliable_f128: true,
             has_reliable_f128_math: true,
         }

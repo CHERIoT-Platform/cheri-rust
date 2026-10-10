@@ -7,7 +7,6 @@
 #![feature(try_blocks)]
 #![recursion_limit = "256"]
 // tidy-alphabetical-end
-#![cfg_attr(bootstrap, feature(string_from_utf8_lossy_owned))]
 
 //! This crate contains codegen code that is used by all codegen backends (LLVM and others).
 //! The backend-agnostic functions of this crate use functions defined in various traits that
@@ -23,9 +22,9 @@ use rustc_crate_store::{self as cstore, CrateSource};
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
 use rustc_data_structures::unord::{UnordMap, UnordSet};
 use rustc_hir::CRATE_HIR_ID;
-use rustc_hir::attrs::{CfgEntry, NativeLibKind, WindowsSubsystemKind};
+use rustc_hir::attrs::{CfgEntry, WindowsSubsystemKind};
 use rustc_hir::def_id::CrateNum;
-use rustc_lint_defs::builtin::LINKER_INFO;
+use rustc_lint_defs::builtin::{LINKER_INFO, LINKER_MESSAGES};
 use rustc_macros::{Decodable, Encodable};
 use rustc_metadata::EncodedMetadata;
 use rustc_middle::dep_graph::WorkProduct;
@@ -38,9 +37,9 @@ use rustc_middle::util::Providers;
 use rustc_serialize::opaque::{FileEncoder, MemDecoder};
 use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
 use rustc_session::Session;
-use rustc_session::config::{CrateType, OutputFilenames, OutputType};
-use rustc_session::lint::builtin::LINKER_MESSAGES;
+use rustc_session::config::{OutputFilenames, OutputType};
 use rustc_span::{Span, Symbol};
+use rustc_structures::{CrateType, NativeLibKind};
 
 pub mod assert_module_sources;
 pub mod back;
@@ -115,7 +114,6 @@ impl<M> ModuleCodegen<M> {
             bytecode,
             assembly,
             llvm_ir,
-            links_from_incr_cache: Vec::new(),
         }
     }
 }
@@ -130,7 +128,6 @@ pub struct CompiledModule {
     pub bytecode: Option<PathBuf>,
     pub assembly: Option<PathBuf>, // --emit=asm
     pub llvm_ir: Option<PathBuf>,  // --emit=llvm-ir, llvm-bc is in bytecode
-    pub links_from_incr_cache: Vec<PathBuf>,
 }
 
 impl CompiledModule {
@@ -316,6 +313,9 @@ pub struct TargetConfig {
     pub has_reliable_f16: bool,
     /// Option for `cfg(target_has_reliable_f16_math)`, true if `f16` math calls work.
     pub has_reliable_f16_math: bool,
+    /// Option for `cfg(target_has_reliable_f16b)`, presently true if both the ABI
+    /// and LLVM version supports `f16b`.
+    pub has_reliable_f16b: bool,
     /// Option for `cfg(target_has_reliable_f128)`, true if `f128` basic arithmetic works.
     pub has_reliable_f128: bool,
     /// Option for `cfg(target_has_reliable_f128_math)`, true if `f128` math calls work.
@@ -341,7 +341,6 @@ pub fn provide(providers: &mut Providers) {
     crate::base::provide(&mut providers.queries);
     crate::target_features::provide(&mut providers.queries);
     crate::codegen_attrs::provide(&mut providers.queries);
-    providers.queries.global_backend_features = |_tcx: TyCtxt<'_>, ()| vec![];
 }
 
 const RLINK_VERSION: u32 = 1;

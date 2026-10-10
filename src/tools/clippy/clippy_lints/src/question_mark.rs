@@ -14,16 +14,15 @@ use clippy_utils::{
     is_none_expr, is_none_pattern, pat_and_expr_can_be_question_mark, peel_blocks, peel_blocks_with_stmt,
     span_contains_cfg, span_contains_comment, sym,
 };
+use rustc_attr_ir::lang_items::LangItem::{self, OptionNone, OptionSome, ResultErr, ResultOk};
 use rustc_errors::Applicability;
-use rustc_hir::attrs::lang_items::LangItem::{self, OptionNone, OptionSome, ResultErr, ResultOk};
 use rustc_hir::def::Res;
 use rustc_hir::{
     Arm, BindingMode, Block, Body, ByRef, Expr, ExprKind, FnRetTy, HirId, LetStmt, MatchSource, Mutability, Node, Pat,
     PatKind, PathSegment, QPath, Stmt, StmtKind,
 };
-use rustc_lint::{LateContext, LateLintPass};
+use rustc_lint::{LateContext, LateLintPass, impl_lint_pass};
 use rustc_middle::ty::{self, Ty};
-use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 use rustc_span::symbol::Symbol;
 

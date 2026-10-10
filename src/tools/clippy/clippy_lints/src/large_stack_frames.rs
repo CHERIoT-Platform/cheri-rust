@@ -9,8 +9,7 @@ use rustc_hir::def_id::LocalDefId;
 use rustc_hir::intravisit::FnKind;
 use rustc_hir::{Body, FnDecl};
 use rustc_lexer::is_ident;
-use rustc_lint::{LateContext, LateLintPass};
-use rustc_session::impl_lint_pass;
+use rustc_lint::{LateContext, LateLintPass, impl_lint_pass};
 use rustc_span::{Span, SyntaxContext};
 
 declare_clippy_lint! {
@@ -184,7 +183,7 @@ impl<'tcx> LateLintPass<'tcx> for LargeStackFrames {
                 return;
             }
 
-            let explain_lint = |diag: &mut Diag<'_, ()>, ctxt: SyntaxContext| {
+            let explain_lint = |diag: &mut Diag<'_>, ctxt: SyntaxContext| {
                 // Point out the largest individual contribution to this size, because
                 // it is the most likely to be unintentionally large.
                 if let Some((local, size)) = sizes_of_locals.iter().max_by_key(|&(_, size)| size)

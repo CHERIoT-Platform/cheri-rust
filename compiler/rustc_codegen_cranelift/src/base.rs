@@ -12,6 +12,7 @@ use rustc_hir::attrs::lang_items::LangItem;
 use rustc_index::IndexVec;
 use rustc_middle::ty::TypeVisitableExt;
 use rustc_middle::ty::adjustment::PointerCoercion;
+use rustc_middle::ty::consts::ConstExt;
 use rustc_middle::ty::layout::{FnAbiOf, HasTypingEnv as _};
 use rustc_middle::ty::print::with_no_trimmed_paths;
 use rustc_session::config::OutputFilenames;
@@ -207,7 +208,8 @@ pub(crate) fn compile_fn(
                     Some(Box::new(&clif_comments)),
                     err,
                 );
-                dcx.fatal(format!("cranelift verify error:\n{pretty_error}"));
+                eprintln!("{pretty_error}");
+                bug!("cranelift verify error");
             }
             Err(err) => {
                 let mut clif = format_clif_ir_header(module.isa(), &codegened_func.symbol_name);
@@ -218,8 +220,9 @@ pub(crate) fn compile_fn(
                 )
                 .unwrap();
 
-                panic!(
-                    "Error while defining {name}: {err:?}\n\nPost-optimization Cranelift IR:\n{clif}",
+                bug!(
+                    "Error while defining {name}: {err:?}\n\n
+                    Post-optimization Cranelift IR:\n{clif}",
                     name = codegened_func.symbol_name
                 );
             }
@@ -274,7 +277,8 @@ fn verify_func(tcx: TyCtxt<'_>, writer: &crate::pretty_clif::CommentWriter, func
                     Some(Box::new(writer)),
                     err,
                 );
-                tcx.dcx().fatal(format!("cranelift verify error:\n{}", pretty_error));
+                eprintln!("{pretty_error}");
+                bug!("cranelift verify error");
             }
         }
     });
@@ -994,6 +998,7 @@ pub(crate) fn codegen_place<'tcx>(
             PlaceElem::Deref => {
                 cplace = cplace.place_deref(fx);
             }
+            PlaceElem::PhantomDeref => bug!("encountered PhantomDeref in codegen"),
             PlaceElem::OpaqueCast(ty) => bug!("encountered OpaqueCast({ty}) in codegen"),
             PlaceElem::UnwrapUnsafeBinder(ty) => {
                 cplace = cplace.place_transmute_type(fx, fx.monomorphize(ty));

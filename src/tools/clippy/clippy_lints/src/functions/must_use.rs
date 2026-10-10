@@ -1,8 +1,9 @@
 use hir::FnSig;
+use rustc_attr_ir::find_attr;
 use rustc_errors::Applicability;
 use rustc_hir::def::Res;
 use rustc_hir::def_id::DefIdSet;
-use rustc_hir::{self as hir, Attribute, QPath, find_attr};
+use rustc_hir::{self as hir, Attribute, QPath};
 use rustc_lint::unused::must_use::MustUsePath;
 use rustc_lint::{LateContext, LintContext as _};
 use rustc_middle::ty::{self, Ty};
@@ -139,7 +140,7 @@ fn check_needless_must_use(
     attrs: &[Attribute],
     sig: &FnSig<'_>,
 ) {
-    if item_span.in_external_macro(cx.sess().source_map()) {
+    if item_span.in_external_macro(cx.sess().source_map()) || attr_span.from_expansion() {
         return;
     }
     if returns_unit(decl) {

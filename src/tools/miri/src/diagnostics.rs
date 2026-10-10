@@ -32,9 +32,9 @@ pub enum TerminationInfo {
         history: tree_diagnostics::HistoryData,
     },
     Int2PtrWithStrictProvenance,
-    /// GenMC deemed this execution invalid, so Miri drops it, i.e., it skips to the next execution
-    /// (mirrors GenMC's `Invalid` result).
-    GenmcInvalid,
+    /// GenMC deemed this execution "moot" or invalid, so Miri drops it, i.e., it skips to the next
+    /// execution. Mirrors GenMC's `Invalid` result or a "moot" result from the scheduler.
+    GenmcMoot,
     /// All threads are blocked.
     GlobalDeadlock,
     /// Some thread discovered a deadlock condition (e.g. in a mutex with reentrancy checking).
@@ -84,7 +84,7 @@ impl fmt::Display for TerminationInfo {
             TreeBorrowsUb { title, .. } => write!(f, "{title}"),
             GlobalDeadlock => write!(f, "the evaluated program deadlocked"),
             LocalDeadlock => write!(f, "a thread deadlocked"),
-            GenmcInvalid => write!(f, "GenMC wants to skip this execution"),
+            GenmcMoot => write!(f, "GenMC wants to skip this execution"),
             MultipleSymbolDefinitions { link_name, .. } =>
                 write!(f, "multiple definitions of symbol `{link_name}`"),
             SymbolShimClashing { link_name, .. } =>
@@ -258,7 +258,7 @@ pub fn report_result<'tcx>(
                 Some("unsupported operation"),
             StackedBorrowsUb { .. } | TreeBorrowsUb { .. } | DataRace { .. } =>
                 Some("Undefined Behavior"),
-            GenmcInvalid => {
+            GenmcMoot => {
                 assert!(ecx.machine.data_race.as_genmc_ref().is_some());
                 return Some((0, false));
             }
@@ -500,7 +500,7 @@ pub fn report_result<'tcx>(
         trace!("-------------------");
         trace!("Frame {}", i);
         trace!("    return: {:?}", frame.return_place());
-        for (i, local) in frame.locals.iter().enumerate() {
+        for (i, local) in frame.locals().iter().enumerate() {
             trace!("    local {}: {:?}", i, local);
         }
     }
@@ -569,10 +569,10 @@ fn report_msg<'tcx>(
     let tcx = machine.tcx;
     let level = match diag_level {
         DiagLevel::Error => Level::Error,
-        DiagLevel::Warning => Level::Warning,
+        DiagLevel::Warning => Level::Warning(None),
         DiagLevel::Note => Level::Note,
     };
-    let mut err = Diag::<()>::new(tcx.sess.dcx(), level, title);
+    let mut err = Diag::new(tcx.sess.dcx(), level, title);
     err.span(span);
 
     // Show main message.

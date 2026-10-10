@@ -353,14 +353,14 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
     fn schedule_windows_tls_dtor(&mut self, dtor: ImmTy<'tcx>, span: Span) -> InterpResult<'tcx> {
         let this = self.eval_context_mut();
 
-        let dtor = dtor.to_scalar().to_pointer(this)?;
+        let dtor = dtor.to_scalar().to_pointer(this);
         let thread_callback = this.get_ptr_fn(dtor)?.as_instance()?;
 
         // FIXME: Technically, the reason should be `DLL_PROCESS_DETACH` when the main thread exits
         // but std treats both the same.
         let reason = this.eval_windows("c", "DLL_THREAD_DETACH");
         let null_ptr =
-            ImmTy::from_scalar(Scalar::null_ptr(this), this.machine.layouts.const_raw_ptr);
+            ImmTy::from_scalar(Scalar::null_ptr(this), this.machine.layouts.unit_ptr_const);
 
         // The signature of this function is `unsafe extern "system" fn(h: c::LPVOID, dwReason: c::DWORD, pv: c::LPVOID)`.
         // FIXME: `h` should be a handle to the current module and what `pv` should be is unknown
@@ -389,7 +389,7 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             this.call_thread_root_function(
                 instance,
                 ExternAbi::C { unwind: false },
-                &[ImmTy::from_scalar(data, this.machine.layouts.mut_raw_ptr)],
+                &[ImmTy::from_scalar(data, this.machine.layouts.unit_ptr_mut)],
                 None,
                 span,
             )?;
@@ -426,7 +426,7 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             this.call_thread_root_function(
                 instance,
                 ExternAbi::C { unwind: false },
-                &[ImmTy::from_scalar(ptr, this.machine.layouts.mut_raw_ptr)],
+                &[ImmTy::from_scalar(ptr, this.machine.layouts.unit_ptr_mut)],
                 None,
                 span,
             )?;
@@ -492,7 +492,7 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             this.call_thread_root_function(
                 instance,
                 ExternAbi::System { unwind: false },
-                &[ImmTy::from_scalar(ptr, this.machine.layouts.mut_raw_ptr)],
+                &[ImmTy::from_scalar(ptr, this.machine.layouts.unit_ptr_mut)],
                 None,
                 span,
             )?;

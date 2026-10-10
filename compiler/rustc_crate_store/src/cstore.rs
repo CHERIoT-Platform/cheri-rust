@@ -4,9 +4,11 @@
 
 use std::any::Any;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use rustc_abi::ExternAbi;
-use rustc_attr_ir::{CfgEntry, NativeLibKind, PeImportNameType};
+use rustc_attr_ir::{CfgEntry, PeImportNameType};
+use rustc_data_structures::svh::Svh;
 use rustc_data_structures::sync::{self, AppendOnlyIndexVec, FreezeLock};
 use rustc_hir_id::definitions::{DefKey, DefPath, Definitions};
 use rustc_macros::{BlobDecodable, Decodable, Encodable, StableHash};
@@ -14,6 +16,7 @@ use rustc_span::def_id::{
     CrateNum, DefId, DefPathHash, LOCAL_CRATE, LocalDefId, StableCrateId, StableCrateIdMap,
 };
 use rustc_span::{Span, Symbol};
+use rustc_structures::NativeLibKind;
 
 /// Where a crate came from on the local filesystem. One of these three options
 /// must be non-None.
@@ -219,6 +222,8 @@ pub struct Untracked {
     pub definitions: FreezeLock<Definitions>,
     /// The interned [StableCrateId]s.
     pub stable_crate_ids: FreezeLock<StableCrateIdMap>,
+    /// The hash of the local crate as computed in metadata encoding.
+    pub local_crate_hash: OnceLock<Svh>,
 }
 
 impl Untracked {

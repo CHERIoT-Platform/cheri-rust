@@ -287,7 +287,7 @@ fn item_search_pat(item: &Item<'_>) -> (Pat, Pat) {
         ),
         ItemKind::TraitAlias(..) => (Pat::Str("trait"), Pat::Str(";")),
         ItemKind::GlobalAsm { .. } => return (Pat::Str("global_asm"), Pat::Str("")),
-        ItemKind::Use(..) => return (Pat::Str(""), Pat::Str("")),
+        ItemKind::Use(..) | ItemKind::TestBinderConstraints { .. } => return (Pat::Str(""), Pat::Str("")),
     };
     if item.vis_span.is_empty() {
         (start_pat, end_pat)
@@ -539,7 +539,7 @@ fn ast_ty_search_pat(ty: &ast::Ty) -> (Pat, Pat) {
         | TyKind::Pat(..)
         | TyKind::FieldOf(..)
         | TyKind::View(..)
-        | TyKind::DirectConstArg(..)
+        | TyKind::GcaMacro(..)
 
         // unused
         | TyKind::CVarArgs
@@ -634,10 +634,6 @@ fn pat_search_pat(tcx: TyCtxt<'_>, pat: &rustc_hir::Pat<'_>) -> (Pat, Pat) {
             (start, end)
         },
         PatKind::Never => (Pat::Str("!"), Pat::Str("")),
-        PatKind::Box(p) => {
-            let (_, end) = pat_search_pat(tcx, p);
-            (Pat::Str("box"), end)
-        },
         PatKind::Deref(_) => (Pat::Str("deref!"), Pat::Str("")),
         PatKind::Ref(p, _, _) => {
             let (_, end) = pat_search_pat(tcx, p);

@@ -6,9 +6,8 @@ use clippy_utils::{peel_hir_expr_refs, sym};
 use rustc_errors::Applicability;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::{Expr, ExprKind, Mutability, QPath};
-use rustc_lint::{LateContext, LateLintPass};
+use rustc_lint::{LateContext, LateLintPass, impl_lint_pass};
 use rustc_middle::ty;
-use rustc_session::impl_lint_pass;
 
 declare_clippy_lint! {
     /// ### What it does
@@ -51,7 +50,7 @@ impl LateLintPass<'_> for ManualMainSeparatorStr {
         if let ExprKind::MethodCall(path, receiver, &[], _) = target.kind
             && path.ident.name == sym::to_string
             && let ExprKind::Path(QPath::Resolved(None, path)) = receiver.kind
-            && let Res::Def(DefKind::Const { .. }, receiver_def_id) = path.res
+            && let Res::Def(DefKind::Const, receiver_def_id) = path.res
             && cx.ty_based_def(target).opt_parent(cx).is_diag_item(cx, sym::ToString)
             && cx.tcx.is_diagnostic_item(sym::path_main_separator, receiver_def_id)
             && let ty::Ref(_, ty, Mutability::Not) = cx.typeck_results().expr_ty_adjusted(expr).kind()

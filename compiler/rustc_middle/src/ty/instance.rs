@@ -1,14 +1,14 @@
 use std::{assert_matches, fmt};
 
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir as hir;
-use rustc_hir::attrs::lang_items::LangItem;
 use rustc_hir::def::{CtorKind, DefKind, Namespace};
 use rustc_hir::def_id::{CrateNum, DefId};
 use rustc_macros::{Lift, StableHash, TyDecodable, TyEncodable};
 use rustc_span::def_id::LOCAL_CRATE;
-use rustc_span::{DUMMY_SP, Span};
+use rustc_span::{DUMMY_SP, Span, bug, span_bug};
 use tracing::{debug, instrument};
 
 use crate::diagnostics;
@@ -75,7 +75,7 @@ pub enum InstanceKind<'tcx> {
     /// "magically" evaluate calls to intrinsics purely in the caller.
     Intrinsic(DefId),
 
-    /// An LLVM intrinsic `fn` item (with `extern "unadjusted"`).
+    /// An LLVM intrinsic `fn` item (with `extern "llvm-intrinsic"`).
     ///
     /// Alongside `Intrinsic` and `Virtual`, this is the only `InstanceKind`
     /// that does not have its own callable MIR. Instead, codegen and const eval
@@ -177,12 +177,19 @@ pub enum ShimKind<'tcx> {
     /// The `DefId` is for `Clone::clone`, the `Ty` is the type `T` with the builtin `Clone` impl.
     Clone(DefId, Ty<'tcx>),
 
-    /// Compiler-generated `<T as FnPtr>::addr` implementation.
+    /// Compiler-generated `<T as FnPtr>::as_ptr` implementation.
     ///
     /// Automatically generated for all potentially higher-ranked `fn(I) -> R` types.
     ///
-    /// The `DefId` is for `FnPtr::addr`, the `Ty` is the type `T`.
-    FnPtrAddr(DefId, Ty<'tcx>),
+    /// The `DefId` is for `FnPtr::as_ptr`, the `Ty` is the type `T`.
+    FnPtrAsPtr(DefId, Ty<'tcx>),
+
+    /// Compiler-generated `<T as FnPtr>::from_ptr` implementation.
+    ///
+    /// Automatically generated for all potentially higher-ranked `fn(I) -> R` types.
+    ///
+    /// The `DefId` is for `FnPtr::from_ptr`, the `Ty` is the type `T`.
+    FnPtrFromPtr(DefId, Ty<'tcx>),
 
     /// `core::future::async_drop::async_drop_in_place::<'_, T>`.
     ///
@@ -224,7 +231,7 @@ impl<'tcx> Instance<'tcx> {
         if !tcx.sess.opts.share_generics()
             // However, if the def_id is marked inline(never), then it's fine to just reuse the
             // upstream monomorphization.
-            && tcx.codegen_fn_attrs(self.def_id()).inline != rustc_hir::attrs::InlineAttr::Never
+            && tcx.codegen_fn_attrs(self.def_id()).inline != rustc_attr_ir::InlineAttr::Never
         {
             return None;
         }
@@ -344,7 +351,8 @@ impl<'tcx> ShimKind<'tcx> {
             }
             | ShimKind::DropGlue(def_id, _)
             | ShimKind::Clone(def_id, _)
-            | ShimKind::FnPtrAddr(def_id, _)
+            | ShimKind::FnPtrAsPtr(def_id, _)
+            | ShimKind::FnPtrFromPtr(def_id, _)
             | ShimKind::FutureDropPoll(def_id, _, _)
             | ShimKind::AsyncDropGlue(def_id, _)
             | ShimKind::AsyncDropGlueCtor(def_id, _) => def_id,
@@ -366,7 +374,8 @@ impl<'tcx> ShimKind<'tcx> {
             | ShimKind::ConstructCoroutineInClosure { .. }
             | ShimKind::DropGlue(..)
             | ShimKind::Clone(..)
-            | ShimKind::FnPtrAddr(..) => None,
+            | ShimKind::FnPtrAsPtr(..)
+            | ShimKind::FnPtrFromPtr(..) => None,
         }
     }
 
@@ -385,8 +394,9 @@ impl<'tcx> ShimKind<'tcx> {
         match *self {
             ShimKind::Clone(..)
             | ShimKind::ThreadLocal(..)
-            | ShimKind::FnPtrAddr(..)
             | ShimKind::FnPtr(..)
+            | ShimKind::FnPtrAsPtr(..)
+            | ShimKind::FnPtrFromPtr(..)
             | ShimKind::DropGlue(_, Some(_))
             | ShimKind::FutureDropPoll(..)
             | ShimKind::AsyncDropGlue(_, _) => false,
@@ -569,8 +579,8 @@ impl<'tcx> Instance<'tcx> {
             tcx.def_kind(def_id),
             DefKind::Fn
                 | DefKind::AssocFn
-                | DefKind::Const { .. }
-                | DefKind::AssocConst { .. }
+                | DefKind::Const
+                | DefKind::AssocConst
                 | DefKind::AnonConst
                 | DefKind::Static { .. }
                 | DefKind::Ctor(_, CtorKind::Fn)

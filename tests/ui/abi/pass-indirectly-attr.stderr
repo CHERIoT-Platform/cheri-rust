@@ -48,7 +48,8 @@ error: fn_abi_of(extern_c) = FnAbi {
                            ),
                        },
                        meta_attrs: None,
-                       on_stack: false,
+                       address_space: None,
+                       mode: Pointer,
                    },
                },
            ],
@@ -121,7 +122,7 @@ error: fn_abi_of(extern_rust) = FnAbi {
                        },
                    },
                    mode: Cast {
-                       pad_i32: false,
+                       pad_i32_count: 0,
                        cast: CastTarget {
                            prefix: [],
                            rest_offset: None,

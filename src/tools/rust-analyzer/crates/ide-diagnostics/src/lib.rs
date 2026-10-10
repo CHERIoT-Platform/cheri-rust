@@ -60,6 +60,7 @@ mod handlers {
     pub(crate) mod method_call_illegal_sized_bound;
     pub(crate) mod mismatched_arg_count;
     pub(crate) mod mismatched_array_pat_len;
+    pub(crate) mod missing_body;
     pub(crate) mod missing_fields;
     pub(crate) mod missing_lifetime;
     pub(crate) mod missing_match_arms;
@@ -85,6 +86,7 @@ mod handlers {
     pub(crate) mod type_mismatch;
     pub(crate) mod type_must_be_known;
     pub(crate) mod typed_hole;
+    pub(crate) mod unary_operator_cannot_be_applied;
     pub(crate) mod undeclared_label;
     pub(crate) mod unimplemented_builtin_macro;
     pub(crate) mod unimplemented_trait;
@@ -437,6 +439,7 @@ pub fn semantic_diagnostics(
         let d = match diag {
             AnyDiagnostic::AwaitOutsideOfAsync(d) => handlers::await_outside_of_async::await_outside_of_async(&ctx, &d),
             AnyDiagnostic::CannotBeDereferenced(d) => handlers::cannot_be_dereferenced::cannot_be_dereferenced(&ctx, &d),
+            AnyDiagnostic::UnaryOperatorCannotBeApplied(d) => handlers::unary_operator_cannot_be_applied::unary_operator_cannot_be_applied(&ctx, &d),
             AnyDiagnostic::CannotImplicitlyDerefTraitObject(d) => handlers::cannot_implicitly_deref_trait_object::cannot_implicitly_deref_trait_object(&ctx, &d),
             AnyDiagnostic::CannotIndexInto(d) => handlers::cannot_index_into::cannot_index_into(&ctx, &d),
             AnyDiagnostic::CastToUnsized(d) => handlers::invalid_cast::cast_to_unsized(&ctx, &d),
@@ -543,6 +546,7 @@ pub fn semantic_diagnostics(
             }
             AnyDiagnostic::UnimplementedTrait(d) => handlers::unimplemented_trait::unimplemented_trait(&ctx, &d),
             AnyDiagnostic::FruInDestructuringAssignment(d) => handlers::fru_in_destructuring_assignment::fru_in_destructuring_assignment(&ctx, &d),
+            AnyDiagnostic::MissingBody(d) => handlers::missing_body::missing_body(&ctx, &d),
             AnyDiagnostic::ExplicitDropMethodUse(d) => handlers::explicit_drop_method_use::explicit_drop_method_use(&ctx, &d),
             AnyDiagnostic::YieldOutsideCoroutine(d) => handlers::yield_outside_coroutine::yield_outside_coroutine(&ctx, &d),
             AnyDiagnostic::ReturnOutsideFunction(d) => handlers::return_outside_function::return_outside_function(&ctx, &d),

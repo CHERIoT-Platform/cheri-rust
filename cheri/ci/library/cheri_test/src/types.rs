@@ -164,12 +164,6 @@ impl Termination for ! {
     }
 }
 
-impl Termination for Infallible {
-    fn report(self) -> ExitCode {
-        match self {}
-    }
-}
-
 impl Termination for ExitCode {
     #[inline]
     fn report(self) -> ExitCode {

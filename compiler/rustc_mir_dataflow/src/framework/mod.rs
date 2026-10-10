@@ -34,11 +34,11 @@
 
 use rustc_index::bit_set::{DenseBitSet, MixedBitSet};
 use rustc_index::{Idx, IndexVec};
-use rustc_middle::bug;
 use rustc_middle::mir::{
     self, BasicBlock, BasicBlockData, CallReturnPlaces, Location, TerminatorEdges,
 };
 use rustc_middle::ty::TyCtxt;
+use rustc_span::bug;
 use tracing::error;
 
 use self::graphviz::write_graphviz_results;
@@ -264,7 +264,7 @@ pub trait Analysis<'tcx> {
     fn apply_switch_int_edge_effect(
         &self,
         _state: &mut Self::Domain,
-        _data: &mut Self::SwitchIntData,
+        _data: &Self::SwitchIntData,
         _target_idx: SwitchTargetIndex,
     ) {
         unreachable!();

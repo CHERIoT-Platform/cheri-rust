@@ -11,8 +11,7 @@ use rustc_middle::traits::query::NoSolution;
 use rustc_middle::ty::relate::combine::{combine_ty_args, super_combine_consts, super_combine_tys};
 use rustc_middle::ty::relate::relate_args_invariantly;
 use rustc_middle::ty::{self, FnMutDelegate, Ty, TyCtxt, TypeVisitableExt};
-use rustc_middle::{bug, span_bug};
-use rustc_span::{Span, Symbol, sym};
+use rustc_span::{Span, Symbol, bug, span_bug, sym};
 use tracing::{debug, instrument};
 
 use crate::constraints::OutlivesConstraint;
@@ -144,7 +143,31 @@ impl<'a, 'b, 'tcx> NllTypeRelating<'a, 'b, 'tcx> {
                 variance,
                 ty,
             )?;
-            Ok(infcx.resolve_vars_if_possible(Ty::new_infer(infcx.tcx, ty::TyVar(ty_vid))))
+            let new_var =
+                infcx.deeply_resolve_ignoring_regions(Ty::new_infer(infcx.tcx, ty::TyVar(ty_vid)));
+
+            // Any regions in this new type must be live everywhere, so we mark them as such.
+            // (It may be that it only needs to be live where the opaque type itself is - which
+            // includes defining use sites, but we'll be conservative and mark all points as live).
+            // This is needed for Polonius, which doesn't propagate constraints
+            // through dead regions. See issue #160669.
+            //
+            // We only do this in the root universe. Inside a binder these regions live in a higher
+            // universe and their values contain placeholders; marking them live at every point
+            // leaks those placeholders, turning the higher-ranked check into an error which then
+            // suppresses the deferred opaque type diagnostics.
+            if infcx.universe() == ty::UniverseIndex::ROOT {
+                let tcx = infcx.tcx;
+                let liveness = &mut self.type_checker.constraints.liveness_constraints;
+                ty::fold_regions(tcx, new_var, |r, _| {
+                    if let ty::ReVar(vid) = r.kind() {
+                        liveness.add_all_points(vid);
+                    }
+                    r
+                });
+            }
+
+            Ok(new_var)
         };
 
         let (a, b) = match (a.kind(), b.kind()) {

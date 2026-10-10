@@ -1,22 +1,20 @@
 use rustc_abi::{Align, ExternAbi};
-use rustc_hir::attrs::{
-    AttributeKind, EiiImplResolution, InlineAttr, InstrumentFnAttr as HirInstrumentFnAttr, Linkage,
-    OptimizeAttr, RtsanSetting, UsedBy,
+use rustc_attr_ir::{
+    Attribute, AttributeKind, EiiImplResolution, InlineAttr, Linkage, OptimizeAttr, RtsanSetting,
+    UsedBy, find_attr,
 };
+use rustc_hir as hir;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LOCAL_CRATE, LocalDefId};
-use rustc_hir::{self as hir, Attribute, find_attr};
+use rustc_lint_defs::builtin::{INLINE_NO_SANITIZE, RTSAN_NONBLOCKING_ASYNC};
 use rustc_macros::Diagnostic;
-use rustc_middle::bug;
 use rustc_middle::middle::codegen_fn_attrs::{
-    CodegenFnAttrFlags, CodegenFnAttrs, InstrumentFnAttr, PatchableFunctionEntry, SanitizerFnAttrs,
+    CodegenFnAttrFlags, CodegenFnAttrs, PatchableFunctionEntry, SanitizerFnAttrs,
 };
 use rustc_middle::mono::Visibility;
 use rustc_middle::query::Providers;
 use rustc_middle::ty::{self as ty, TyCtxt};
-use rustc_session::diagnostics::feature_err;
-use rustc_session::lint;
-use rustc_span::{Span, sym};
+use rustc_span::{Span, bug};
 use rustc_target::spec::Os;
 
 use crate::diagnostics;
@@ -64,7 +62,7 @@ fn process_builtin_attrs(
     codegen_fn_attrs: &mut CodegenFnAttrs,
 ) -> InterestingAttributeDiagnosticSpans {
     let mut interesting_spans = InterestingAttributeDiagnosticSpans::default();
-    let rust_target_features = tcx.rust_target_features(LOCAL_CRATE);
+    let rust_target_features = tcx.all_rust_target_features(LOCAL_CRATE);
 
     let parsed_attrs = attrs
         .iter()
@@ -154,18 +152,6 @@ fn process_builtin_attrs(
                 {
                     // This error is already reported in `rustc_ast_passes/src/ast_validation.rs`.
                     tcx.dcx().delayed_bug("`#[track_caller]` requires the Rust ABI");
-                }
-                if is_closure
-                    && !tcx.features().closure_track_caller()
-                    && !attr_span.allows_unstable(sym::closure_track_caller)
-                {
-                    feature_err(
-                        &tcx.sess,
-                        sym::closure_track_caller,
-                        *attr_span,
-                        "`#[track_caller]` on closures is currently unstable",
-                    )
-                    .emit();
                 }
                 codegen_fn_attrs.flags |= CodegenFnAttrFlags::TRACK_CALLER
             }
@@ -305,10 +291,7 @@ fn process_builtin_attrs(
                     ));
             }
             AttributeKind::InstrumentFn(instrument_fn) => {
-                codegen_fn_attrs.instrument_fn = match instrument_fn {
-                    HirInstrumentFnAttr::On => InstrumentFnAttr::On,
-                    HirInstrumentFnAttr::Off => InstrumentFnAttr::Off,
-                };
+                codegen_fn_attrs.instrument_fn = Some(*instrument_fn);
             }
             _ => {}
         }
@@ -467,7 +450,7 @@ fn check_result(
     {
         let hir_id = tcx.local_def_id_to_hir_id(did);
         tcx.emit_node_span_lint(
-            lint::builtin::INLINE_NO_SANITIZE,
+            INLINE_NO_SANITIZE,
             hir_id,
             sanitize_span,
             SanitizeOnInline { inline_span },
@@ -488,12 +471,7 @@ fn check_result(
                     != rustc_hir::ClosureKind::Closure))
     {
         let hir_id = tcx.local_def_id_to_hir_id(did);
-        tcx.emit_node_span_lint(
-            lint::builtin::RTSAN_NONBLOCKING_ASYNC,
-            hir_id,
-            sanitize_span,
-            AsyncBlocking,
-        );
+        tcx.emit_node_span_lint(RTSAN_NONBLOCKING_ASYNC, hir_id, sanitize_span, AsyncBlocking);
     }
 
     // error when specifying link_name together with link_ordinal
@@ -509,7 +487,7 @@ fn check_result(
     }
 
     if let Some(features) = check_tied_features(
-        tcx.sess,
+        &tcx.sess.target,
         &codegen_fn_attrs
             .target_features
             .iter()
@@ -519,13 +497,11 @@ fn check_result(
         let span = find_attr!(tcx, did, TargetFeature{attr_span: span, ..} => *span)
             .unwrap_or_else(|| tcx.def_span(did));
 
-        tcx.dcx()
-            .create_err(diagnostics::TargetFeatureDisableOrEnable {
-                features,
-                span: Some(span),
-                missing_features: Some(diagnostics::MissingFeatures),
-            })
-            .emit();
+        tcx.dcx().emit_err(diagnostics::TargetFeatureDisableOrEnable {
+            features,
+            span: Some(span),
+            missing_features: Some(diagnostics::MissingFeatures),
+        });
     }
 }
 

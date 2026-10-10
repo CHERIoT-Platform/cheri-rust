@@ -1,9 +1,10 @@
 //! Conversion of internal Rust compiler `mir` items to stable ones.
 
+use rustc_middle::mir;
 use rustc_middle::mono::MonoItem;
-use rustc_middle::{bug, mir};
 use rustc_public_bridge::context::CompilerCtxt;
 use rustc_public_bridge::{Tables, bridge};
+use rustc_span::bug;
 
 use crate::compiler_interface::BridgeTys;
 use crate::mir::alloc::GlobalAlloc;
@@ -444,6 +445,7 @@ impl<'tcx> Stable<'tcx> for mir::PlaceElem<'tcx> {
         use rustc_middle::mir::ProjectionElem::*;
         match self {
             Deref => crate::mir::ProjectionElem::Deref,
+            PhantomDeref => bug!("Hopefully we don't come here"),
             Field(idx, ty) => {
                 crate::mir::ProjectionElem::Field(idx.stable(tables, cx), ty.stable(tables, cx))
             }

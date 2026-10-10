@@ -362,7 +362,8 @@ macro_rules! make_mir_visitor {
                         ty::InstanceKind::Shim(ty::ShimKind::FnPtr(_def_id, ty))
                         | ty::InstanceKind::Shim(ty::ShimKind::DropGlue(_def_id, Some(ty)))
                         | ty::InstanceKind::Shim(ty::ShimKind::Clone(_def_id, ty))
-                        | ty::InstanceKind::Shim(ty::ShimKind::FnPtrAddr(_def_id, ty))
+                        | ty::InstanceKind::Shim(ty::ShimKind::FnPtrAsPtr(_def_id, ty))
+                        | ty::InstanceKind::Shim(ty::ShimKind::FnPtrFromPtr(_def_id, ty))
                         | ty::InstanceKind::Shim(ty::ShimKind::AsyncDropGlue(_def_id, ty))
                         | ty::InstanceKind::Shim(ty::ShimKind::AsyncDropGlueCtor(_def_id, ty)) => {
                             // FIXME(eddyb) use a better `TyContext` here.
@@ -917,7 +918,7 @@ macro_rules! make_mir_visitor {
                 }) = composite {
                     self.visit_ty($(& $mutability)? *ty, TyContext::Location(location));
                     for elem in projection {
-                        let ProjectionElem::Field(_, ty) = elem else { bug!() };
+                        let ProjectionElem::Field(_, ty) = elem else { rustc_span::bug!() };
                         self.visit_ty($(& $mutability)? *ty, TyContext::Location(location));
                     }
                 }
@@ -1178,6 +1179,7 @@ macro_rules! visit_place_fns {
                     if ty != new_ty { Some(PlaceElem::UnwrapUnsafeBinder(new_ty)) } else { None }
                 }
                 PlaceElem::Deref
+                | PlaceElem::PhantomDeref
                 | PlaceElem::ConstantIndex { .. }
                 | PlaceElem::Subslice { .. }
                 | PlaceElem::Downcast(..) => None,
@@ -1262,6 +1264,7 @@ macro_rules! visit_place_fns {
                     );
                 }
                 ProjectionElem::Deref
+                | ProjectionElem::PhantomDeref
                 | ProjectionElem::Subslice { from: _, to: _, from_end: _ }
                 | ProjectionElem::ConstantIndex { offset: _, min_length: _, from_end: _ }
                 | ProjectionElem::Downcast(_, _) => {}

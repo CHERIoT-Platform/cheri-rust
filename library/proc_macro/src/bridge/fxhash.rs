@@ -27,20 +27,23 @@ pub(super) struct FxHasher {
     hash: usize,
 }
 
-#[cfg(any(
-    all(bootstrap, target_pointer_width = "32"),
-    all(not(bootstrap), target_address_width = "32"),
-))]
-const K: usize = 0x9e3779b9;
-#[cfg(any(
-    all(bootstrap, target_pointer_width = "64"),
-    all(not(bootstrap), target_address_width = "64"),
-))]
-const K: usize = 0x517cc1b727220a95;
-
 impl FxHasher {
     #[inline]
     fn add_to_hash(&mut self, i: usize) {
+        #[cfg(bootstrap)]
+        const K: usize = cfg_select! {
+            target_pointer_width = "64" => 0x517cc1b727220a95,
+            target_pointer_width = "32" => 0x9e3779b9,
+            _ => 0, // just make it compile for -Zbuild-std
+        };
+
+        #[cfg(not(bootstrap))]
+        const K: usize = cfg_select! {
+            target_address_width = "64" => 0x517cc1b727220a95,
+            target_address_width = "32" => 0x9e3779b9,
+            _ => 0, // just make it compile for -Zbuild-std
+        };
+
         self.hash = self.hash.rotate_left(5).bitxor(i).wrapping_mul(K);
     }
 }
@@ -48,15 +51,10 @@ impl FxHasher {
 impl Hasher for FxHasher {
     #[inline]
     fn write(&mut self, mut bytes: &[u8]) {
-        #[cfg(target_pointer_width = "32")]
-        let read_usize = |bytes: &[u8]| u32::from_ne_bytes(bytes[..4].try_into().unwrap());
-        #[cfg(target_pointer_width = "64")]
-        let read_usize = |bytes: &[u8]| u64::from_ne_bytes(bytes[..8].try_into().unwrap());
-
         let mut hash = FxHasher { hash: self.hash };
         assert!(size_of::<usize>() <= 8);
         while bytes.len() >= size_of::<usize>() {
-            hash.add_to_hash(read_usize(bytes) as usize);
+            hash.add_to_hash(usize::from_ne_bytes(bytes[..size_of::<usize>()].try_into().unwrap()));
             bytes = &bytes[size_of::<usize>()..];
         }
         if (size_of::<usize>() > 4) && (bytes.len() >= 4) {

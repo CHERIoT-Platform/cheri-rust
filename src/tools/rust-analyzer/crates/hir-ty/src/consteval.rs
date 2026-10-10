@@ -24,7 +24,7 @@ use crate::{
     display::DisplayTarget,
     generics::Generics,
     lower::LoweringMode,
-    mir::{MirEvalError, MirLowerError, pad16},
+    mir::{IsSigned, MirEvalError, MirLowerError, pad16},
     next_solver::{
         Allocation, Const, ConstKind, Consts, DbInterner, DefaultAny, GenericArgs, ParamConst,
         ScalarInt, StoredAllocation, StoredEarlyBinder, StoredGenericArgs, Ty, TyKind,
@@ -161,7 +161,7 @@ pub(crate) fn literal_ty<'db>(
         Literal::String(..) => types.types.static_str_ref,
         Literal::ByteString(bs) => {
             let byte_type = types.types.u8;
-            let array_type = Ty::new_array(interner, byte_type, bs.len() as u128);
+            let array_type = Ty::new_array(interner, byte_type, bs.len() as u64);
             Ty::new_ref(interner, types.regions.statik, array_type, Mutability::Not)
         }
         Literal::CString(..) => Ty::new_ref(
@@ -227,7 +227,7 @@ pub fn usize_const<'db>(db: &'db dyn HirDatabase, value: Option<u128>, krate: Cr
 }
 
 pub fn allocation_as_usize(ec: Allocation<'_>) -> u128 {
-    u128::from_le_bytes(pad16(&ec.memory, false))
+    u128::from_le_bytes(pad16(&ec.memory, IsSigned::No))
 }
 
 pub fn try_const_usize<'db>(db: &'db dyn HirDatabase, c: Const<'db>) -> Option<u128> {
@@ -253,7 +253,7 @@ pub fn try_const_usize<'db>(db: &'db dyn HirDatabase, c: Const<'db>) -> Option<u
             }
         },
         ConstKind::Value(val) => {
-            if val.ty == default_types(db).types.usize {
+            if val.ty == default_types().types.usize {
                 Some(val.value.inner().to_leaf().to_uint_unchecked())
             } else {
                 None
@@ -265,7 +265,7 @@ pub fn try_const_usize<'db>(db: &'db dyn HirDatabase, c: Const<'db>) -> Option<u
 }
 
 pub fn allocation_as_isize(ec: Allocation<'_>) -> i128 {
-    i128::from_le_bytes(pad16(&ec.memory, true))
+    i128::from_le_bytes(pad16(&ec.memory, IsSigned::Yes))
 }
 
 pub fn try_const_isize<'db>(db: &'db dyn HirDatabase, c: Const<'db>) -> Option<i128> {
@@ -291,7 +291,7 @@ pub fn try_const_isize<'db>(db: &'db dyn HirDatabase, c: Const<'db>) -> Option<i
             }
         },
         ConstKind::Value(val) => {
-            if val.ty == default_types(db).types.isize {
+            if val.ty == default_types().types.isize {
                 Some(val.value.inner().to_leaf().to_int_unchecked())
             } else {
                 None
@@ -347,7 +347,7 @@ pub(crate) fn path_to_const<'a, 'db>(
         | ValueNs::StructId(_)
         | ValueNs::EnumVariantId(_) => return Err(CreateConstError::ResolveToNonConst),
     };
-    let args = GenericArgs::empty(interner);
+    let args = GenericArgs::empty();
     Ok(Const::new_unevaluated(interner, UnevaluatedConst { def: konst.into(), args }))
 }
 
@@ -411,7 +411,7 @@ pub(crate) fn create_anon_const<'a, 'db>(
             let args = if allow_using_generic_params {
                 GenericArgs::identity_for_item(interner, owner.generic_def(interner.db).into())
             } else {
-                GenericArgs::empty(interner)
+                GenericArgs::empty()
             };
             Ok(Const::new_unevaluated(
                 interner,
@@ -426,7 +426,6 @@ pub(crate) fn const_eval_discriminant_variant<'db>(
     db: &'db dyn HirDatabase,
     variant_id: EnumVariantId,
 ) -> Result<i128, ConstEvalError<'db>> {
-    let interner = DbInterner::new_no_crate(db);
     let def = variant_id.into();
     let body = Body::of(db, def);
     let loc = variant_id.lookup(db);
@@ -446,7 +445,7 @@ pub(crate) fn const_eval_discriminant_variant<'db>(
 
     let mir_body = db.monomorphized_mir_body(
         def.into(),
-        GenericArgs::empty(interner).store(),
+        GenericArgs::empty().store(),
         ParamEnvAndCrate {
             param_env: db.trait_environment(def.generic_def(db)),
             krate: def.krate(db),
@@ -561,10 +560,9 @@ pub(crate) fn const_eval_static<'db>(
         db: &'db dyn HirDatabase,
         def: StaticId,
     ) -> Result<StoredAllocation, ConstEvalError<'db>> {
-        let interner = DbInterner::new_no_crate(db);
         let body = db.monomorphized_mir_body(
             def.into(),
-            GenericArgs::empty(interner).store(),
+            GenericArgs::empty().store(),
             ParamEnvAndCrate { param_env: db.trait_environment(def.into()), krate: def.krate(db) }
                 .store(),
         )?;

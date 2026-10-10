@@ -1,6 +1,6 @@
 //! Implements conversions from HIR types to Target.
 
-use rustc_attr_ir::target::{GenericParamKind, MethodKind, Target};
+use rustc_attr_ir::target::{AssocCtxt, MethodKind, Target};
 
 use crate::def::DefKind;
 use crate::{self as hir, ItemKind, TraitItemKind};
@@ -18,17 +18,9 @@ impl From<&hir::ForeignItem<'_>> for Target {
 impl From<&hir::GenericParam<'_>> for Target {
     fn from(generic_param: &hir::GenericParam<'_>) -> Target {
         match generic_param.kind {
-            hir::GenericParamKind::Type { default, .. } => Target::GenericParam {
-                kind: GenericParamKind::Type,
-                has_default: default.is_some(),
-            },
-            hir::GenericParamKind::Lifetime { .. } => {
-                Target::GenericParam { kind: GenericParamKind::Lifetime, has_default: false }
-            }
-            hir::GenericParamKind::Const { default, .. } => Target::GenericParam {
-                kind: GenericParamKind::Const,
-                has_default: default.is_some(),
-            },
+            hir::GenericParamKind::Type { .. } => Target::TypeParam,
+            hir::GenericParamKind::Lifetime { .. } => Target::LifetimeParam,
+            hir::GenericParamKind::Const { .. } => Target::ConstParam,
         }
     }
 }
@@ -36,14 +28,14 @@ impl From<&hir::GenericParam<'_>> for Target {
 impl From<&hir::TraitItem<'_>> for Target {
     fn from(trait_item: &hir::TraitItem<'_>) -> Target {
         match trait_item.kind {
-            TraitItemKind::Const(..) => Target::AssocConst,
+            TraitItemKind::Const(..) => Target::AssocConst(AssocCtxt::Trait),
             TraitItemKind::Fn(_, hir::TraitFn::Required(_)) => {
                 Target::Method(MethodKind::Trait { body: false })
             }
             TraitItemKind::Fn(_, hir::TraitFn::Provided(_)) => {
                 Target::Method(MethodKind::Trait { body: true })
             }
-            TraitItemKind::Type(..) => Target::AssocTy,
+            TraitItemKind::Type(..) => Target::AssocTy(AssocCtxt::Trait),
         }
     }
 }
@@ -54,7 +46,7 @@ impl From<DefKind> for Target {
             DefKind::ExternCrate => Target::ExternCrate,
             DefKind::Use => Target::Use,
             DefKind::Static { .. } => Target::Static,
-            DefKind::Const { .. } => Target::Const,
+            DefKind::Const => Target::Const,
             DefKind::Fn => Target::Fn,
             DefKind::Macro(..) => Target::MacroDef,
             DefKind::Mod => Target::Mod,
@@ -91,6 +83,7 @@ impl From<&hir::Item<'_>> for Target {
             ItemKind::Trait { .. } => Target::Trait,
             ItemKind::TraitAlias(..) => Target::TraitAlias,
             ItemKind::Impl(imp_) => Target::Impl { of_trait: imp_.of_trait.is_some() },
+            ItemKind::TestBinderConstraints { .. } => Target::MacroCall,
         }
     }
 }

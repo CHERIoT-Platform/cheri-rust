@@ -8,7 +8,6 @@
 #![crate_type = "lib"]
 #![no_std]
 
-use core::ptr::without_provenance_mut;
 use core::sync::atomic::AtomicPtr;
 use core::sync::atomic::Ordering::Relaxed;
 

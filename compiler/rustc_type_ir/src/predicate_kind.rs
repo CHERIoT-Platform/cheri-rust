@@ -5,7 +5,7 @@ use derive_where::derive_where;
 use rustc_macros::{Decodable_NoContext, Encodable_NoContext, StableHash_NoContext};
 use rustc_type_ir_macros::{GenericTypeVisitable, TypeFoldable_Generic, TypeVisitable_Generic};
 
-use crate::{self as ty, Interner, Region};
+use crate::{self as ty, Const, Interner, Region};
 
 /// A clause is something that can appear in where bounds or be inferred
 /// by implied bounds.
@@ -19,7 +19,7 @@ pub enum ClauseKind<I: Interner> {
     /// Corresponds to `where Foo: Bar<A, B, C>`. `Foo` here would be
     /// the `Self` type of the trait reference and `A`, `B`, and `C`
     /// would be the type parameters.
-    Trait(ty::TraitPredicate<I>),
+    Trait(ty::TraitClause<I>),
 
     /// `where 'a: 'r`
     RegionOutlives(ty::OutlivesClause<I, Region<I>>),
@@ -28,18 +28,18 @@ pub enum ClauseKind<I: Interner> {
     TypeOutlives(ty::OutlivesClause<I, I::Ty>),
 
     /// `where <T as TraitRef>::Name == X`, approximately.
-    /// See the `ProjectionPredicate` struct for details.
-    Projection(ty::ProjectionPredicate<I>),
+    /// See the `ProjectionClause` struct for details.
+    Projection(ty::ProjectionClause<I>),
 
     /// Ensures that a const generic argument to a parameter `const N: u8`
     /// is of type `u8`.
-    ConstArgHasType(I::Const, I::Ty),
+    ConstArgHasType(Const<I>, I::Ty),
 
     /// No syntax: `T` well-formed.
     WellFormed(I::Term),
 
     /// Constant initializer must evaluate successfully.
-    ConstEvaluatable(I::Const),
+    ConstEvaluatable(Const<I>),
 
     /// Enforces the constness of the clause we're calling. Like a projection
     /// goal from a where clause, it's always going to be paired with a
@@ -88,7 +88,7 @@ pub enum PredicateKind<I: Interner> {
     Coerce(ty::CoercePredicate<I>),
 
     /// Constants must be equal. The first component is the const that is expected.
-    ConstEquate(I::Const, I::Const),
+    ConstEquate(Const<I>, Const<I>),
 
     /// A marker predicate that is always ambiguous.
     /// Used for coherence to mark opaque types as possibly equal to each other but ambiguous.

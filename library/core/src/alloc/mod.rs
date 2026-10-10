@@ -15,7 +15,7 @@ pub use self::layout::Layout;
     note = "Name does not follow std convention, use LayoutError",
     suggestion = "LayoutError"
 )]
-#[allow(deprecated, deprecated_in_future)]
+#[allow(deprecated)]
 pub use self::layout::LayoutErr;
 #[stable(feature = "alloc_layout_error", since = "1.50.0")]
 pub use self::layout::LayoutError;
@@ -27,19 +27,15 @@ use crate::ptr::{self, NonNull};
 /// that may be due to resource exhaustion or to
 /// something wrong when combining the given input arguments with this
 /// allocator.
-#[unstable(feature = "allocator_api", issue = "32838")]
+#[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct AllocError;
 
-#[unstable(
-    feature = "allocator_api",
-    reason = "the precise API and guarantees it provides may be tweaked.",
-    issue = "32838"
-)]
+#[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
 impl Error for AllocError {}
 
 // (we need this for downstream impl of trait Error)
-#[unstable(feature = "allocator_api", issue = "32838")]
+#[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
 impl fmt::Display for AllocError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("memory allocation failed")
@@ -49,13 +45,19 @@ impl fmt::Display for AllocError {
 /// An implementation of `Allocator` can allocate, grow, shrink, and deallocate arbitrary blocks of
 /// data described via [`Layout`][].
 ///
-/// `Allocator` is designed to be implemented on ZSTs, references, or smart pointers.
-/// An allocator for `MyAlloc([u8; N])` cannot be moved, without updating the pointers to the
-/// allocated memory.
+/// `Allocator` is mostly designed to be implemented on ZSTs, references, or smart pointers,
+/// but can also be implemented directly on the underlying memory-owning type so long as it
+/// upholds the necessary guarantees. In general, an allocator of the type `MyAlloc([u8; N])`
+/// cannot be soundly created without being pinned or otherwise immovable in order to be
+/// correct.
 ///
 /// In contrast to [`GlobalAlloc`][], `Allocator` allows zero-sized allocations. If an underlying
 /// allocator does not support this (like jemalloc) or responds by returning a null pointer
 /// (such as `libc::malloc`), this must be caught by the implementation.
+///
+/// In order to be usable in a flexible manner while still being sound, implementors of the trait
+/// must uphold very detailed semantics as explained below; the following terms are thus provided
+/// as vocabulary for allocator safety and implementation requirements:
 ///
 /// ### Equivalent allocators
 ///
@@ -63,7 +65,8 @@ impl fmt::Display for AllocError {
 /// When this is the case, we refer to those allocators as being *equivalent* to
 /// each other.
 ///
-/// The following conditions are sufficient conditions for allocators to be equivalent.
+/// Users of allocators may assume the following are true of equivalent allocators,
+/// and implementors must ensure these rules are upheld:
 /// * An allocator is equivalent to itself. (Equivalence is reflexive.)
 /// * If an allocator is equivalent to a second allocator, then
 ///   the second allocator is also equivalent to the first. (Equivalence is symmetric.)
@@ -73,9 +76,8 @@ impl fmt::Display for AllocError {
 ///   (Equivalence is transitive.)
 /// * Moving, subtyping, unsize-coercing, or trait-upcasting an allocator does not change
 ///   what the allocator is equivalent to.
-/// * Copying or cloning allocator results in an allocator that's
-///   equivalent to the initial allocator, should the [`AllocatorClone`] trait
-///   be implemented.
+/// * Copying or cloning an allocator creates an equivalent one, should the
+///   [`AllocatorClone`] trait be implemented.
 ///
 /// Additionally, implementors of `Allocator` may specify additional equivalences
 /// between allocators. It is the responsibility of such implementors to make sure
@@ -104,14 +106,14 @@ impl fmt::Display for AllocError {
 /// * The memory block is deallocated. This occurs when the memory block
 ///   is passed as an argument to a [`deallocate`] call, or when it is passed
 ///   as an argument to a [`grow`], [`grow_zeroed`] or [`shrink`] call that returns `Ok`.
-/// * All (equivalent) allocators that this memory block is allocated with,
-///   each has one of the following happen to them:
+/// * For all (equivalent) allocators that this memory block is currently allocated by, at
+///   least one of the following has occurred:
 ///   * The allocator's destructor runs.
-///   * The allocator is mutated through public API taking `&mut` access.
+///   * The allocator is mutated through a public or otherwise untrusted API taking `&mut` access.
 ///   * One of the borrow-checker lifetimes in the allocator's type expires.
 ///
 /// Note that these conditions imply that a collection may ensure that
-/// any specific currently allocated memory block won't be invalidated, by:
+/// any specific currently allocated memory block won't be invalidated by:
 /// * not deallocating that memory block,
 /// * owning an allocator that memory block is allocated with, and
 /// * not publicly exposing `&mut` access to that allocator.
@@ -120,11 +122,11 @@ impl fmt::Display for AllocError {
 /// allowed to invalidate its memory blocks. Furthermore, unsafe public API
 /// of an allocator with `&` access must document that they invalidate
 /// memory blocks (e.g., by calling `deallocate`) if they do. Therefore,
-/// collections may safely expose `&` access to its allocator.
+/// a collection may safely expose `&` access to its allocator.
 ///
-/// Also note that, even in cases where are other "alive" allocators known to be
-/// equivalent to a given collection's allocator, most collections still should
-/// not publicly expose `&mut` access to its allocator. The fact that there are
+/// Also note that, even in cases where there are other "alive" allocators known
+/// to be equivalent to a given collection's allocator, most collections still should
+/// not publicly expose `&mut` access to their allocators. The fact that there are
 /// other "alive" allocators would prevent this `&mut` access from invalidating
 /// the collection's memory block, but public `&mut` access is still likely to
 /// be unsound, since a user could replace the collection's allocator with
@@ -140,9 +142,10 @@ impl fmt::Display for AllocError {
 ///
 /// ### Memory fitting
 ///
-/// Some of the methods require that a `layout` *fit* a memory block or vice versa. This means that the
-/// following conditions must hold:
-///  * the memory block must be *currently allocated* with alignment of [`layout.align()`], and
+/// Some of the methods require that a `layout` *fits* a memory block or vice versa. This means
+/// that the following conditions must hold:
+///  * the memory block must be *currently allocated* by the allocator,
+///  * [`layout.align()`] must be the same as the alignment of the layout used to allocate the block, and
 ///  * [`layout.size()`] must fall in the range `min ..= max`, where:
 ///    - `min` is the size of the layout used to allocate the block, and
 ///    - `max` is the actual size returned from [`allocate`], [`allocate_zeroed`],
@@ -154,28 +157,32 @@ impl fmt::Display for AllocError {
 /// # Safety
 ///
 /// Implementors of `Allocator` must ensure that a memory block that
-/// is [*currently allocated*] by the allocator points to valid memory,
+/// is [*currently allocated*] by the allocator points to valid memory
 /// until that memory block is [*invalidated*]. The implementor must also
 /// not violate this invariant of `Allocator` via allocator equivalences
-/// that are in the implementor's control (e.g., via an incorrect `unsafe
-/// impl AllocatorClone for MyAllocator`).
+/// that are in the implementor's control.
 ///
 /// Additionally, any memory block returned by the allocator must
 /// satisfy the allocation invariants described in `core::ptr`.
 /// In particular, if a block has base address `p` and size `n`,
-/// then `p as usize + n <= usize::MAX` must hold.
+/// then `p as usize + n <= usize::MAX` must hold. These blocks must also
+/// be wholly disjoint.
 ///
 /// This ensures that pointer arithmetic within the allocation
-/// (for example, `ptr.add(len)`) cannot overflow the address space.
+/// (for example, `ptr.add(len)`) cannot overflow the address space, and
+/// that it is possible to perform nonoverlapping copies between allocations.
 ///
 /// None of the allocating or deallocating methods may unwind. This restriction
 /// may be lifted in the future by ensuring unwinding out of an allocating function always
 /// aborts. If an implementor of `Allocator` also has drop glue or directly implements `Drop`,
 /// dropping the allocator must not result in an unwind.
 ///
-/// Lastly, the methods on this trait must be *correct*; i.e. the layout requested
+/// It is undefined behavior for the allocator to read, write, or deallocate any memory that
+/// is currently allocated. This memory is owned by the user; the allocator must not touch it.
+///
+/// Lastly, the methods on this trait must be *correct*; in particular, the layout requested
 /// must be respected, calls must zero out memory if the documentation so requires,
-/// and returning an `AllocError` from a reallocating method must indeed ensure that
+/// returning an `AllocError` from a reallocating method must indeed ensure that
 /// the old pointer was not invalidated, and de/reallocating calls must accept layouts
 /// in the ranges defined by their documentation.
 ///
@@ -186,7 +193,7 @@ impl fmt::Display for AllocError {
 // and make sure they cannot be triggered before relaxing this:
 // https://rust.tf/156490
 // https://rust.tf/159982
-#[unstable(feature = "allocator_api", issue = "32838")]
+#[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
 #[rustc_const_unstable(feature = "const_heap", issue = "79597")]
 pub const unsafe trait Allocator {
     /// Attempts to allocate a block of memory.
@@ -203,7 +210,7 @@ pub const unsafe trait Allocator {
     /// Note that the returned block of memory is considered [*currently allocated*]
     /// with this allocator (and equivalent allocators).
     /// Therefore, it is the responsibility of implementors of `Allocator` to make sure that
-    /// this block of memory points to valid memory until the block is [*invalidated*]
+    /// this block of memory remains valid until it is [*invalidated*].
     ///
     /// [*currently allocated*]: #currently-allocated-memory
     /// [*invalidated*]: #invalidating-memory-blocks
@@ -221,6 +228,7 @@ pub const unsafe trait Allocator {
     /// call the [`handle_alloc_error`] function, rather than directly invoking `panic!` or similar.
     ///
     /// [`handle_alloc_error`]: ../../alloc/alloc/fn.handle_alloc_error.html
+    #[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError>;
 
     /// Behaves like `allocate`, but also ensures that the returned memory is zero-initialized.
@@ -238,6 +246,7 @@ pub const unsafe trait Allocator {
     /// call the [`handle_alloc_error`] function, rather than directly invoking `panic!` or similar.
     ///
     /// [`handle_alloc_error`]: ../../alloc/alloc/fn.handle_alloc_error.html
+    #[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
     fn allocate_zeroed(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
         let ptr = self.allocate(layout)?;
         // SAFETY: `alloc` returns a valid memory block
@@ -261,6 +270,7 @@ pub const unsafe trait Allocator {
     ///
     /// [*currently allocated*]: #currently-allocated-memory
     /// [*fit*]: #memory-fitting
+    #[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
     unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout);
 
     /// Attempts to extend the memory block.
@@ -302,6 +312,7 @@ pub const unsafe trait Allocator {
     /// call the [`handle_alloc_error`] function, rather than directly invoking `panic!` or similar.
     ///
     /// [`handle_alloc_error`]: ../../alloc/alloc/fn.handle_alloc_error.html
+    #[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
     unsafe fn grow(
         &self,
         ptr: NonNull<u8>,
@@ -362,6 +373,7 @@ pub const unsafe trait Allocator {
     /// call the [`handle_alloc_error`] function, rather than directly invoking `panic!` or similar.
     ///
     /// [`handle_alloc_error`]: ../../alloc/alloc/fn.handle_alloc_error.html
+    #[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
     unsafe fn grow_zeroed(
         &self,
         ptr: NonNull<u8>,
@@ -428,6 +440,7 @@ pub const unsafe trait Allocator {
     /// call the [`handle_alloc_error`] function, rather than directly invoking `panic!` or similar.
     ///
     /// [`handle_alloc_error`]: ../../alloc/alloc/fn.handle_alloc_error.html
+    #[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
     unsafe fn shrink(
         &self,
         ptr: NonNull<u8>,
@@ -511,7 +524,7 @@ pub const unsafe trait Allocator {
 /// [`std::thread::park`]: ../../std/thread/fn.park.html
 /// [`std::thread::Thread`]: ../../std/thread/struct.Thread.html
 /// [`unpark`]: ../../std/thread/struct.Thread.html#method.unpark
-#[unstable(feature = "allocator_api", issue = "32838")]
+#[unstable(feature = "allocator_ext", issue = "163177", implied_by = "allocator_api")]
 #[expect(multiple_supertrait_upcastable)]
 pub unsafe trait GlobalAllocator: StaticAllocator + Sync + 'static {}
 
@@ -527,7 +540,7 @@ pub unsafe trait GlobalAllocator: StaticAllocator + Sync + 'static {}
 /// It must also be the case that types which are `AllocatorClone` are either explicitly not
 /// copyable (such as by containing a `!Copy` field) or that copying them also respects allocator
 /// equivalence as if it had been a clone.
-#[unstable(feature = "allocator_api", issue = "32838")]
+#[unstable(feature = "allocator_ext", issue = "163177", implied_by = "allocator_api")]
 pub unsafe trait AllocatorClone: Allocator + Clone {}
 
 /// Marks that an allocator and its supertypes will never invalidate currently allocated
@@ -539,14 +552,15 @@ pub unsafe trait AllocatorClone: Allocator + Clone {}
 ///
 /// # Safety
 ///
-/// Implementors must ensure that memory cannot be freed except via a call to
-/// `Allocator::deallocate`, and that subtype coercion preserves this invariant.
+/// Implementors must ensure that memory blocks are *only, ever* invalidated by a
+/// call to a de/reallocating method on `Allocator`, and that this holds true for all
+/// possible instances of all subtypes of the implementor as well.
 ///
 /// These requirements trivially apply to allocators that always maintain global state, such as
 /// `System` or `Global`. However, due to subtype coercion, it is *not* sound to implement
-/// for an arbitrary `Allocator + 'static` due to [edge-case interactions][unsound] with
-/// `Pin::clone`. Namely, an impl of `StaticAllocator for MyAllocator + 'long` guarantees that an
-/// impl of `StaticAllocator for MyAllocator + 'short` would be sound to write.
+/// for an arbitrary `Allocator + 'static` due to [edge-case interactions][unsound] with e.g.
+/// `Pin::clone`. Namely, an impl of `StaticAllocator for MyAllocator + 'long` guarantees that any
+/// value of `MyAllocator + 'short` also fulfills the requirements of `StaticAllocator`.
 ///
 /// The following must thus be guaranteed:
 /// - the `Drop` impl of the allocator does not invalidate any allocations;
@@ -557,10 +571,10 @@ pub unsafe trait AllocatorClone: Allocator + Clone {}
 ///
 /// [`Pin`]: ../../core/pin/struct.Pin.html
 /// [unsound]: https://github.com/rust-lang/rust/issues/157089
-#[unstable(feature = "allocator_api", issue = "32838")]
+#[unstable(feature = "allocator_ext", issue = "163177", implied_by = "allocator_api")]
 pub unsafe trait StaticAllocator: Allocator {}
 
-#[unstable(feature = "allocator_api", issue = "32838")]
+#[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
 #[rustc_const_unstable(feature = "const_heap", issue = "79597")]
 const unsafe impl<A> Allocator for &A
 where
@@ -616,10 +630,11 @@ where
     }
 }
 
-#[unstable(feature = "allocator_api", issue = "32838")]
-unsafe impl<A> Allocator for &mut A
+#[stable(feature = "allocator_api", since = "CURRENT_RUSTC_VERSION")]
+#[rustc_const_unstable(feature = "const_heap", issue = "79597")]
+const unsafe impl<A> Allocator for &mut A
 where
-    A: Allocator + ?Sized,
+    A: [const] Allocator + ?Sized,
 {
     #[inline]
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
@@ -671,10 +686,70 @@ where
     }
 }
 
-#[unstable(feature = "allocator_api", issue = "32838")]
+#[unstable(feature = "allocator_ext", issue = "163177", implied_by = "allocator_api")]
+#[rustc_const_unstable(feature = "const_heap", issue = "79597")]
+#[unstable_feature_bound(allocator_ext)]
+const unsafe impl<P> Allocator for core::pin::Pin<P>
+where
+    P: [const] core::ops::Deref<Target: [const] Allocator> + core::pin::PinSafePointer,
+{
+    #[inline]
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        (**self).allocate(layout)
+    }
+
+    #[inline]
+    fn allocate_zeroed(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        (**self).allocate_zeroed(layout)
+    }
+
+    #[inline]
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+        // SAFETY: the safety contract must be upheld by the caller
+        unsafe { (**self).deallocate(ptr, layout) }
+    }
+
+    #[inline]
+    unsafe fn grow(
+        &self,
+        ptr: NonNull<u8>,
+        old_layout: Layout,
+        new_layout: Layout,
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        // SAFETY: the safety contract must be upheld by the caller
+        unsafe { (**self).grow(ptr, old_layout, new_layout) }
+    }
+
+    #[inline]
+    unsafe fn grow_zeroed(
+        &self,
+        ptr: NonNull<u8>,
+        old_layout: Layout,
+        new_layout: Layout,
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        // SAFETY: the safety contract must be upheld by the caller
+        unsafe { (**self).grow_zeroed(ptr, old_layout, new_layout) }
+    }
+
+    #[inline]
+    unsafe fn shrink(
+        &self,
+        ptr: NonNull<u8>,
+        old_layout: Layout,
+        new_layout: Layout,
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        // SAFETY: the safety contract must be upheld by the caller
+        unsafe { (**self).shrink(ptr, old_layout, new_layout) }
+    }
+}
+
+#[unstable(feature = "allocator_ext", issue = "163177", implied_by = "allocator_api")]
 unsafe impl<A: Allocator + ?Sized> AllocatorClone for &A {}
 
 // If an allocator is `StaticAllocator` all equivalent allocators must also uphold
 // its semantics, and references are equivalent to the allocator they reference.
-#[unstable(feature = "allocator_api", issue = "32838")]
+#[unstable(feature = "allocator_ext", issue = "163177", implied_by = "allocator_api")]
 unsafe impl<A: StaticAllocator + ?Sized> StaticAllocator for &A {}
+
+#[unstable(feature = "allocator_ext", issue = "163177", implied_by = "allocator_api")]
+unsafe impl<A: StaticAllocator + ?Sized> StaticAllocator for &mut A {}

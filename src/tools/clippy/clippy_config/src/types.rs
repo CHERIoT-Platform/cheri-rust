@@ -141,7 +141,7 @@ impl<const REPLACEMENT_ALLOWED: bool> DisallowedPath<REPLACEMENT_ALLOWED> {
         &self.path.node
     }
 
-    pub fn diag_amendment(&self, span: Span) -> impl FnOnce(&mut Diag<'_, ()>) {
+    pub fn diag_amendment(&self, span: Span) -> impl FnOnce(&mut Diag<'_>) {
         move |diag| {
             if let Some(replacement) = &self.replacement {
                 diag.span_suggestion(
@@ -459,6 +459,7 @@ conf_enum! {
         TraitAlias("trait_alias"),
         Impl("impl"),
         Fn("fn"),
+        TestBinderConstraints("test_binder_constraints"),
     }
 }
 
@@ -483,6 +484,7 @@ impl SourceItemOrderingModuleItemKind {
             TraitAlias,
             Impl,
             Fn,
+            TestBinderConstraints,
         ]
     }
 }
@@ -648,6 +650,7 @@ impl FromDefault<()> for SourceItemOrderingModuleItemGroupings {
                         SourceItemOrderingModuleItemKind::Trait,
                         SourceItemOrderingModuleItemKind::TraitAlias,
                         SourceItemOrderingModuleItemKind::Impl,
+                        SourceItemOrderingModuleItemKind::TestBinderConstraints,
                     ],
                 ),
                 ("lower_snake_case".into(), vec![SourceItemOrderingModuleItemKind::Fn]),
@@ -668,6 +671,7 @@ impl FromDefault<()> for SourceItemOrderingModuleItemGroupings {
                 (SourceItemOrderingModuleItemKind::Trait, 5),
                 (SourceItemOrderingModuleItemKind::TraitAlias, 5),
                 (SourceItemOrderingModuleItemKind::Impl, 5),
+                (SourceItemOrderingModuleItemKind::TestBinderConstraints, 5),
                 (SourceItemOrderingModuleItemKind::Fn, 6),
             ]),
             back_lut: HashMap::from_iter([
@@ -686,12 +690,16 @@ impl FromDefault<()> for SourceItemOrderingModuleItemGroupings {
                 (SourceItemOrderingModuleItemKind::Trait, "PascalCase".into()),
                 (SourceItemOrderingModuleItemKind::TraitAlias, "PascalCase".into()),
                 (SourceItemOrderingModuleItemKind::Impl, "PascalCase".into()),
+                (
+                    SourceItemOrderingModuleItemKind::TestBinderConstraints,
+                    "PascalCase".into(),
+                ),
                 (SourceItemOrderingModuleItemKind::Fn, "lower_snake_case".into()),
             ]),
         }
     }
     fn display_default((): ()) -> impl Display {
-        r#"[["modules", ["extern_crate", "mod", "foreign_mod"]], ["use", ["use"]], ["macros", ["macro"]], ["global_asm", ["global_asm"]], ["UPPER_SNAKE_CASE", ["static", "const"]], ["PascalCase", ["ty_alias", "enum", "struct", "union", "trait", "trait_alias", "impl"]], ["lower_snake_case", ["fn"]]]"#
+        r#"[["modules", ["extern_crate", "mod", "foreign_mod"]], ["use", ["use"]], ["macros", ["macro"]], ["global_asm", ["global_asm"]], ["UPPER_SNAKE_CASE", ["static", "const"]], ["PascalCase", ["ty_alias", "enum", "struct", "union", "trait", "trait_alias", "impl", "test_binder_constraints"]], ["lower_snake_case", ["fn"]]]"#
     }
 }
 impl DeserializeOrDefault<()> for SourceItemOrderingModuleItemGroupings {
@@ -833,8 +841,7 @@ impl SourceItemOrderingWithinModuleItemGroupings {
                         .map(|(x, _)| &**x)
                         .collect::<Vec<_>>();
                     let suggestion = find_closest_match(&grouping.node, &names)
-                        .map(|s| format!(" perhaps you meant `{s}`?"))
-                        .unwrap_or_default();
+                        .map_or_default(|s| format!(" perhaps you meant `{s}`?"));
                     let names = names.iter().map(|s| format!("`{s}`")).join(", ");
                     sess.dcx().span_err(grouping.span, format!(
                         "unknown ordering group: `{}` was not specified in `module-items-ordered-within-groupings`,{suggestion} expected one of: {names}",

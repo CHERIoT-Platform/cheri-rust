@@ -1,6 +1,7 @@
-use rustc_attr_ir::{CollapseMacroDebuginfo, MacroUseArgs, find_attr};
+use rustc_attr_ir::{MacroUseArgs, find_attr};
 use rustc_feature::AttributeStability;
-use rustc_session::lint::builtin::INVALID_MACRO_EXPORT_ARGUMENTS;
+use rustc_lint_defs::builtin::INVALID_MACRO_EXPORT_ARGUMENTS;
+use rustc_structures::CollapseMacroDebuginfo;
 
 use super::prelude::*;
 use crate::diagnostics::MacroOnlyAttribute;
@@ -130,12 +131,8 @@ pub(crate) struct AllowInternalUnsafeParser;
 impl NoArgsAttributeParser for AllowInternalUnsafeParser {
     const PATH: &[Symbol] = &[sym::allow_internal_unsafe];
     const ON_DUPLICATE: OnDuplicate = OnDuplicate::Ignore;
-    const ALLOWED_TARGETS: AllowedTargets<'_> = AllowedTargets::AllowList(&[
-        Allow(Target::Fn),
-        Allow(Target::MacroDef),
-        Warn(Target::Field),
-        Warn(Target::Arm),
-    ]);
+    const ALLOWED_TARGETS: AllowedTargets<'_> =
+        AllowedTargets::AllowList(&[Allow(Target::Fn), Allow(Target::MacroDef)]);
     const STABILITY: AttributeStability = unstable!(allow_internal_unsafe);
     const CREATE: fn(Span) -> AttributeKind = |span| AttributeKind::AllowInternalUnsafe(span);
 

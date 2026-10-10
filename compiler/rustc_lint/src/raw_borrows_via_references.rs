@@ -1,6 +1,6 @@
 use rustc_ast::BorrowKind;
 use rustc_hir::{Expr, ExprKind, TyKind};
-use rustc_session::{declare_lint, declare_lint_pass};
+use rustc_lint_defs::{declare_lint, declare_lint_pass};
 
 use crate::diagnostics::{RawBorrowViaReference, RawBorrowViaReferenceSuggestion};
 use crate::{LateContext, LateLintPass, LintContext};
@@ -57,15 +57,16 @@ impl<'tcx> LateLintPass<'tcx> for RawBorrowsViaReferences {
             && let TyKind::Ptr(_) = ty.kind
             && addr_of_exp.is_syntactic_place_expr()
         {
-            let suggestion = if let Some(addr_of_span) =
-                addr_of_exp.span.find_ancestor_in_same_ctxt(expr.span)
+            let suggestion = if let Some(borrow_span) =
+                exp.span.find_ancestor_inside_same_ctxt(expr.span)
+                && let Some(addr_of_span) = addr_of_exp.span.find_ancestor_in_same_ctxt(expr.span)
                 && let Some(ty_span) = ty.span.find_ancestor_in_same_ctxt(expr.span)
-                && expr.span.can_be_used_for_suggestions()
+                && borrow_span.can_be_used_for_suggestions()
                 && addr_of_span.can_be_used_for_suggestions()
                 && ty_span.can_be_used_for_suggestions()
             {
                 RawBorrowViaReferenceSuggestion::Spanful {
-                    left: expr.span.until(addr_of_span),
+                    left: borrow_span.until(addr_of_span),
                     right: addr_of_span.shrink_to_hi().until(ty_span.shrink_to_hi()),
                     mutbl: mutbl.ptr_str(),
                 }

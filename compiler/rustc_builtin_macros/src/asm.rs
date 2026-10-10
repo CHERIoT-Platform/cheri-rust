@@ -5,9 +5,9 @@ use rustc_data_structures::fx::{FxHashMap, FxIndexMap};
 use rustc_errors::PResult;
 use rustc_expand::base::*;
 use rustc_index::bit_set::GrowableBitSet;
+use rustc_lint_defs::builtin::BAD_ASM_STYLE;
 use rustc_parse::parser::asm::*;
 use rustc_parse_format as parse;
-use rustc_session::lint;
 use rustc_span::{ErrorGuaranteed, InnerSpan, Span, Symbol, sym};
 use rustc_target::asm::InlineAsmArch;
 use smallvec::smallvec;
@@ -314,7 +314,7 @@ fn expand_preparsed_asm(
                 Ok(template_part) => template_part,
                 Err(err) => {
                     return ExpandResult::Ready(Err(match err {
-                        Ok((err, _)) => err.emit(),
+                        Ok((err, _)) => err.emit_err(),
                         Err(guar) => guar,
                     }));
                 }
@@ -340,7 +340,7 @@ fn expand_preparsed_asm(
                     if let Some(pos) = snippet.find(needle) {
                         let end = pos
                             + snippet[pos..]
-                                .find(|c| matches!(c, '\n' | ';' | '\\' | '"'))
+                                .find(['\n', ';', '\\', '"'])
                                 .unwrap_or(snippet[pos..].len() - 1);
                         let inner = InnerSpan::new(pos, end);
                         return template_sp.from_inner(inner);
@@ -351,7 +351,7 @@ fn expand_preparsed_asm(
 
             if template_str.contains(".intel_syntax") {
                 ecx.psess().buffer_lint(
-                    lint::builtin::BAD_ASM_STYLE,
+                    BAD_ASM_STYLE,
                     find_span(".intel_syntax"),
                     ecx.current_expansion.lint_node_id,
                     diagnostics::AvoidIntelSyntax,
@@ -359,7 +359,7 @@ fn expand_preparsed_asm(
             }
             if template_str.contains(".att_syntax") {
                 ecx.psess().buffer_lint(
-                    lint::builtin::BAD_ASM_STYLE,
+                    BAD_ASM_STYLE,
                     find_span(".att_syntax"),
                     ecx.current_expansion.lint_node_id,
                     diagnostics::AvoidAttSyntax,
@@ -407,7 +407,7 @@ fn expand_preparsed_asm(
             if let Some((label, span)) = err.secondary_label {
                 e.span_label(span_in_template(span), label);
             }
-            let guar = e.emit();
+            let guar = e.emit_err();
             return ExpandResult::Ready(Err(guar));
         }
 
@@ -437,7 +437,7 @@ fn expand_preparsed_asm(
 
                                 let positional_args = args.operands.len()
                                     - args.named_args.len()
-                                    - args.reg_args.len();
+                                    - args.reg_args.count();
                                 let positional = if positional_args != args.operands.len() {
                                     "positional "
                                 } else {
@@ -481,12 +481,10 @@ fn expand_preparsed_asm(
                                 Some(&idx) => Some(idx),
                                 None => {
                                     let span = arg.position_span;
-                                    ecx.dcx()
-                                        .create_err(diagnostics::AsmNoMatchedArgumentName {
-                                            name: name.to_owned(),
-                                            span: span_in_template(span),
-                                        })
-                                        .emit();
+                                    ecx.dcx().emit_err(diagnostics::AsmNoMatchedArgumentName {
+                                        name: name.to_owned(),
+                                        span: span_in_template(span),
+                                    });
                                     None
                                 }
                             }
@@ -602,7 +600,7 @@ pub(super) fn expand_asm<'cx>(
             MacEager::expr(expr)
         }
         Err(err) => {
-            let guar = err.emit();
+            let guar = err.emit_err();
             DummyResult::any(sp, guar)
         }
     })
@@ -632,7 +630,7 @@ pub(super) fn expand_naked_asm<'cx>(
             MacEager::expr(expr)
         }
         Err(err) => {
-            let guar = err.emit();
+            let guar = err.emit_err();
             DummyResult::any(sp, guar)
         }
     })
@@ -665,7 +663,7 @@ pub(super) fn expand_global_asm<'cx>(
             }
         }
         Err(err) => {
-            let guar = err.emit();
+            let guar = err.emit_err();
             DummyResult::any(sp, guar)
         }
     })

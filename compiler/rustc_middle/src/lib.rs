@@ -27,8 +27,10 @@
 // tidy-alphabetical-start
 #![allow(internal_features)]
 #![allow(rustc::direct_use_of_rustc_type_ir)]
+#![cfg_attr(bootstrap, feature(allocator_api))]
+#![cfg_attr(bootstrap, feature(never_type))]
 #![cfg_attr(doc, feature(intra_doc_pointers))]
-#![feature(allocator_api)]
+#![cfg_attr(not(bootstrap), feature(allocator_ext))]
 #![feature(associated_type_defaults)]
 #![feature(closure_track_caller)]
 #![feature(const_default)]
@@ -44,7 +46,6 @@
 #![feature(gen_blocks)]
 #![feature(min_specialization)]
 #![feature(negative_impls)]
-#![feature(never_type)]
 #![feature(option_into_flat_iter)]
 #![feature(ptr_alignment_type)]
 #![feature(range_bounds_is_empty)]
@@ -77,10 +78,10 @@ pub mod hooks;
 pub mod ich;
 pub mod infer;
 pub mod lint;
-pub mod metadata;
 pub mod middle;
 pub mod mir;
 pub mod mono;
+pub mod ptrauth;
 pub mod queries;
 pub mod query;
 pub mod thir;

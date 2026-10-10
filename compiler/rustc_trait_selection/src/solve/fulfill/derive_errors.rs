@@ -1,6 +1,6 @@
 use std::ops::ControlFlow;
 
-use rustc_hir::attrs::lang_items::LangItem;
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_infer::infer::InferCtxt;
 use rustc_infer::traits::solve::{CandidateSource, GoalSource, MaybeCause};
 use rustc_infer::traits::{
@@ -10,10 +10,11 @@ use rustc_infer::traits::{
 use rustc_middle::traits::query::NoSolution;
 use rustc_middle::ty::error::{ExpectedFound, TypeError};
 use rustc_middle::ty::{self, Ty, TyCtxt};
-use rustc_middle::{bug, span_bug};
 use rustc_next_trait_solver::solve::{GoalEvaluation, MaybeInfo, SolverDelegateEvalExt as _};
+use rustc_span::{bug, span_bug};
 use tracing::{instrument, trace};
 
+use super::NextSolverAmbiguityError;
 use crate::solve::delegate::SolverDelegate;
 use crate::solve::inspect::{self, InferCtxtProofTreeExt, ProofTreeVisitor};
 use crate::solve::{Certainty, deeply_normalize_for_diagnostics};
@@ -66,6 +67,9 @@ pub(super) fn fulfillment_error_for_no_solution<'tcx>(
             let expected_found = ExpectedFound::new(b, a);
             FulfillmentErrorCode::Subtype(expected_found, TypeError::Sorts(expected_found))
         }
+        ty::PredicateKind::Clause(
+            ty::ClauseKind::RegionOutlives(_) | ty::ClauseKind::TypeOutlives(_),
+        ) if infcx.tcx.assumptions_on_binders() => FulfillmentErrorCode::Outlives,
         ty::PredicateKind::Clause(_)
         | ty::PredicateKind::DynCompatible(_)
         | ty::PredicateKind::Ambiguous => {
@@ -81,9 +85,24 @@ pub(super) fn fulfillment_error_for_no_solution<'tcx>(
 
 pub(super) fn fulfillment_error_for_stalled<'tcx>(
     infcx: &InferCtxt<'tcx>,
-    root_obligation: PredicateObligation<'tcx>,
+    ambiguity: NextSolverAmbiguityError<'tcx>,
 ) -> FulfillmentError<'tcx> {
-    let (code, refine_obligation) = infcx.probe(|_| {
+    let NextSolverAmbiguityError { root_obligation, code, refine_obligation } = ambiguity;
+
+    let obligation = if refine_obligation {
+        find_best_leaf_obligation(infcx, &root_obligation, true)
+    } else {
+        root_obligation.clone()
+    };
+
+    FulfillmentError { obligation, code, root_obligation }
+}
+
+pub(super) fn try_ambiguity_error_for_stalled<'tcx>(
+    infcx: &InferCtxt<'tcx>,
+    root_obligation: PredicateObligation<'tcx>,
+) -> Option<NextSolverAmbiguityError<'tcx>> {
+    let evaluation = infcx.probe(|_| {
         match <&SolverDelegate<'tcx>>::from(infcx).evaluate_root_goal(
             root_obligation.as_goal(),
             root_obligation.cause.span,
@@ -97,7 +116,7 @@ pub(super) fn fulfillment_error_for_stalled<'tcx>(
                         stalled_on_coroutines: _,
                     }),
                 ..
-            }) => (FulfillmentErrorCode::Ambiguity { overflow: None }, true),
+            }) => Some((FulfillmentErrorCode::Ambiguity { overflow: None }, true)),
             Ok(GoalEvaluation {
                 certainty:
                     Certainty::Maybe(MaybeInfo {
@@ -107,7 +126,7 @@ pub(super) fn fulfillment_error_for_stalled<'tcx>(
                         stalled_on_coroutines: _,
                     }),
                 ..
-            }) => (
+            }) => Some((
                 FulfillmentErrorCode::Ambiguity { overflow: Some(suggest_increasing_limit) },
                 // Don't look into overflows because we treat overflows weirdly anyways.
                 // We discard the inference constraints from overflowing goals, so
@@ -116,44 +135,30 @@ pub(super) fn fulfillment_error_for_stalled<'tcx>(
                 //
                 // FIXME: We should probably just look into overflows here.
                 false,
-            ),
+            )),
             Ok(GoalEvaluation { certainty: Certainty::Yes, .. }) => {
-                span_bug!(
+                infcx.dcx().span_delayed_bug(
                     root_obligation.cause.span,
-                    "did not expect successful goal when collecting ambiguity errors for `{:?}`",
-                    infcx.resolve_vars_if_possible(root_obligation.predicate),
-                )
-            }
+                    format!(
+                        "did not expect successful goal when collecting ambiguity errors for `{:?}`",
+                        infcx.deeply_resolve_ignoring_regions(root_obligation.predicate),
+                    ),
+                );
+                None
+            },
             Err(_) => {
                 span_bug!(
                     root_obligation.cause.span,
                     "did not expect selection error when collecting ambiguity errors for `{:?}`",
-                    infcx.resolve_vars_if_possible(root_obligation.predicate),
+                    infcx.deeply_resolve_ignoring_regions(root_obligation.predicate),
                 )
             }
         }
     });
 
-    FulfillmentError {
-        obligation: if refine_obligation {
-            find_best_leaf_obligation(infcx, &root_obligation, true)
-        } else {
-            root_obligation.clone()
-        },
-        code,
-        root_obligation,
-    }
-}
+    let (code, refine_obligation) = evaluation?;
 
-pub(super) fn fulfillment_error_for_overflow<'tcx>(
-    infcx: &InferCtxt<'tcx>,
-    root_obligation: PredicateObligation<'tcx>,
-) -> FulfillmentError<'tcx> {
-    FulfillmentError {
-        obligation: find_best_leaf_obligation(infcx, &root_obligation, true),
-        code: FulfillmentErrorCode::Ambiguity { overflow: Some(true) },
-        root_obligation,
-    }
+    Some(NextSolverAmbiguityError { root_obligation, code, refine_obligation })
 }
 
 #[instrument(level = "debug", skip(infcx), ret)]
@@ -162,7 +167,7 @@ fn find_best_leaf_obligation<'tcx>(
     obligation: &PredicateObligation<'tcx>,
     consider_ambiguities: bool,
 ) -> PredicateObligation<'tcx> {
-    let obligation = infcx.resolve_vars_if_possible(obligation.clone());
+    let obligation = infcx.deeply_resolve_ignoring_regions(obligation.clone());
     // FIXME: we use a probe here as the `BestObligation` visitor does not
     // check whether it uses candidates which get shadowed by where-bounds.
     //
@@ -302,7 +307,7 @@ impl<'tcx> BestObligation<'tcx> {
         if let ty::Alias(_, alias) = *self_ty.kind() {
             let infer_term = goal.infcx().next_ty_var(self.obligation.cause.span);
             let pred =
-                ty::ProjectionPredicate { projection_term: alias.into(), term: infer_term.into() };
+                ty::ProjectionClause { projection_term: alias.into(), term: infer_term.into() };
             let obligation =
                 Obligation::new(tcx, self.obligation.cause.clone(), goal.goal().param_env, pred);
             self.with_derived_obligation(obligation, |this| {
@@ -459,9 +464,9 @@ impl<'tcx> ProofTreeVisitor<'tcx> for BestObligation<'tcx> {
             ty::PredicateKind::Clause(ty::ClauseKind::Projection(projection))
                 if projection.projection_term.kind.is_trait_projection() =>
             {
-                ChildMode::Trait(pred.kind().rebind(ty::TraitPredicate {
+                ChildMode::Trait(pred.kind().rebind(ty::TraitClause {
                     trait_ref: projection.projection_term.trait_ref(tcx),
-                    polarity: ty::PredicatePolarity::Positive,
+                    polarity: ty::ClausePolarity::Positive,
                 }))
             }
             ty::PredicateKind::Clause(ty::ClauseKind::WellFormed(term)) => {
@@ -552,7 +557,7 @@ enum ChildMode<'tcx> {
     // Try to derive an `ObligationCause::{ImplDerived,BuiltinDerived}`,
     // and skip all `GoalSource::Misc`, which represent useless obligations
     // such as alias-eq which may not hold.
-    Trait(ty::PolyTraitPredicate<'tcx>),
+    Trait(ty::PolyTraitClause<'tcx>),
     // Try to derive an `ObligationCause::{ImplDerived,BuiltinDerived}`,
     // and skip all `GoalSource::Misc`, which represent useless obligations
     // such as alias-eq which may not hold.
@@ -568,7 +573,7 @@ fn derive_cause<'tcx>(
     candidate_kind: inspect::ProbeKind<TyCtxt<'tcx>>,
     mut cause: ObligationCause<'tcx>,
     idx: usize,
-    parent_trait_pred: ty::PolyTraitPredicate<'tcx>,
+    parent_trait_pred: ty::PolyTraitClause<'tcx>,
 ) -> ObligationCause<'tcx> {
     match candidate_kind {
         inspect::ProbeKind::TraitCandidate {

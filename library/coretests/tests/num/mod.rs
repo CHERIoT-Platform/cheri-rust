@@ -40,11 +40,15 @@ mod bignum;
 mod carryless_mul;
 #[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): not checked
 mod cast;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): not checked
+mod complex;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod const_from;
 // FIXME(cheri/triage): rustc-LLVM ERROR: Cannot select: t117: i32 = fp_to_fp16 t18
 #[cfg(not(target_abi = "cheriot"))]
 mod dec2flt;
+#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_float_conversions"))]
+mod float_conversions;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_ieee754"))]
 mod float_ieee754_flt2dec_dec2flt;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
