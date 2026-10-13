@@ -52,7 +52,9 @@ fn internal_extern_flags() -> Vec<String> {
         path.set_extension("d");
         fs::read_to_string(path).unwrap()
     };
-    let mut crates = BTreeMap::<&str, &str>::new();
+    // Map `crate_name` -> (`hash`, [`path1`, `path2`, ...]). Important for `rlib`s, as cargo now
+    // defaults to `-Zembed-metadata=no`, so the `rlib` only contains a metadata stub.
+    let mut crates = BTreeMap::<&str, (&str, Vec<&str>)>::new();
     for line in current_exe_depinfo.lines() {
         // each dependency is expected to have a Makefile rule like `/path/to/crate-hash.rlib:`
         let parse_name_path = || {
@@ -61,20 +63,25 @@ fn internal_extern_flags() -> Vec<String> {
             }
             let path_str = line.strip_suffix(':')?;
             let path = Path::new(path_str);
-            if !matches!(path.extension()?.to_str()?, "rlib" | "so" | "dylib" | "dll") {
+            if !matches!(path.extension()?.to_str()?, "rlib" | "so" | "dylib" | "dll" | "rmeta") {
                 return None;
             }
-            let (name, _hash) = path.file_stem()?.to_str()?.rsplit_once('-')?;
+            let (name, hash) = path.file_stem()?.to_str()?.rsplit_once('-')?;
             // the "lib" prefix is not present for dll files
             let name = name.strip_prefix("lib").unwrap_or(name);
-            Some((name, path_str))
+            Some((name, hash, path_str))
         };
-        if let Some((name, path)) = parse_name_path()
+        if let Some((name, hash, path)) = parse_name_path()
             && INTERNAL_TEST_DEPENDENCIES.contains(&name)
         {
-            // A dependency may be listed twice if it is available in sysroot,
-            // and the sysroot dependencies are listed first.
-            crates.insert(name, path);
+            // A dependency may be listed twice (identified by the hash) if it is available in sysroot,
+            // and the sysroot dependencies are listed first. So only keep the last dependency.
+            let (old_hash, items) = crates.entry(name).or_insert((hash, Vec::new()));
+            if *old_hash != hash {
+                *old_hash = hash;
+                items.clear();
+            }
+            items.push(path);
         }
     }
     let not_found: Vec<&str> = INTERNAL_TEST_DEPENDENCIES
@@ -93,7 +100,7 @@ fn internal_extern_flags() -> Vec<String> {
 
     let mut args: Vec<String> = crates
         .into_iter()
-        .map(|(name, path)| format!("--extern={name}={path}"))
+        .flat_map(|(name, (_, paths))| paths.into_iter().map(move |path| format!("--extern={name}={path}")))
         .collect();
 
     if deps_path.ends_with("deps") {
@@ -148,17 +155,15 @@ impl TestContext {
         let mut config = Config {
             output_conflict_handling: error_on_output_conflict,
             // Pre-fill filters with TESTNAME; will be later extended with `self.args`.
-            filter_files: env::var("TESTNAME")
-                .map(|filters| {
-                    filters
-                        .split(',')
-                        // Make sure that if TESTNAME is empty we produce the empty list here,
-                        // not a list containing an empty string.
-                        .filter(|s| !s.is_empty())
-                        .map(str::to_string)
-                        .collect()
-                })
-                .unwrap_or_default(),
+            filter_files: env::var("TESTNAME").map_or_default(|filters| {
+                filters
+                    .split(',')
+                    // Make sure that if TESTNAME is empty we produce the empty list here,
+                    // not a list containing an empty string.
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            }),
             target: None,
             bless_command: Some(if IS_RUSTC_TEST_SUITE {
                 "./x test src/tools/clippy --bless".into()
@@ -228,6 +233,9 @@ impl TestContext {
                 "-Ainternal_features",
                 "-Zui-testing",
                 "-Zdeduplicate-diagnostics=no",
+                // FIXME(#160895): While the new solver is enabled by default on nightly,
+                // we don't want to use it in our tests for now.
+                "-Znext-solver=coherence",
                 "-Dwarnings",
             ]
             .map(OsString::from),
@@ -329,44 +337,48 @@ fn run_ui_cargo(cx: &TestContext) {
         return;
     }
 
-    let mut config = cx.base_config("ui-cargo", false);
-    config.program.input_file_flag = CommandBuilder::cargo().input_file_flag;
-    config.program.out_dir_flag = CommandBuilder::cargo().out_dir_flag;
-    config.program.args = vec!["clippy".into(), "--color".into(), "never".into(), "--quiet".into()];
-    config.program.envs.extend([
-        ("RUSTFLAGS".into(), Some("-Dwarnings".into())),
-        ("CARGO_INCREMENTAL".into(), Some("0".into())),
-    ]);
-    // We need to do this while we still have a rustc in the `program` field.
-    config.fill_host_and_target().unwrap();
-    config.program.program.set_file_name(if cfg!(windows) {
-        "cargo-clippy.exe"
-    } else {
-        "cargo-clippy"
-    });
-    config.comment_defaults.base().custom.clear();
+    for test_dir in ["ui-cargo", "example_integration_test"] {
+        let mut config = cx.base_config(test_dir, false);
+        config.program.input_file_flag = CommandBuilder::cargo().input_file_flag;
+        config.program.out_dir_flag = CommandBuilder::cargo().out_dir_flag;
+        config.program.args = vec!["clippy".into(), "--color".into(), "never".into(), "--quiet".into()];
+        config.program.envs.extend([
+            // FIXME(#160895): While the new solver is enabled by default on nightly,
+            // we don't want to use it in our tests for now.
+            ("RUSTFLAGS".into(), Some("-Dwarnings -Znext-solver=coherence".into())),
+            ("CARGO_INCREMENTAL".into(), Some("0".into())),
+        ]);
+        // We need to do this while we still have a rustc in the `program` field.
+        config.fill_host_and_target().unwrap();
+        config.program.program.set_file_name(if cfg!(windows) {
+            "cargo-clippy.exe"
+        } else {
+            "cargo-clippy"
+        });
+        config.comment_defaults.base().custom.clear();
 
-    config
-        .comment_defaults
-        .base()
-        .normalize_stderr
-        .push((Match::from(env::current_dir().unwrap().as_path()), b"$DIR".into()));
+        config
+            .comment_defaults
+            .base()
+            .normalize_stderr
+            .push((Match::from(env::current_dir().unwrap().as_path()), b"$DIR".into()));
 
-    let ignored_32bit = |path: &Path| {
-        // FIXME: for some reason the modules are linted in a different order for this test
-        cfg!(target_pointer_width = "32") && path.ends_with("tests/ui-cargo/module_style/fail_mod/Cargo.toml")
-    };
+        let ignored_32bit = |path: &Path| {
+            // FIXME: for some reason the modules are linted in a different order for this test
+            cfg!(target_pointer_width = "32") && path.ends_with("tests/ui-cargo/module_style/fail_mod/Cargo.toml")
+        };
 
-    ui_test::run_tests_generic(
-        vec![config],
-        |path, config| {
-            path.ends_with("Cargo.toml")
-                .then(|| ui_test::default_any_file_filter(path, config) && !ignored_32bit(path))
-        },
-        |_config, _file_contents| {},
-        Box::<dyn StatusEmitter>::from(cx.args.format),
-    )
-    .unwrap();
+        ui_test::run_tests_generic(
+            vec![config],
+            |path, config| {
+                path.ends_with("Cargo.toml")
+                    .then(|| ui_test::default_any_file_filter(path, config) && !ignored_32bit(path))
+            },
+            |_config, _file_contents| {},
+            Box::<dyn StatusEmitter>::from(cx.args.format),
+        )
+        .unwrap();
+    }
 }
 
 fn main() {

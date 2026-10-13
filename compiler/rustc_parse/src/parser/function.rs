@@ -1,4 +1,3 @@
-use ast::token::IdentIsRaw;
 use rustc_ast as ast;
 use rustc_ast::ast::*;
 use rustc_ast::token::{self, InvisibleOrigin, MetaVarKind, TokenKind};
@@ -6,7 +5,7 @@ use rustc_ast::tokenstream::TokenTree;
 use rustc_ast::util::case::Case;
 use rustc_ast_pretty::pprust;
 use rustc_errors::{Applicability, PResult};
-use rustc_session::lint::builtin::VARARGS_WITHOUT_PATTERN;
+use rustc_lint_defs::builtin::VARARGS_WITHOUT_PATTERN;
 use rustc_span::edition::Edition;
 use rustc_span::{ErrorGuaranteed, Ident, Span, kw, respan, sym};
 use thin_vec::ThinVec;
@@ -103,6 +102,8 @@ pub(crate) enum FnContext {
     Free,
     /// A Function Pointer Type `fn(..)`.
     FunctionPtrType,
+    /// A Parenthesized Argument List `impl Fn(...)`
+    ParenthesizedArgumentList,
     /// A Trait context.
     Trait,
     /// An Impl block.
@@ -174,7 +175,7 @@ impl<'a> Parser<'a> {
                     // The enclosing `mod`, `trait` or `impl` is being closed, so keep the `fn` in
                     // the AST for typechecking.
                     err.span_label(ident_span, "while parsing this `fn`");
-                    Ok(err.emit())
+                    Ok(err.emit_err())
                 } else if self.token == token::RArrow
                     && let Some(fn_params_end) = fn_params_end
                 {
@@ -330,13 +331,13 @@ impl<'a> Parser<'a> {
                     // Two qualifiers `$qual $qual` is enough, e.g. `async unsafe`.
                     || (
                         (
-                            t.is_non_raw_ident_where(|i|
+                            t.non_raw_ident().is_some_and(|i|
                                 quals.iter().any(|exp| exp.kw == i.name)
                                     // Rule out 2015 `const async: T = val`.
                                     && i.is_reserved()
                             )
                             || case == Case::Insensitive
-                                && t.is_non_raw_ident_where(|i| quals.iter().any(|exp| {
+                                && t.non_raw_ident().is_some_and(|i| quals.iter().any(|exp| {
                                     exp.kw.as_str() == i.name.as_str().to_lowercase()
                                 }))
                         )
@@ -362,6 +363,8 @@ impl<'a> Parser<'a> {
                 }) == Some(true) ||
                     // This branch is only for better diagnostics; `pub`, `unsafe`, etc. are not
                     // allowed here.
+                    // This branch also follows `$qual fn` or `$qual $qual` rule
+                    // above since a valid `fn` can be after `extern`.
                     (self.may_recover()
                         && self.tree_look_ahead(2, |tt| {
                             match tt {
@@ -374,7 +377,12 @@ impl<'a> Parser<'a> {
                         }) == Some(true)
                         && self.tree_look_ahead(3, |tt| {
                             match tt {
-                                TokenTree::Token(t, _) => t.is_keyword_case(kw::Fn, case),
+                                TokenTree::Token(t, _) => {
+                                    t.is_keyword_case(kw::Fn, case) ||
+                                    ALL_QUALS.iter().any(|exp| {
+                                        t.is_keyword(exp.kw)
+                                    })
+                                },
                                 TokenTree::Delimited(..) => false,
                             }
                         }) == Some(true)
@@ -414,13 +422,14 @@ impl<'a> Parser<'a> {
         }
 
         let async_start_sp = self.token.span;
-        let coroutine_kind = self.parse_coroutine_kind(case);
+        let coroutine_marker = self.parse_coroutine_marker(case);
         if parsing_mode == FrontMatterParsingMode::FunctionPtrType
-            && let Some(ast::CoroutineKind::Async { span: async_span, .. }) = coroutine_kind
+            && let Some(coroutine_marker) = coroutine_marker
+            && coroutine_marker.kind == CoroutineKind::Async
         {
             self.dcx().emit_err(FnPointerCannotBeAsync {
-                span: async_span,
-                suggestion: async_span.until(self.token.span),
+                span: coroutine_marker.span,
+                suggestion: coroutine_marker.span.until(self.token.span),
             });
         }
         // FIXME(gen_blocks): emit a similar error for `gen fn()`
@@ -431,20 +440,20 @@ impl<'a> Parser<'a> {
         let ext_start_sp = self.token.span;
         let ext = self.parse_extern(case);
 
-        if let Some(CoroutineKind::Async { span, .. }) = coroutine_kind {
-            if span.is_rust_2015() {
-                self.dcx().emit_err(diagnostics::AsyncFnIn2015 {
-                    span,
-                    help: diagnostics::HelpUseLatestEdition::new(),
-                });
-            }
+        if let Some(coroutine_marker) = coroutine_marker
+            && let CoroutineKind::Async = coroutine_marker.kind
+            && coroutine_marker.span.is_rust_2015()
+        {
+            self.dcx().emit_err(diagnostics::AsyncFnIn2015 {
+                span: coroutine_marker.span,
+                help: diagnostics::HelpUseLatestEdition::new(),
+            });
         }
 
-        match coroutine_kind {
-            Some(CoroutineKind::Gen { span, .. }) | Some(CoroutineKind::AsyncGen { span, .. }) => {
-                self.psess.gated_spans.gate(sym::gen_blocks, span);
-            }
-            Some(CoroutineKind::Async { .. }) | None => {}
+        if let Some(coroutine_marker) = coroutine_marker
+            && coroutine_marker.kind.is_gen()
+        {
+            self.psess.gated_spans.gate(sym::gen_blocks, coroutine_marker.span);
         }
 
         if !self.eat_keyword_case(exp!(Fn), case) {
@@ -468,7 +477,7 @@ impl<'a> Parser<'a> {
 
                     // We may be able to recover
                     let mut recover_constness = constness;
-                    let mut recover_coroutine_kind = coroutine_kind;
+                    let mut recover_coroutine_marker = coroutine_marker;
                     let mut recover_safety = safety;
                     // This will allow the machine fix to directly place the keyword in the correct place or to indicate
                     // that the keyword is already present and the second instance should be removed.
@@ -495,28 +504,25 @@ impl<'a> Parser<'a> {
                             }
                         }
                     } else if self.check_keyword(exp!(Async)) {
-                        match coroutine_kind {
-                            Some(CoroutineKind::Async { span, .. }) => {
-                                Some(WrongKw::Duplicated(span))
-                            }
-                            Some(CoroutineKind::AsyncGen { span, .. }) => {
-                                Some(WrongKw::Duplicated(span))
-                            }
-                            Some(CoroutineKind::Gen { .. }) => {
-                                recover_coroutine_kind = Some(CoroutineKind::AsyncGen {
-                                    span: self.token.span,
-                                    closure_id: DUMMY_NODE_ID,
-                                    return_impl_trait_id: DUMMY_NODE_ID,
-                                });
+                        match coroutine_marker {
+                            Some(CoroutineMarker {
+                                kind: CoroutineKind::Async | CoroutineKind::AsyncGen,
+                                span,
+                                ..
+                            }) => Some(WrongKw::Duplicated(span)),
+                            Some(CoroutineMarker { kind: CoroutineKind::Gen, .. }) => {
+                                recover_coroutine_marker = Some(CoroutineMarker::new(
+                                    CoroutineKind::AsyncGen,
+                                    self.token.span,
+                                ));
                                 // FIXME(gen_blocks): This span is wrong, didn't want to think about it.
                                 Some(WrongKw::Misplaced(unsafe_start_sp))
                             }
                             None => {
-                                recover_coroutine_kind = Some(CoroutineKind::Async {
-                                    span: self.token.span,
-                                    closure_id: DUMMY_NODE_ID,
-                                    return_impl_trait_id: DUMMY_NODE_ID,
-                                });
+                                recover_coroutine_marker = Some(CoroutineMarker::new(
+                                    CoroutineKind::Async,
+                                    self.token.span,
+                                ));
                                 match parsing_mode {
                                     FrontMatterParsingMode::Function => {
                                         Some(WrongKw::Misplaced(async_start_sp))
@@ -646,7 +652,7 @@ impl<'a> Parser<'a> {
                         return Ok(FnHeader {
                             constness: recover_constness,
                             safety: recover_safety,
-                            coroutine_kind: recover_coroutine_kind,
+                            coroutine_marker: recover_coroutine_marker,
                             ext,
                         });
                     }
@@ -656,7 +662,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(FnHeader { constness, safety, coroutine_kind, ext })
+        Ok(FnHeader { constness, safety, coroutine_marker, ext })
     }
 
     /// Parses the parameter list and result type of a function declaration.
@@ -693,8 +699,8 @@ impl<'a> Parser<'a> {
         let (mut params, _) = self.parse_paren_comma_seq(|p| {
             p.recover_vcs_conflict_marker();
             let snapshot = p.create_snapshot_for_diagnostic();
-            let param = p.parse_param_general(fn_parse_mode, first_param, true).or_else(|e| {
-                let guar = e.emit();
+            let param = p.parse_param_general(fn_parse_mode, first_param).or_else(|e| {
+                let guar = e.emit_err();
                 // When parsing a param failed, we should check to make the span of the param
                 // not contain '(' before it.
                 // For example when parsing `*mut Self` in function `fn oof(*mut Self)`.
@@ -726,7 +732,6 @@ impl<'a> Parser<'a> {
         &mut self,
         fn_parse_mode: &FnParseMode,
         first_param: bool,
-        recover_arg_parse: bool,
     ) -> PResult<'a, Param> {
         let lo = self.token.span;
         let attrs = self.parse_outer_attributes()?;
@@ -771,7 +776,7 @@ impl<'a> Parser<'a> {
                         first_param,
                         fn_parse_mode,
                     ) {
-                        let guar = err.emit();
+                        let guar = err.emit_err();
                         let mut arg = dummy_arg(ident, guar);
                         arg.span = pat_span;
                         Ok((arg, Trailing::No, UsePreAttrPos::No))
@@ -780,12 +785,10 @@ impl<'a> Parser<'a> {
                     };
                 }
 
-                this.eat_incorrect_doc_comment_for_param_type();
                 (pat, this.parse_ty_for_param()?)
             } else {
                 debug!("parse_param_general ident_to_pat");
                 let parser_snapshot_before_ty = this.create_snapshot_for_diagnostic();
-                this.eat_incorrect_doc_comment_for_param_type();
                 let mut ty = this.parse_ty_for_param();
 
                 if let Ok(t) = &ty {
@@ -816,13 +819,22 @@ impl<'a> Parser<'a> {
                     // If this is a C-variadic argument and we hit an error, return the error.
                     Err(err) if this.token == token::DotDotDot => return Err(err),
                     Err(err) if this.unmatched_angle_bracket_count > 0 => return Err(err),
-                    Err(err) if recover_arg_parse => {
+                    Err(err) => {
                         // Recover from attempting to parse the argument as a type without pattern.
-                        err.cancel();
                         this.restore_snapshot(parser_snapshot_before_ty);
-                        this.recover_arg_parse(fn_parse_mode.context)?
+                        match this.recover_arg_parse(fn_parse_mode.context) {
+                            Ok(res) => {
+                                // We managed to parse the argument as a pattern, cancel the original error and emit a better one
+                                err.cancel();
+                                res
+                            }
+                            Err(new_err) => {
+                                // We did not manage to parse the argument as a pattern, avoid suggesting a pattern and emit the original error
+                                new_err.cancel();
+                                return Err(err);
+                            }
+                        }
                     }
-                    Err(err) => return Err(err),
                 }
             };
 
@@ -839,12 +851,10 @@ impl<'a> Parser<'a> {
     /// Returns the parsed optional self parameter and whether a self shortcut was used.
     fn parse_self_param(&mut self) -> PResult<'a, Option<Param>> {
         // Extract an identifier *after* having confirmed that the token is one.
-        let expect_self_ident = |this: &mut Self| match this.token.ident() {
-            Some((ident, IdentIsRaw::No)) => {
-                this.bump();
-                ident
-            }
-            _ => unreachable!(),
+        let expect_self_ident = |this: &mut Self| {
+            let ident = this.token.non_raw_ident().unwrap();
+            this.bump();
+            ident
         };
         // is lifetime `n` tokens ahead?
         let is_lifetime = |this: &Self, n| this.look_ahead(n, |t| t.is_lifetime());
@@ -855,7 +865,7 @@ impl<'a> Parser<'a> {
         };
         // Is `pin const self` `n` tokens ahead?
         let is_isolated_pin_const_self = |this: &Self, n| {
-            this.look_ahead(n, |token| token.is_ident_named(sym::pin))
+            this.is_keyword_ahead(n, &[kw::Pin])
                 && this.is_keyword_ahead(n + 1, &[kw::Const])
                 && is_isolated_self(this, n + 2)
         };
@@ -864,8 +874,7 @@ impl<'a> Parser<'a> {
             |this: &Self, n| this.is_keyword_ahead(n, &[kw::Mut]) && is_isolated_self(this, n + 1);
         // Is `pin mut self` `n` tokens ahead?
         let is_isolated_pin_mut_self = |this: &Self, n| {
-            this.look_ahead(n, |token| token.is_ident_named(sym::pin))
-                && is_isolated_mut_self(this, n + 1)
+            this.is_keyword_ahead(n, &[kw::Pin]) && is_isolated_mut_self(this, n + 1)
         };
         // Parse `self` or `self: TYPE`. We already know the current token is `self`.
         let parse_self_possibly_typed = |this: &mut Self, m| {

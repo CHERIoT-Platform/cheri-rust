@@ -7,8 +7,8 @@ use clippy_utils::source::{SpanExt as _, snippet, snippet_with_context};
 use clippy_utils::ty::{get_iterator_item_ty, implements_trait, is_copy, peel_and_count_ty_refs};
 use clippy_utils::visitors::find_all_ret_expressions;
 use clippy_utils::{fn_def_id, get_parent_expr, is_expr_temporary_value, return_ty, sym};
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_errors::Applicability;
-use rustc_hir::attrs::lang_items::LangItem;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::DefId;
 use rustc_hir::{BorrowKind, Expr, ExprKind, ItemKind, Node};
@@ -17,7 +17,7 @@ use rustc_lint::LateContext;
 use rustc_middle::mir::Mutability;
 use rustc_middle::ty::adjustment::{Adjust, Adjustment, DerefAdjustKind, OverloadedDeref};
 use rustc_middle::ty::{
-    self, ClauseKind, GenericArg, GenericArgKind, GenericArgsRef, ParamTy, ProjectionPredicate, TraitPredicate, Ty,
+    self, ClauseKind, GenericArg, GenericArgKind, GenericArgsRef, ParamTy, ProjectionClause, TraitClause, Ty,
 };
 use rustc_span::Symbol;
 use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
@@ -473,12 +473,12 @@ fn get_callee_generic_args_and_args<'tcx>(
     None
 }
 
-/// Returns the `TraitPredicate`s and `ProjectionPredicate`s for a function's input type.
+/// Returns the `TraitClause`s and `ProjectionClause`s for a function's input type.
 fn get_input_traits_and_projections<'tcx>(
     cx: &LateContext<'tcx>,
     callee_def_id: DefId,
     input: Ty<'tcx>,
-) -> (Vec<TraitPredicate<'tcx>>, Vec<ProjectionPredicate<'tcx>>) {
+) -> (Vec<TraitClause<'tcx>>, Vec<ProjectionClause<'tcx>>) {
     let mut trait_predicates = Vec::new();
     let mut projection_predicates = Vec::new();
     for clause in cx.tcx.param_env(callee_def_id).caller_bounds() {
@@ -495,7 +495,6 @@ fn get_input_traits_and_projections<'tcx>(
     (trait_predicates, projection_predicates)
 }
 
-#[expect(clippy::too_many_lines)]
 fn can_change_type<'a>(cx: &LateContext<'a>, mut expr: &'a Expr<'a>, mut ty: Ty<'a>) -> bool {
     for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
         match node {
@@ -544,16 +543,15 @@ fn can_change_type<'a>(cx: &LateContext<'a>, mut expr: &'a Expr<'a>, mut ty: Ty<
                             return false;
                         }
 
-                        let mut trait_clauses =
-                            cx.tcx.param_env(callee_def_id).caller_bounds().iter().filter(|clause| {
-                                if let ClauseKind::Trait(trait_predicate) = clause.kind().skip_binder()
-                                    && trait_predicate.trait_ref.self_ty() == param_ty
-                                {
-                                    true
-                                } else {
-                                    false
-                                }
-                            });
+                        let mut trait_clauses = cx.tcx.param_env(callee_def_id).caller_bounds().filter(|clause| {
+                            if let ClauseKind::Trait(trait_predicate) = clause.kind().skip_binder()
+                                && trait_predicate.trait_ref.self_ty() == param_ty
+                            {
+                                true
+                            } else {
+                                false
+                            }
+                        });
 
                         let new_subst = cx
                             .tcx
@@ -740,7 +738,7 @@ fn check_borrow_predicate<'tcx>(cx: &LateContext<'tcx>, expr: &Expr<'tcx>) {
         && let Some(borrow_id) = cx.tcx.get_diagnostic_item(sym::Borrow)
         && cx.tcx.clauses_of(method_def_id).clauses.iter().any(|(clause, _)| {
             if let ClauseKind::Trait(trait_pred) = clause.kind().skip_binder()
-                && trait_pred.polarity == ty::PredicatePolarity::Positive
+                && trait_pred.polarity == ty::ClausePolarity::Positive
                 && trait_pred.trait_ref.def_id == borrow_id
             {
                 true

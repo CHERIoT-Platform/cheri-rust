@@ -6,8 +6,7 @@ use rustc_infer::infer::outlives::env::RegionBoundPairs;
 use rustc_infer::infer::outlives::obligations::{TypeOutlives, TypeOutlivesDelegate};
 use rustc_infer::infer::region_constraints::{GenericKind, VerifyBound};
 use rustc_middle::ty::{
-    self, GenericArgKind, RegionExt, TyCtxt, TypeFoldable, TypeVisitableExt, elaborate,
-    fold_regions,
+    self, GenericArgKind, TyCtxt, TypeFoldable, TypeVisitableExt, elaborate, fold_regions,
 };
 use rustc_span::Span;
 use tracing::{debug, instrument};
@@ -153,12 +152,12 @@ impl<'a, 'tcx> ConstraintConversion<'a, 'tcx> {
             GenericArgKind::Lifetime(r1) => {
                 let r1_vid = self.to_region_vid(r1);
                 let r2_vid = self.to_region_vid(r2);
-                self.add_outlives(r1_vid, r2_vid, constraint_category);
+                self.add_outlives(r1_vid, r2_vid, constraint_category, self.span);
             }
 
             GenericArgKind::Type(mut t1) => {
                 // Scraped constraints may have had inference vars.
-                t1 = self.infcx.resolve_vars_if_possible(t1);
+                t1 = self.infcx.deeply_resolve_ignoring_regions(t1);
 
                 let implicit_region_bound =
                     ty::Region::new_var(tcx, universal_regions.implicit_region_bound());
@@ -221,6 +220,7 @@ impl<'a, 'tcx> ConstraintConversion<'a, 'tcx> {
         sup: ty::RegionVid,
         sub: ty::RegionVid,
         category: ConstraintCategory<'tcx>,
+        span: Span,
     ) {
         let category = match self.category {
             ConstraintCategory::Boring | ConstraintCategory::BoringNoLocation => category,
@@ -229,7 +229,7 @@ impl<'a, 'tcx> ConstraintConversion<'a, 'tcx> {
         self.constraints.outlives_constraints.push(OutlivesConstraint {
             locations: self.locations,
             category,
-            span: self.span,
+            span,
             sub,
             sup,
             variance_info: ty::VarianceDiagInfo::default(),
@@ -246,14 +246,14 @@ impl<'a, 'tcx> ConstraintConversion<'a, 'tcx> {
 impl<'a, 'b, 'tcx> TypeOutlivesDelegate<'tcx> for &'a mut ConstraintConversion<'b, 'tcx> {
     fn push_sub_region_constraint(
         &mut self,
-        _origin: SubregionOrigin<'tcx>,
+        origin: SubregionOrigin<'tcx>,
         a: ty::Region<'tcx>,
         b: ty::Region<'tcx>,
         constraint_category: ConstraintCategory<'tcx>,
     ) {
         let b = self.to_region_vid(b);
         let a = self.to_region_vid(a);
-        self.add_outlives(b, a, constraint_category);
+        self.add_outlives(b, a, constraint_category, origin.span());
     }
 
     fn push_verify(

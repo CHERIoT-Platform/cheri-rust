@@ -12,10 +12,10 @@ use rustc_expand::base::{
     DummyResult, ExpandResult, ExtCtxt, MacEager, MacResult, MacroExpanderResult,
 };
 use rustc_expand::module::DirOwnership;
+use rustc_lint_defs::builtin::INCOMPLETE_INCLUDE;
 use rustc_parse::lexer::StripTokens;
 use rustc_parse::parser::{AllowConstBlockItems, ForceCollect};
 use rustc_parse::{new_parser_from_file, unwrap_or_emit_fatal, utf8_error};
-use rustc_session::lint::builtin::INCOMPLETE_INCLUDE;
 use rustc_session::parse::ParseSess;
 use rustc_span::source_map::SourceMap;
 use rustc_span::{ByteSymbol, Pos, Span, Symbol};
@@ -120,7 +120,7 @@ pub(crate) fn expand_include<'cx>(
     let path = match cx.sess.resolve_path(path.as_str(), sp) {
         Ok(path) => path,
         Err(err) => {
-            let guar = err.emit();
+            let guar = err.emit_err();
             return ExpandResult::Ready(DummyResult::any(sp, guar));
         }
     };
@@ -225,7 +225,7 @@ pub(crate) fn expand_include_str(
             Err(utf8err) => {
                 let mut err = cx.dcx().struct_span_err(sp, format!("`{path}` wasn't a utf-8 file"));
                 utf8_error(cx.source_map(), path.as_str(), None, &mut err, utf8err, &bytes[..]);
-                DummyResult::any(sp, err.emit())
+                DummyResult::any(sp, err.emit_err())
             }
         },
         Err(dummy) => dummy,
@@ -270,7 +270,7 @@ fn load_binary_file(
     let resolved_path = match cx.sess.resolve_path(original_path, macro_span) {
         Ok(path) => path,
         Err(err) => {
-            let guar = err.emit();
+            let guar = err.emit_err();
             return Err(DummyResult::any(macro_span, guar));
         }
     };
@@ -306,7 +306,7 @@ fn load_binary_file(
                     );
                 }
             }
-            let guar = err.emit();
+            let guar = err.emit_err();
             Err(DummyResult::any(macro_span, guar))
         }
     }
@@ -326,7 +326,7 @@ fn find_path_suggestion(
             break;
         }
         // base_dir may be absolute
-        while let Some(base_next) = base_c.next() {
+        for base_next in base_c.by_ref() {
             if base_next == wanted_next {
                 without_base = Some(wanted_c.as_path());
                 break;
@@ -371,5 +371,5 @@ fn find_path_suggestion(
     root_absolute
         .chain(add)
         .chain(remove)
-        .find(|new_path| source_map.file_exists(&base_dir.join(&new_path)))
+        .find(|new_path| source_map.file_exists(&base_dir.join(new_path)))
 }

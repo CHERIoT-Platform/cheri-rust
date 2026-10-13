@@ -70,6 +70,7 @@ pub fn extern_abi_stability(abi: ExternAbi) -> Result<(), UnstableAbi> {
         ExternAbi::Rust
         | ExternAbi::C { .. }
         | ExternAbi::Cdecl { .. }
+        | ExternAbi::Custom
         | ExternAbi::Stdcall { .. }
         | ExternAbi::Fastcall { .. }
         | ExternAbi::Thiscall { .. }
@@ -78,9 +79,11 @@ pub fn extern_abi_stability(abi: ExternAbi) -> Result<(), UnstableAbi> {
         | ExternAbi::SysV64 { .. }
         | ExternAbi::System { .. }
         | ExternAbi::EfiApi => Ok(()),
-        ExternAbi::Unadjusted => {
-            Err(UnstableAbi { abi, feature: sym::abi_unadjusted, explain: GateReason::ImplDetail })
-        }
+        ExternAbi::LlvmIntrinsic => Err(UnstableAbi {
+            abi,
+            feature: sym::link_llvm_intrinsics,
+            explain: GateReason::ImplDetail,
+        }),
         // experimental
         ExternAbi::Vectorcall { .. } => Err(UnstableAbi {
             abi,
@@ -156,9 +159,6 @@ pub fn extern_abi_stability(abi: ExternAbi) -> Result<(), UnstableAbi> {
             feature: sym::abi_cheriot_library_call,
             explain: GateReason::Experimental,
         }),
-        ExternAbi::Custom => {
-            Err(UnstableAbi { abi, feature: sym::abi_custom, explain: GateReason::Experimental })
-        }
         ExternAbi::Swift => {
             Err(UnstableAbi { abi, feature: sym::abi_swift, explain: GateReason::Experimental })
         }

@@ -16,6 +16,7 @@ extern crate rustc_log;
 extern crate rustc_metadata;
 extern crate rustc_middle;
 extern crate rustc_session;
+extern crate rustc_structures;
 
 // Override the C allocator in the same way that the `rustc` binary would do.
 rustc_driver::override_c_allocator_in_binary!();
@@ -44,8 +45,9 @@ use rustc_interface::util::DummyCodegenBackend;
 use rustc_log::tracing::debug;
 use rustc_middle::query::LocalCrate;
 use rustc_middle::ty::TyCtxt;
-use rustc_session::config::{CrateType, ErrorOutputType, OptLevel};
-use rustc_session::{EarlyDiagCtxt, Session};
+use rustc_session::config::{ErrorOutputType, OptLevel};
+use rustc_session::{EarlyDiagCtxt, EarlySession, Session};
+use rustc_structures::CrateType;
 
 use crate::log::setup::{deinit_loggers, init_early_loggers, init_late_loggers};
 
@@ -107,18 +109,18 @@ fn run_many_seeds(
 /// Generates the codegen backend for code that Miri will interpret: we basically
 /// use the dummy backend, except that we put the LLVM backend in charge of
 /// target features.
-fn make_miri_codegen_backend(sess: &Session, dep: bool) -> Box<dyn CodegenBackend> {
+fn make_miri_codegen_backend(sess: &EarlySession, dep: bool) -> Box<dyn CodegenBackend> {
     let early_dcx = EarlyDiagCtxt::new(sess.opts.error_format);
 
     // Use the target_config method of the default codegen backend (eg LLVM) to ensure the
     // calculated target features match said backend by respecting eg -Ctarget-cpu.
-    let native_codegen_backend = rustc_interface::util::get_codegen_backend(
+    let mut native_codegen_backend = rustc_interface::util::get_codegen_backend(
         &early_dcx,
         &sess.opts.sysroot,
         None,
         &sess.target,
     );
-    native_codegen_backend.init(sess);
+    let _ = native_codegen_backend.init(sess);
 
     Box::new(MiriCodegenBackend { native: native_codegen_backend, dummy: DummyCodegenBackend, dep })
 }
@@ -199,11 +201,11 @@ impl rustc_driver::Callbacks for MiriCompilerCalls {
         // Process interpreter result.
         if let Err(return_code) = res {
             tcx.dcx().abort_if_errors();
-            exit(return_code.get());
+            exit(return_code.get())
         } else {
             // We want to continue here so rustc can do its usual shutdown and finalize the
             // incremental session. Our custom codegen backend ensures nothing actually happens.
-            return Compilation::Continue;
+            Compilation::Continue
         }
     }
 }
@@ -213,12 +215,13 @@ impl CodegenBackend for MiriCodegenBackend {
         "miri"
     }
 
-    fn target_config(&self, sess: &Session) -> TargetConfig {
+    fn target_config(&self, sess: &EarlySession) -> TargetConfig {
         let native_target_config = self.native.target_config(sess);
         TargetConfig {
             internal_target_features: native_target_config.internal_target_features,
 
             // The basic types and ABI always work.
+            has_reliable_f16b: true,
             has_reliable_f16: true,
             has_reliable_f128: true,
             // We always provide the f16 intrinsics, but some are provided via the host,
@@ -472,8 +475,6 @@ fn main() -> ExitCode {
                 Some(BorrowTrackerMethod::TreeBorrows(TreeBorrowsParams {
                     precise_interior_mut: true,
                     implicit_writes: false,
-                    // We default this to "unique" for now to keep the design space open.
-                    box_custom_allocator_unique: true,
                 }));
         } else if arg == "-Zmiri-tree-borrows-no-precise-interior-mut" {
             match &mut miri_config.borrow_tracker {
@@ -493,16 +494,6 @@ fn main() -> ExitCode {
                 _ =>
                     fatal_error!(
                         "`-Zmiri-tree-borrows` is required before `-Zmiri-tree-borrows-implicit-writes`"
-                    ),
-            };
-        } else if arg == "-Zmiri-tree-borrows-relax-custom-allocator-uniqueness" {
-            match &mut miri_config.borrow_tracker {
-                Some(BorrowTrackerMethod::TreeBorrows(params)) => {
-                    params.box_custom_allocator_unique = false;
-                }
-                _ =>
-                    fatal_error!(
-                        "`-Zmiri-tree-borrows` is required before `-Zmiri-tree-borrows-relax-custom-allocator-uniqueness`"
                     ),
             };
         } else if arg == "-Zmiri-disable-data-race-detector" {

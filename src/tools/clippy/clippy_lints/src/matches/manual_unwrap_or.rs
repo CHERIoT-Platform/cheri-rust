@@ -2,8 +2,8 @@ use clippy_utils::consts::ConstEvalCtxt;
 use clippy_utils::res::{MaybeDef as _, MaybeQPath as _, MaybeResPath as _};
 use clippy_utils::source::{SpanExt as _, indent_of, reindent_multiline};
 use rustc_ast::{BindingMode, ByRef};
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_errors::Applicability;
-use rustc_hir::attrs::lang_items::LangItem;
 use rustc_hir::def::Res;
 use rustc_hir::{Arm, Expr, ExprKind, HirId, Pat, PatKind, QPath};
 use rustc_lint::LateContext;
@@ -186,8 +186,7 @@ fn find_type_name<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Option<&'static
 
 /// Checks whether it is safe to move scrutinee.
 /// It is not safe to move if:
-///     1. `scrutinee` is a `Result` that doesn't implemenet `Copy`, mainly because the `Err`
-///        variant is not copyable.
+///     1. `scrutinee` is a `Result` that doesn't implemenet `Copy`, mainly because the `Err` variant is not copyable.
 ///     2. `expr` is a local variable that is used after the if-let-else expression.
 /// ```rust,ignore
 /// let foo: Result<usize, String> = Ok(0);

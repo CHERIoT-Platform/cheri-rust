@@ -3,12 +3,12 @@ use std::ops::Deref as _;
 use rustc_abi::{
     Align, BackendRepr, FieldIdx, FieldsShape, Size, TagEncoding, VariantIdx, Variants,
 };
+use rustc_middle::mir;
 use rustc_middle::mir::PlaceTy;
 use rustc_middle::mir::interpret::Scalar;
 use rustc_middle::ty::layout::{HasTyCtxt, HasTypingEnv, LayoutOf, TyAndLayout};
 use rustc_middle::ty::{self, Ty};
-use rustc_middle::{bug, mir};
-use rustc_span::DUMMY_SP;
+use rustc_span::{DUMMY_SP, bug};
 use tracing::{debug, instrument};
 
 use super::operand::OperandValue;
@@ -362,6 +362,9 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         for elem in place_ref.projection[base..].iter() {
             cg_base = match *elem {
                 mir::ProjectionElem::Deref => bx.load_operand(cg_base).deref(bx.cx()),
+                mir::ProjectionElem::PhantomDeref => {
+                    bug!("encountered PhantomDeref in codegen")
+                }
                 mir::ProjectionElem::Field(ref field, _) => {
                     assert!(
                         !cg_base.layout.ty.is_any_ptr(),

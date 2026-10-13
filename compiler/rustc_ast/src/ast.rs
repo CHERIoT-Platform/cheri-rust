@@ -29,7 +29,6 @@ use rustc_data_structures::stable_hash::{StableHash, StableHashCtxt, StableHashe
 use rustc_data_structures::tagged_ptr::Tag;
 use rustc_macros::{Decodable, Encodable, StableHash, Walkable};
 pub use rustc_span::AttrId;
-use rustc_span::def_id::LocalDefId;
 use rustc_span::{
     ByteSymbol, DUMMY_SP, ErrorGuaranteed, Ident, LocalExpnId, Span, Spanned, Symbol, kw, respan,
     sym,
@@ -256,7 +255,7 @@ impl PathSegment {
 pub enum GenericArgs {
     /// The `<'a, A, B, C>` in `foo::bar::baz::<'a, A, B, C>`.
     AngleBracketed(AngleBracketedArgs),
-    /// The `(A, B)` and `C` in `Foo(A, B) -> C`.
+    /// The `(A, B)` and `C` in `Foo(A, B) -> C`, used for the `Fn` trait among others.
     Parenthesized(ParenthesizedArgs),
     /// `(..)` in return type notation.
     ParenthesizedElided(Span),
@@ -293,6 +292,14 @@ impl GenericArg {
             GenericArg::Lifetime(lt) => lt.ident.span,
             GenericArg::Type(ty) => ty.span,
             GenericArg::Const(ct) => ct.value.span,
+        }
+    }
+
+    pub fn is_maybe_parenthesised_infer(&self) -> bool {
+        match self {
+            GenericArg::Lifetime(lt) => lt.ident.name == kw::UnderscoreLifetime,
+            GenericArg::Type(ty) => ty.is_maybe_parenthesised_infer(),
+            GenericArg::Const(_) => false,
         }
     }
 }
@@ -686,8 +693,7 @@ impl Pat {
             | PatKind::Or(s) => s.iter().for_each(|p| p.walk(it)),
 
             // Trivial wrappers over inner patterns.
-            PatKind::Box(s)
-            | PatKind::Deref(s)
+            PatKind::Deref(s)
             | PatKind::Ref(s, _, _)
             | PatKind::Paren(s)
             | PatKind::Guard(s, _) => s.walk(it),
@@ -900,9 +906,6 @@ pub enum PatKind {
 
     /// A tuple pattern (`(a, b)`).
     Tuple(ThinVec<Pat>),
-
-    /// A `box` pattern.
-    Box(Box<Pat>),
 
     /// A `deref` pattern (currently `deref!()` macro-based syntax).
     Deref(Box<Pat>),
@@ -1620,7 +1623,7 @@ impl Expr {
             | ExprKind::UnsafeBinderCast(..)
             | ExprKind::While(..)
             | ExprKind::Yield(YieldKind::Postfix(..))
-            | ExprKind::DirectConstArg(..)
+            | ExprKind::GcaMacro(..)
             | ExprKind::Err(_)
             | ExprKind::Dummy => prefix_attrs_precedence(&self.attrs),
         }
@@ -1675,7 +1678,7 @@ pub struct Closure {
     pub binder: ClosureBinder,
     pub capture_clause: CaptureBy,
     pub constness: Const,
-    pub coroutine_kind: Option<CoroutineKind>,
+    pub coroutine_marker: Option<CoroutineMarker>,
     pub movability: Movability,
     pub fn_decl: Box<FnDecl>,
     pub body: Box<Expr>,
@@ -1811,7 +1814,7 @@ pub enum ExprKind {
     ///
     /// The span is the "decl", which is the header before the body `{ }`
     /// including the `async`/`gen` keywords and possibly `move`.
-    Gen(CaptureBy, Box<Block>, GenBlockKind, Span),
+    Gen(CaptureBy, Box<Block>, CoroutineKind, Span),
     /// An await expression (`my_future.await`). Span is of await keyword.
     Await(Box<Expr>, Span),
     /// A use expression (`x.use`). Span is of use keyword.
@@ -1917,8 +1920,8 @@ pub enum ExprKind {
 
     UnsafeBinderCast(UnsafeBinderCastKind, Box<Expr>, Option<Box<Ty>>),
 
-    /// An mGCA `direct_const_arg!()` expression.
-    DirectConstArg(Box<Expr>),
+    /// An mGCA `gca!()` expression.
+    GcaMacro(Box<Expr>),
 
     /// Placeholder for an expression that wasn't syntactically well formed in some way.
     Err(ErrorGuaranteed),
@@ -1934,26 +1937,33 @@ pub enum ForLoopKind {
     ForAwait,
 }
 
-/// Used to differentiate between `async {}` blocks and `gen {}` blocks.
 #[derive(Clone, Copy, Encodable, Decodable, Debug, PartialEq, Eq, Walkable)]
-pub enum GenBlockKind {
+pub enum CoroutineKind {
     Async,
     Gen,
     AsyncGen,
 }
 
-impl fmt::Display for GenBlockKind {
+impl fmt::Display for CoroutineKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.modifier().fmt(f)
+        self.as_str().fmt(f)
     }
 }
 
-impl GenBlockKind {
-    pub fn modifier(&self) -> &'static str {
+impl CoroutineKind {
+    /// Matches `Gen` and `AsyncGen`.
+    pub fn is_gen(&self) -> bool {
         match self {
-            GenBlockKind::Async => "async",
-            GenBlockKind::Gen => "gen",
-            GenBlockKind::AsyncGen => "async gen",
+            CoroutineKind::Async => false,
+            CoroutineKind::Gen | CoroutineKind::AsyncGen => true,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CoroutineKind::Async => "async",
+            CoroutineKind::Gen => "gen",
+            CoroutineKind::AsyncGen => "async gen",
         }
     }
 }
@@ -2354,7 +2364,7 @@ impl FnSig {
         match self.header.safety {
             Safety::Unsafe(span) | Safety::Safe(span) => span,
             Safety::Default => {
-                // Insert after the `coroutine_kind` if available.
+                // Insert after the `coroutine_marker` if available.
                 if let Some(extern_span) = self.header.ext.span() {
                     return extern_span.shrink_to_lo();
                 }
@@ -2392,7 +2402,7 @@ pub struct BorrowedFnSig<'a> {
 /// * the `G<Ty> = Ty` in `Trait<G<Ty> = Ty>`
 /// * the `A: Bound` in `Trait<A: Bound>`
 /// * the `RetTy` in `Trait(ArgTy, ArgTy) -> RetTy`
-/// * the `C = { Ct }` in `Trait<C = { Ct }>` (feature `min_generic_const_args`)
+/// * the `C = { Ct }` in `Trait<C = { Ct }>` (feature `gca_min_const_items`)
 /// * the `f(..): Bound` in `Trait<f(..): Bound>` (feature `return_type_notation`)
 #[derive(Clone, Encodable, Decodable, Debug, Walkable)]
 pub struct AssocItemConstraint {
@@ -2489,7 +2499,12 @@ pub struct FnPtrTy {
 
 impl FnPtrTy {
     pub fn header(&self) -> FnHeader {
-        FnHeader { constness: Const::No, coroutine_kind: None, safety: self.safety, ext: self.ext }
+        FnHeader {
+            constness: Const::No,
+            coroutine_marker: None,
+            safety: self.safety,
+            ext: self.ext,
+        }
     }
 
     pub fn as_borrowed_fn_sig<'a>(&'a self) -> BorrowedFnSig<'a> {
@@ -2564,8 +2579,8 @@ pub enum TyKind {
     FieldOf(Box<Ty>, Option<Ident>, Ident),
     /// A view of a type. `T.{ field_1, field_2 }`.
     View(Box<Ty>, #[visitable(ignore)] ThinVec<Ident>),
-    /// An mGCA `direct_const_arg!()` expression.
-    DirectConstArg(Box<Expr>),
+    /// An mGCA `gca!()` expression.
+    GcaMacro(Box<Expr>),
     /// Sometimes we need a dummy value when no error has occurred.
     Dummy,
     /// Placeholder for a kind that has failed to be defined.
@@ -3098,56 +3113,23 @@ pub enum Safety {
     Default,
 }
 
-/// Describes what kind of coroutine markers, if any, a function has.
+/// Describes the coroutine markers a function/closure has.
 ///
 /// Coroutine markers are things that cause the function to generate a coroutine, such as `async`,
 /// which makes the function return `impl Future`, or `gen`, which makes the function return `impl
 /// Iterator`.
 #[derive(Copy, Clone, Encodable, Decodable, Debug, Walkable)]
-pub enum CoroutineKind {
-    /// `async`, which returns an `impl Future`.
-    Async { span: Span, closure_id: NodeId, return_impl_trait_id: NodeId },
-    /// `gen`, which returns an `impl Iterator`.
-    Gen { span: Span, closure_id: NodeId, return_impl_trait_id: NodeId },
-    /// `async gen`, which returns an `impl AsyncIterator`.
-    AsyncGen { span: Span, closure_id: NodeId, return_impl_trait_id: NodeId },
+pub struct CoroutineMarker {
+    pub kind: CoroutineKind,
+    pub span: Span,
+    pub closure_id: NodeId,
+    /// The `NodeId` for the generated `impl Trait` item.
+    pub return_impl_trait_id: NodeId,
 }
 
-impl CoroutineKind {
-    pub fn span(self) -> Span {
-        match self {
-            CoroutineKind::Async { span, .. } => span,
-            CoroutineKind::Gen { span, .. } => span,
-            CoroutineKind::AsyncGen { span, .. } => span,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            CoroutineKind::Async { .. } => "async",
-            CoroutineKind::Gen { .. } => "gen",
-            CoroutineKind::AsyncGen { .. } => "async gen",
-        }
-    }
-
-    pub fn closure_id(self) -> NodeId {
-        match self {
-            CoroutineKind::Async { closure_id, .. }
-            | CoroutineKind::Gen { closure_id, .. }
-            | CoroutineKind::AsyncGen { closure_id, .. } => closure_id,
-        }
-    }
-
-    /// In this case this is an `async` or `gen` return, the `NodeId` for the generated `impl Trait`
-    /// item.
-    pub fn return_id(self) -> (NodeId, Span) {
-        match self {
-            CoroutineKind::Async { return_impl_trait_id, span, .. }
-            | CoroutineKind::Gen { return_impl_trait_id, span, .. }
-            | CoroutineKind::AsyncGen { return_impl_trait_id, span, .. } => {
-                (return_impl_trait_id, span)
-            }
-        }
+impl CoroutineMarker {
+    pub fn new(kind: CoroutineKind, span: Span) -> Self {
+        Self { kind, span, closure_id: DUMMY_NODE_ID, return_impl_trait_id: DUMMY_NODE_ID }
     }
 }
 
@@ -3354,13 +3336,12 @@ pub enum UseTreeKind {
     /// use foo::{bar, baz};
     ///          ^^^^^^^^^^
     /// ```
-    Nested { items: ThinVec<(UseTree, NodeId)>, span: Span },
+    Nested { items: ThinVec<UseTreeAndId>, span: Span },
     /// `use prefix::*`
     Glob(Span),
 }
 
 /// A tree of paths sharing common prefixes.
-/// Used in `use` items both at top-level and inside of braces in import groups.
 #[derive(Clone, Encodable, Decodable, Debug, Walkable)]
 pub struct UseTree {
     pub prefix: Path,
@@ -3400,6 +3381,13 @@ impl UseTree {
             UseTreeKind::Glob(span) => span,
         }
     }
+}
+
+/// Used in nested `use` trees.
+#[derive(Clone, Encodable, Decodable, Debug, Walkable)]
+pub struct UseTreeAndId {
+    pub inner: UseTree,
+    pub id: NodeId,
 }
 
 /// Distinguishes between `Attribute`s that decorate items and Attributes that
@@ -3758,29 +3746,7 @@ impl Item {
     }
 
     pub fn opt_generics(&self) -> Option<&Generics> {
-        match &self.kind {
-            ItemKind::ExternCrate(..)
-            | ItemKind::ConstBlock(_)
-            | ItemKind::Use(_)
-            | ItemKind::Mod(..)
-            | ItemKind::ForeignMod(_)
-            | ItemKind::GlobalAsm(_)
-            | ItemKind::MacCall(_)
-            | ItemKind::Delegation(_)
-            | ItemKind::DelegationMac(_)
-            | ItemKind::MacroDef(..) => None,
-            ItemKind::Static(_) => None,
-            ItemKind::Const(i) => Some(&i.generics),
-            ItemKind::Fn(i) => Some(&i.generics),
-            ItemKind::TyAlias(i) => Some(&i.generics),
-            ItemKind::TraitAlias(i) => Some(&i.generics),
-
-            ItemKind::Enum(_, generics, _)
-            | ItemKind::Struct(_, generics, _)
-            | ItemKind::Union(_, generics, _) => Some(&generics),
-            ItemKind::Trait(i) => Some(&i.generics),
-            ItemKind::Impl(i) => Some(&i.generics),
-        }
+        self.kind.generics()
     }
 }
 
@@ -3840,8 +3806,8 @@ impl Extern {
 pub struct FnHeader {
     /// The `const` keyword, if any
     pub constness: Const,
-    /// Whether this is `async`, `gen`, or nothing.
-    pub coroutine_kind: Option<CoroutineKind>,
+    /// The `async`/`gen`/`gen asyn` marker, if there is one.
+    pub coroutine_marker: Option<CoroutineMarker>,
     /// Whether this is `unsafe`, or has a default safety.
     pub safety: Safety,
     /// The `extern` keyword and corresponding ABI string, if any.
@@ -3851,9 +3817,9 @@ pub struct FnHeader {
 impl FnHeader {
     /// Does this function header have any qualifiers or is it empty?
     pub fn has_qualifiers(&self) -> bool {
-        let Self { safety, coroutine_kind, constness, ext } = self;
+        let Self { safety, coroutine_marker, constness, ext } = self;
         matches!(safety, Safety::Unsafe(_))
-            || coroutine_kind.is_some()
+            || coroutine_marker.is_some()
             || matches!(constness, Const::Yes(_))
             || !matches!(ext, Extern::None)
     }
@@ -3871,8 +3837,8 @@ impl FnHeader {
             Safety::Default => {}
         };
 
-        if let Some(coroutine_kind) = self.coroutine_kind {
-            spans.push(coroutine_kind.span());
+        if let Some(coroutine_marker) = self.coroutine_marker {
+            spans.push(coroutine_marker.span);
         }
 
         if let Const::Yes(span) = self.constness {
@@ -3887,7 +3853,7 @@ impl Default for FnHeader {
     fn default() -> FnHeader {
         FnHeader {
             safety: Safety::Default,
-            coroutine_kind: None,
+            coroutine_marker: None,
             constness: Const::No,
             ext: Extern::None,
         }
@@ -4083,15 +4049,7 @@ pub struct ConstItem {
     pub generics: Generics,
     pub ty: Box<Ty>,
     pub body: Option<Box<Expr>>,
-    #[visitable(ignore)]
-    pub kind: ConstItemKind,
     pub define_opaque: Option<ThinVec<(NodeId, Path)>>,
-}
-
-#[derive(Clone, Copy, Encodable, Decodable, Debug, PartialEq, Eq)]
-pub enum ConstItemKind {
-    Body,
-    TypeConst,
 }
 
 #[derive(Clone, Encodable, Decodable, Debug, Walkable)]
@@ -4115,6 +4073,72 @@ impl Guard {
     pub fn span(&self) -> Span {
         self.cond.span
     }
+}
+
+#[derive(Clone, Encodable, Decodable, Debug, Walkable)]
+pub struct TestBinderConstraints {
+    pub generics: Generics,
+    pub body: Box<TestBinderBody>,
+}
+
+#[derive(Clone, Encodable, Decodable, Debug, Walkable)]
+pub struct TestBinderBody {
+    pub foralls: ThinVec<TestBinderForall>,
+    pub exists: ThinVec<TestBinderExists>,
+    pub constraints: Vec<TestBinderConstraint>,
+    /// These are not where clauses, but rather predicates within the body to be proven
+    pub predicates: Vec<WhereClause>,
+}
+
+#[derive(Clone, Encodable, Decodable, Debug, Walkable)]
+pub struct TestBinderForall {
+    pub span: Span,
+    pub node_id: NodeId,
+    pub generics: Generics,
+    pub body: TestBinderBody,
+    pub assert_on_exit: Option<ThinVec<TestBinderConstraint>>,
+}
+
+#[derive(Clone, Encodable, Decodable, Debug, Walkable)]
+pub struct TestBinderExists {
+    pub span: Span,
+    pub node_id: NodeId,
+    pub params: ThinVec<GenericParam>,
+    pub body: TestBinderBody,
+}
+
+#[derive(Clone, Encodable, Decodable, Debug, Walkable)]
+pub enum TestBinderConstraint {
+    And {
+        items: ThinVec<TestBinderConstraint>,
+    },
+    Or {
+        items: ThinVec<TestBinderConstraint>,
+    },
+    Lifetime {
+        #[visitable(extra = LifetimeCtxt::Bound)]
+        lhs: Lifetime,
+        #[visitable(extra = LifetimeCtxt::Bound)]
+        rhs: Lifetime,
+    },
+    PlaceholderOutlives {
+        lhs: Box<Ty>,
+        #[visitable(extra = LifetimeCtxt::Bound)]
+        rhs: Lifetime,
+    },
+    AliasOutlives {
+        bound_type_constraint: TestBinderBoundTypeConstraint,
+    },
+}
+
+#[derive(Clone, Encodable, Decodable, Debug, Walkable)]
+pub struct TestBinderBoundTypeConstraint {
+    pub span: Span,
+    pub node_id: NodeId,
+    pub params: ThinVec<GenericParam>,
+    pub lhs: Box<Ty>,
+    #[visitable(extra = LifetimeCtxt::Bound)]
+    pub rhs: Lifetime,
 }
 
 // Adding a new variant? Please update `test_item` in `tests/ui/macros/stringify.rs`.
@@ -4198,6 +4222,8 @@ pub enum ItemKind {
     /// A list or glob delegation item (`reuse prefix::{a, b, c}`, `reuse prefix::*`).
     /// Treated similarly to a macro call and expanded early.
     DelegationMac(Box<DelegationMac>),
+    /// A `test_binder_constraints!()`. Perma-unstable, used only for rustc tests.
+    TestBinderConstraints(Box<TestBinderConstraints>),
 }
 
 impl ItemKind {
@@ -4224,7 +4250,8 @@ impl ItemKind {
             | ItemKind::GlobalAsm(_)
             | ItemKind::Impl(_)
             | ItemKind::MacCall(_)
-            | ItemKind::DelegationMac(_) => None,
+            | ItemKind::DelegationMac(_)
+            | ItemKind::TestBinderConstraints(_) => None,
         }
     }
 
@@ -4232,9 +4259,22 @@ impl ItemKind {
     pub fn article(&self) -> &'static str {
         use ItemKind::*;
         match self {
-            Use(..) | Static(..) | Const(..) | ConstBlock(..) | Fn(..) | Mod(..)
-            | GlobalAsm(..) | TyAlias(..) | Struct(..) | Union(..) | Trait(..) | TraitAlias(..)
-            | MacroDef(..) | Delegation(..) | DelegationMac(..) => "a",
+            Use(..)
+            | Static(..)
+            | Const(..)
+            | ConstBlock(..)
+            | Fn(..)
+            | Mod(..)
+            | GlobalAsm(..)
+            | TyAlias(..)
+            | Struct(..)
+            | Union(..)
+            | Trait(..)
+            | TraitAlias(..)
+            | MacroDef(..)
+            | Delegation(..)
+            | DelegationMac(..)
+            | TestBinderConstraints(..) => "a",
             ExternCrate(..) | ForeignMod(..) | MacCall(..) | Enum(..) | Impl { .. } => "an",
         }
     }
@@ -4261,6 +4301,7 @@ impl ItemKind {
             ItemKind::Impl { .. } => "implementation",
             ItemKind::Delegation(..) => "delegated function",
             ItemKind::DelegationMac(..) => "delegation",
+            ItemKind::TestBinderConstraints(..) => "test_binder_constraints!",
         }
     }
 
@@ -4274,7 +4315,8 @@ impl ItemKind {
             | Self::Union(_, generics, _)
             | Self::Trait(Trait { generics, .. })
             | Self::TraitAlias(TraitAlias { generics, .. })
-            | Self::Impl(Impl { generics, .. }) => Some(generics),
+            | Self::Impl(Impl { generics, .. })
+            | Self::TestBinderConstraints(TestBinderConstraints { generics, .. }) => Some(generics),
 
             Self::ExternCrate(..)
             | Self::Use(..)
@@ -4423,24 +4465,6 @@ impl TryFrom<ItemKind> for ForeignItemKind {
 }
 
 pub type ForeignItem = Item<ForeignItemKind>;
-
-/// Fragment of the AST according to "HIR owner" semantics.
-///
-/// This is used to map each `LocalDefId` to its content's AST.
-#[derive(Debug)]
-pub enum AstOwner {
-    /// This definition does not correspond to a HIR owner.
-    NonOwner,
-    /// This definition corresponds to a nested `use` tree.
-    /// The `LocalDefId` points to its HIR owner.
-    NestedUseTree(LocalDefId),
-    Crate(Box<Crate>),
-    Item(Box<Item>),
-    TraitItem(Box<AssocItem>),
-    ImplItem(Box<AssocItem>),
-    ForeignItem(Box<ForeignItem>),
-}
-
 // Some nodes are used a lot. Make sure they don't unintentionally get bigger.
 #[cfg(target_pointer_width = "64")]
 mod size_asserts {

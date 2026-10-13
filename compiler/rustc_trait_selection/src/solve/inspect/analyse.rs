@@ -14,11 +14,11 @@ use std::assert_matches;
 use rustc_infer::infer::InferCtxt;
 use rustc_macros::extension;
 use rustc_middle::traits::solve::{Certainty, Goal, GoalSource, NoSolution, QueryResult};
-use rustc_middle::ty::{TyCtxt, VisitorResult, eager_resolve_vars, try_visit};
-use rustc_middle::{bug, ty};
+use rustc_middle::ty;
+use rustc_middle::ty::{RequiredDepth, TyCtxt, VisitorResult, try_visit};
 use rustc_next_trait_solver::canonical::instantiate_canonical_state;
 use rustc_next_trait_solver::solve::{MaybeCause, MaybeInfo, SolverDelegateEvalExt as _, inspect};
-use rustc_span::Span;
+use rustc_span::{Span, bug};
 use thin_vec::ThinVec;
 use tracing::instrument;
 
@@ -30,7 +30,10 @@ pub struct InspectConfig {
 
 pub struct InspectGoal<'a, 'tcx> {
     infcx: &'a SolverDelegate<'tcx>,
+    // Record how deep we are in nested goals from the root goal.
     depth: usize,
+    // Required depth to complete the evaluation of this goal.
+    required_depth: RequiredDepth,
     orig_values: ThinVec<ty::GenericArg<'tcx>>,
     prev_universe: ty::UniverseIndex,
     goal: Goal<'tcx, ty::Predicate<'tcx>>,
@@ -95,7 +98,6 @@ impl<'a, 'tcx> InspectCandidate<'a, 'tcx> {
     )]
     pub fn instantiate_nested_goals(&self, span: Span) -> Vec<InspectGoal<'a, 'tcx>> {
         let infcx = self.goal.infcx;
-        let param_env = self.goal.goal.param_env;
         let mut orig_values = self.goal.orig_values.clone();
 
         let mut instantiated_goals = vec![];
@@ -106,7 +108,6 @@ impl<'a, 'tcx> InspectCandidate<'a, 'tcx> {
                     instantiate_canonical_state(
                         infcx,
                         span,
-                        param_env,
                         self.goal.prev_universe,
                         &mut orig_values,
                         goal,
@@ -121,7 +122,6 @@ impl<'a, 'tcx> InspectCandidate<'a, 'tcx> {
         let () = instantiate_canonical_state(
             infcx,
             span,
-            param_env,
             self.goal.prev_universe,
             &mut orig_values,
             self.final_state,
@@ -143,7 +143,6 @@ impl<'a, 'tcx> InspectCandidate<'a, 'tcx> {
     )]
     pub fn instantiate_impl_args(&self, span: Span) -> ty::GenericArgsRef<'tcx> {
         let infcx = self.goal.infcx;
-        let param_env = self.goal.goal.param_env;
         let mut orig_values = self.goal.orig_values.clone();
 
         for step in &self.steps {
@@ -152,7 +151,6 @@ impl<'a, 'tcx> InspectCandidate<'a, 'tcx> {
                     let impl_args = instantiate_canonical_state(
                         infcx,
                         span,
-                        param_env,
                         self.goal.prev_universe,
                         &mut orig_values,
                         impl_args,
@@ -161,13 +159,12 @@ impl<'a, 'tcx> InspectCandidate<'a, 'tcx> {
                     let () = instantiate_canonical_state(
                         infcx,
                         span,
-                        param_env,
                         self.goal.prev_universe,
                         &mut orig_values,
                         self.final_state,
                     );
 
-                    return eager_resolve_vars(&**infcx, impl_args);
+                    return infcx.deeply_resolve_via_unification_table(impl_args);
                 }
                 inspect::ProbeStep::AddGoal(..) => {}
                 inspect::ProbeStep::MakeCanonicalResponse { .. }
@@ -229,6 +226,10 @@ impl<'a, 'tcx> InspectGoal<'a, 'tcx> {
 
     pub fn depth(&self) -> usize {
         self.depth
+    }
+
+    pub fn required_depth(&self) -> RequiredDepth {
+        self.required_depth
     }
 
     pub fn orig_values(&self) -> &[ty::GenericArg<'tcx>] {
@@ -338,8 +339,13 @@ impl<'a, 'tcx> InspectGoal<'a, 'tcx> {
         let infcx = <&SolverDelegate<'tcx>>::from(infcx);
         let prev_universe = infcx.universe();
 
-        let inspect::GoalEvaluation { uncanonicalized_goal, orig_values, final_revision, result } =
-            root;
+        let inspect::GoalEvaluation {
+            uncanonicalized_goal,
+            orig_values,
+            final_revision,
+            result,
+            required_depth,
+        } = root;
         // If there's a normalizes-to goal, AND the evaluation result with the result of
         // constraining the normalizes-to RHS and computing the nested goals.
         let result = result.map(|ok| ok.value.certainty);
@@ -349,10 +355,11 @@ impl<'a, 'tcx> InspectGoal<'a, 'tcx> {
             depth,
             orig_values,
             prev_universe,
-            goal: eager_resolve_vars(&**infcx, uncanonicalized_goal),
+            goal: infcx.deeply_resolve_via_unification_table(uncanonicalized_goal),
             result,
             final_revision,
             source,
+            required_depth,
         }
     }
 

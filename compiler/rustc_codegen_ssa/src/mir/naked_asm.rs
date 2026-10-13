@@ -4,10 +4,10 @@ use rustc_hir::def_id::LOCAL_CRATE;
 use rustc_middle::mir::interpret::{CTFE_ALLOC_SALT, Scalar};
 use rustc_middle::mir::{self, InlineAsmOperand, START_BLOCK};
 use rustc_middle::mono::{MonoItemData, Visibility};
+use rustc_middle::ty;
 use rustc_middle::ty::layout::{FnAbiOf, LayoutOf, TyAndLayout};
 use rustc_middle::ty::{Instance, Ty, TyCtxt, TypeVisitableExt};
-use rustc_middle::{bug, span_bug, ty};
-use rustc_span::sym;
+use rustc_span::{bug, span_bug, sym};
 use rustc_target::callconv::{ArgAbi, FnAbi, PassMode};
 use rustc_target::spec::{Arch, BinaryFormat, Env, Os};
 
@@ -54,7 +54,9 @@ pub fn codegen_naked_asm<
     template_vec.extend(template.iter().cloned());
     template_vec.push(rustc_ast::ast::InlineAsmTemplatePiece::String(end.into()));
 
-    cx.codegen_global_asm(&template_vec, &operands, options, line_spans);
+    let target_features: Vec<_> =
+        cx.tcx().asm_target_features(instance.def_id()).iter().map(|s| s.to_string()).collect();
+    cx.codegen_global_asm(&template_vec, &operands, options, line_spans, &target_features);
 }
 
 fn inline_to_global_operand<'a, 'tcx, Cx: LayoutOf<'tcx, LayoutOfResult = TyAndLayout<'tcx>>>(
@@ -472,9 +474,9 @@ fn wasm_type<'tcx>(signature: &mut String, arg_abi: &ArgAbi<'_, Ty<'tcx>>, ptr_t
             }
             other => unreachable!("{other:?}"),
         },
-        PassMode::Cast { pad_i32, ref cast } => {
+        PassMode::Cast { pad_i32_count, ref cast } => {
             // For wasm, Cast is used for single-field primitive wrappers like `struct Wrapper(i64);`
-            assert!(!pad_i32, "not currently used by wasm calling convention");
+            assert_eq!(pad_i32_count, 0, "not currently used by wasm calling convention");
             assert!(cast.prefix.is_empty(), "no prefix");
             assert_eq!(cast.rest.total, arg_abi.layout.size, "single item");
 
@@ -506,6 +508,9 @@ fn wasm_primitive(primitive: Primitive, ptr_type: &'static str) -> &'static str 
             Integer::I128 => "i64, i64",
         },
         Primitive::Float(float) => match float {
+            // This could probably use an f32 for WASM however has not been
+            // verified so leaving as a `bug!(...)` for now.
+            Float::F16B => bug!("`f16b` unsupported on wasm"),
             Float::F16 | Float::F32 => "f32",
             Float::F64 => "f64",
             Float::F128 => "i64, i64",

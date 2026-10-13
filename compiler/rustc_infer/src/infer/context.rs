@@ -27,7 +27,7 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
     }
 
     fn enable_next_solver_overflow_fcw(&self) -> bool {
-        self.enable_next_solver_overflow_fcw
+        self.enable_next_solver_overflow_fcw.get()
     }
 
     fn disable_trait_solver_fast_paths(&self) -> bool {
@@ -51,33 +51,28 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
         u: ty::UniverseIndex,
         assumptions: Option<rustc_type_ir::region_constraint::Assumptions<TyCtxt<'tcx>>>,
     ) {
-        self.placeholder_assumptions_for_next_solver.borrow_mut().insert(u, assumptions);
+        self.insert_placeholder_assumptions(u, assumptions);
     }
 
     fn get_placeholder_assumptions(
         &self,
         u: ty::UniverseIndex,
     ) -> Option<rustc_type_ir::region_constraint::Assumptions<TyCtxt<'tcx>>> {
-        self.placeholder_assumptions_for_next_solver.borrow().get(&u).unwrap().as_ref().cloned()
+        self.get_placeholder_assumptions(u)
     }
 
     fn get_solver_region_constraint(
         &self,
     ) -> rustc_type_ir::region_constraint::RegionConstraint<TyCtxt<'tcx>> {
-        self.inner.borrow().solver_region_constraint_storage.get_constraint()
+        self.get_solver_region_constraint().without_spans()
     }
 
     fn overwrite_solver_region_constraint(
         &self,
         constraint: rustc_type_ir::region_constraint::RegionConstraint<TyCtxt<'tcx>>,
+        span: Span,
     ) {
-        let mut inner = self.inner.borrow_mut();
-        use rustc_data_structures::undo_log::UndoLogs;
-
-        use crate::infer::UndoLog;
-        let old_constraint = inner.solver_region_constraint_storage.get_constraint();
-        inner.undo_log.push(UndoLog::OverwriteSolverRegionConstraint { old_constraint });
-        inner.solver_region_constraint_storage.overwrite_solver_region_constraint(constraint);
+        self.overwrite_solver_region_constraint(constraint.with_spans(span));
     }
 
     fn universe_of_ty(&self, vid: ty::TyVid) -> Option<ty::UniverseIndex> {
@@ -87,14 +82,14 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
         }
     }
 
-    fn universe_of_lt(&self, lt: ty::RegionVid) -> Option<ty::UniverseIndex> {
-        match self.inner.borrow_mut().unwrap_region_constraints().probe_value(lt) {
+    fn universe_of_region(&self, lt: ty::RegionVid) -> Option<ty::UniverseIndex> {
+        match self.inner.borrow_mut().unwrap_region_constraints().try_resolve_region_var(lt) {
             Err(universe) => Some(universe),
             Ok(_) => None,
         }
     }
 
-    fn universe_of_ct(&self, ct: ty::ConstVid) -> Option<ty::UniverseIndex> {
+    fn universe_of_const(&self, ct: ty::ConstVid) -> Option<ty::UniverseIndex> {
         match self.try_resolve_const_var(ct) {
             Err(universe) => Some(universe),
             Ok(_) => None,
@@ -123,30 +118,27 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
         self.root_const_var(var)
     }
 
-    fn opportunistic_resolve_ty_var(&self, vid: ty::TyVid) -> Ty<'tcx> {
-        match self.try_resolve_ty_var(vid) {
-            Ok(ty) => ty,
-            Err(_) => Ty::new_var(self.tcx, self.root_var(vid)),
-        }
+    fn shallow_resolve_ty_var(&self, vid: ty::TyVid) -> Ty<'tcx> {
+        self.shallow_resolve_ty_var(vid)
     }
 
-    fn opportunistic_resolve_int_var(&self, vid: ty::IntVid) -> Ty<'tcx> {
-        self.opportunistic_resolve_int_var(vid)
+    fn shallow_resolve_int_var(&self, vid: ty::IntVid) -> Ty<'tcx> {
+        self.shallow_resolve_int_var(vid)
     }
 
-    fn opportunistic_resolve_float_var(&self, vid: ty::FloatVid) -> Ty<'tcx> {
-        self.opportunistic_resolve_float_var(vid)
+    fn shallow_resolve_float_var(&self, vid: ty::FloatVid) -> Ty<'tcx> {
+        self.shallow_resolve_float_var(vid)
     }
 
-    fn opportunistic_resolve_ct_var(&self, vid: ty::ConstVid) -> ty::Const<'tcx> {
-        match self.try_resolve_const_var(vid) {
-            Ok(ct) => ct,
-            Err(_) => ty::Const::new_var(self.tcx, self.root_const_var(vid)),
-        }
+    fn shallow_resolve_const_var(&self, vid: ty::ConstVid) -> ty::Const<'tcx> {
+        self.shallow_resolve_const_var(vid)
     }
 
-    fn opportunistic_resolve_lt_var(&self, vid: ty::RegionVid) -> ty::Region<'tcx> {
-        self.inner.borrow_mut().unwrap_region_constraints().opportunistic_resolve_var(self.tcx, vid)
+    fn shallow_resolve_region_var(&self, vid: ty::RegionVid) -> ty::Region<'tcx> {
+        self.inner
+            .borrow_mut()
+            .unwrap_region_constraints()
+            .shallow_resolve_region_var(self.tcx, vid)
     }
 
     fn ty_or_const_infer_var_changed(&self, var: TyOrConstInferVar) -> bool {
@@ -283,11 +275,11 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
         self.shallow_resolve_const(ct)
     }
 
-    fn resolve_vars_if_possible<T>(&self, value: T) -> T
+    fn deeply_resolve_ignoring_regions<T>(&self, value: T) -> T
     where
         T: TypeFoldable<TyCtxt<'tcx>>,
     {
-        self.resolve_vars_if_possible(value)
+        self.deeply_resolve_ignoring_regions(value)
     }
 
     fn probe<T>(&self, probe: impl FnOnce() -> T) -> T {
@@ -331,14 +323,9 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
     fn register_solver_region_constraint(
         &self,
         c: rustc_type_ir::region_constraint::RegionConstraint<TyCtxt<'tcx>>,
+        span: Span,
     ) {
-        let mut inner = self.inner.borrow_mut();
-        use rustc_data_structures::undo_log::UndoLogs;
-
-        use crate::infer::UndoLog;
-        let previous_was_and = inner.solver_region_constraint_storage.is_and();
-        inner.undo_log.push(UndoLog::PushSolverRegionConstraint { previous_was_and });
-        inner.solver_region_constraint_storage.push(c);
+        self.register_solver_region_constraint(c.with_spans(span));
     }
 
     fn register_ty_outlives(&self, ty: Ty<'tcx>, r: ty::Region<'tcx>, span: Span) {

@@ -120,7 +120,7 @@ impl Cargo {
                 "--config",           &linker_config(&self.linker.to_str().unwrap()),
                 "--message-format",   "json",
                 "--quiet",
-                "-Zno-embed-metadata"
+                "-Zembed-metadata=no"
             ])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

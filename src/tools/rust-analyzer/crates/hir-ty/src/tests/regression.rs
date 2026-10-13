@@ -2397,12 +2397,13 @@ fn test() {
 }
 "#,
         expect![[r#"
+            46..49 'Foo': Foo<_>
             93..97 'self': Foo<N>
             108..125 '{     ...     }': usize
             118..119 'N': usize
             139..157 '{     ...= N; }': ()
-            149..150 '_': Foo<N>
-            153..154 'N': Foo<N>
+            149..150 '_': Foo<_>
+            153..154 'N': Foo<_>
         "#]],
     );
 }
@@ -2796,10 +2797,48 @@ where
 fn extern_fns_cannot_have_param_patterns() {
     check_no_mismatches(
         r#"
-pub(crate) struct Builder<'a>(&'a ());
+macro_rules! m {
+    () => { Builder };
+}
 
-unsafe extern "C"  {
-    pub(crate) fn foo<'a>(Builder: &Builder<'a>);
+pub(crate) struct Builder;
+
+unsafe extern "C" {
+    pub(crate) fn foo(Builder: (), m!(): ());
+}
+    "#,
+    );
+}
+
+#[test]
+fn trait_assoc_fns_cannot_have_param_patterns() {
+    check_no_mismatches(
+        r#"
+macro_rules! m {
+    () => { Builder };
+}
+
+pub(crate) struct Builder;
+
+trait Trait {
+    fn foo(Builder: (), m!(): ());
+}
+    "#,
+    );
+    // But assoc fns with bodies do have patterns:
+    check(
+        r#"
+macro_rules! m {
+    () => { Builder };
+}
+
+pub(crate) struct Builder;
+
+trait Trait {
+    fn foo(Builder: (),
+        // ^^^^^^^ expected (), got Builder
+        m!(): ()) {}
+     // ^^ expected (), got Builder
 }
     "#,
     );
@@ -3000,6 +3039,7 @@ fn array_repeat_closure() {
         r#"
 fn f() {[_; || ()]}
      // ^^^^^^^^^^ expected (), got [{unknown}; _]
+         // ^^^^^ expected usize, got impl Fn()
     "#,
     );
 }
@@ -3096,28 +3136,44 @@ fn f() -> impl Sized {
 }
 
 #[test]
-fn regression_22836() {
-    check(
-        r#"
-fn main() {
-  match () {
-    const {
-      async | v | ()
-   // ^^^^^^^^^^^^^^ expected (), got impl AsyncFn({unknown})
-    }
-  }
-}
-    "#,
-    );
-}
-
-#[test]
 fn regression_22986() {
     check_no_mismatches(
         r#"
 fn main() {
     let _: &[u8; 0] = b"\
         ";
+}
+    "#,
+    );
+}
+
+#[test]
+fn regression_23065() {
+    check_no_mismatches(
+        r#"
+trait Trait {
+    type Assoc<const N: usize>;
+}
+
+struct Struct;
+struct GenericStruct<'a>(&'a ());
+
+impl<const X: usize> Trait for Struct {
+    type Assoc<'a, const N: usize> = GenericStruct<'a>;
+
+    fn g(&self) -> Self::Assoc<{ X }> {
+        loop {}
+    }
+}
+
+struct OtherStruct;
+
+impl Trait for OtherStruct {
+    type Assoc<'a> = &'a ();
+}
+
+fn other() -> <OtherStruct as Trait>::Assoc<0> {
+    loop {}
 }
     "#,
     );
@@ -3134,6 +3190,28 @@ fn main() {
         }
         _ => {}
     }
+}
+    "#,
+    );
+}
+
+#[test]
+fn dyn_trait_binder_inside_fn_ptr() {
+    check_no_mismatches(
+        r#"
+trait Trait<'a> {}
+fn f<'a>(_: fn() -> &'a dyn Trait<'a>) {}
+    "#,
+    );
+}
+
+#[test]
+fn regression_23113() {
+    check_no_mismatches(
+        r#"
+//- minicore: range
+fn main() {
+    0..loop {};
 }
     "#,
     );

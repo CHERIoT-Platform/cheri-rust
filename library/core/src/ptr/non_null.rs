@@ -75,7 +75,7 @@ use crate::{fmt, hash, intrinsics, mem, ptr};
 #[stable(feature = "nonnull", since = "1.25.0")]
 #[repr(transparent)]
 #[rustc_nonnull_optimization_guaranteed]
-#[rustc_diagnostic_item = "NonNull"]
+#[lang = "non_null"]
 pub struct NonNull<T: PointeeSized> {
     pointer: crate::pattern_type!(*const T is !null),
 }
@@ -1560,7 +1560,7 @@ impl<T> NonNull<[T]> {
     /// # Examples
     ///
     /// ```rust
-    /// #![feature(allocator_api, ptr_as_uninit)]
+    /// #![feature(ptr_as_uninit)]
     ///
     /// use std::alloc::{Allocator, Layout, Global};
     /// use std::mem::MaybeUninit;
