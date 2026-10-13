@@ -9,15 +9,15 @@
 
 use std::ops::ControlFlow;
 
-use rustc_hir::attrs::lang_items::LangItem;
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_infer::infer::{BoundRegionConversionTime, DefineOpaqueTypes, InferOk};
 use rustc_infer::traits::ObligationCauseCode;
 use rustc_middle::traits::{BuiltinImplSource, SignatureMismatchData};
 use rustc_middle::ty::{
     self, GenericArgsRef, Region, SizedTraitKind, Ty, TyCtxt, Unnormalized, Upcast,
 };
-use rustc_middle::{bug, span_bug};
 use rustc_span::def_id::DefId;
+use rustc_span::{bug, span_bug};
 use thin_vec::thin_vec;
 use tracing::{debug, instrument};
 
@@ -385,7 +385,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         &mut self,
         obligation: &PolyTraitObligation<'tcx>,
     ) -> Result<PredicateObligations<'tcx>, SelectionError<'tcx>> {
-        assert_eq!(obligation.predicate.polarity(), ty::PredicatePolarity::Positive);
+        assert_eq!(obligation.predicate.polarity(), ty::ClausePolarity::Positive);
 
         let self_ty = obligation.predicate.self_ty().map_bound(|ty| self.infcx.shallow_resolve(ty));
         let self_ty = self.infcx.enter_forall_and_leak_universe(self_ty);
@@ -454,7 +454,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         cause: &ObligationCause<'tcx>,
         recursion_depth: usize,
         param_env: ty::ParamEnv<'tcx>,
-        parent_trait_pred: ty::Binder<'tcx, ty::TraitPredicate<'tcx>>,
+        parent_trait_pred: ty::Binder<'tcx, ty::TraitClause<'tcx>>,
     ) -> ImplSourceUserDefinedData<'tcx, PredicateObligation<'tcx>> {
         debug!(?impl_def_id, ?args, ?recursion_depth, "vtable_impl");
 

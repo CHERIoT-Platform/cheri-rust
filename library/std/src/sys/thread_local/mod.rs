@@ -53,8 +53,8 @@ cfg_select! {
     }
     _ => {
         mod os;
-        pub use os::{Storage, thread_local_inner, value_align};
         pub(crate) use os::{LocalPointer, local_pointer};
+        pub use os::{Storage, thread_local_inner, value_align};
     }
 }
 
@@ -128,10 +128,7 @@ pub(crate) mod guard {
                 use crate::rt::thread_cleanup;
             }
         }
-        any(
-            target_os = "hermit",
-            target_os = "xous",
-        ) => {
+        any(target_os = "hermit", target_os = "xous") => {
             // `std` is the only runtime, so it just calls the destructor functions
             // itself when the time comes.
             pub(crate) fn enable() {}
@@ -156,11 +153,7 @@ pub(crate) mod guard {
 pub(crate) mod key {
     cfg_select! {
         any(
-            all(
-                not(target_vendor = "apple"),
-                not(target_family = "wasm"),
-                target_family = "unix",
-            ),
+            all(not(target_vendor = "apple"), not(target_family = "wasm"), target_family = "unix"),
             all(not(target_thread_local), target_vendor = "apple"),
             target_os = "teeos",
             all(target_os = "wasi", target_env = "p3"),
@@ -170,9 +163,9 @@ pub(crate) mod key {
             #[cfg(test)]
             mod tests;
             pub(super) use racy::LazyKey;
-            pub(super) use unix::{Key, set};
             #[cfg(any(not(target_thread_local), test))]
             pub(super) use unix::get;
+            pub(super) use unix::{Key, set};
             use unix::{create, destroy};
         }
         all(not(target_thread_local), target_os = "windows") => {
@@ -204,9 +197,9 @@ pub(crate) mod key {
             mod racy;
             #[cfg(test)]
             mod tests;
-            pub(super) use racy::LazyKey;
             pub(super) use moto_rt::tls::{Key, get, set};
             use moto_rt::tls::{create, destroy};
+            pub(super) use racy::LazyKey;
         }
         _ => {}
     }

@@ -7,7 +7,7 @@ use tracing::{instrument, trace};
 use crate::error::{ExpectedFound, TypeError};
 use crate::fold::TypeFoldable;
 use crate::inherent::*;
-use crate::{self as ty, Interner, Region};
+use crate::{self as ty, Const, Interner, Region};
 
 pub mod combine;
 pub mod solver_relating;
@@ -90,7 +90,7 @@ pub trait TypeRelation<I: Interner>: Sized {
 
     fn regions(&mut self, a: Region<I>, b: Region<I>) -> RelateResult<I, Region<I>>;
 
-    fn consts(&mut self, a: I::Const, b: I::Const) -> RelateResult<I, I::Const>;
+    fn consts(&mut self, a: Const<I>, b: Const<I>) -> RelateResult<I, Const<I>>;
 
     fn binders<T>(
         &mut self,
@@ -262,7 +262,8 @@ impl<I: Interner> Relate<I> for ty::AliasTerm<I> {
                 | ty::AliasTermKind::FreeConst { .. }
                 | ty::AliasTermKind::FreeTy { .. }
                 | ty::AliasTermKind::InherentTy { .. }
-                | ty::AliasTermKind::InherentConst { .. }
+                | ty::AliasTermKind::InherentConstSelf { .. }
+                | ty::AliasTermKind::InherentConstImpl { .. }
                 | ty::AliasTermKind::AnonConst { .. }
                 | ty::AliasTermKind::ProjectionConst { .. } => {
                     relate_args_invariantly(relation, a.args, b.args)?
@@ -280,10 +281,7 @@ impl<I: Interner> Relate<I> for ty::ExistentialProjection<I> {
         b: ty::ExistentialProjection<I>,
     ) -> RelateResult<I, ty::ExistentialProjection<I>> {
         if a.def_id != b.def_id {
-            Err(TypeError::ProjectionMismatched(ExpectedFound::new(
-                relation.cx().alias_term_kind_from_def_id(a.def_id.into()),
-                relation.cx().alias_term_kind_from_def_id(b.def_id.into()),
-            )))
+            Err(TypeError::ProjectionMismatched(ExpectedFound::new(a.alias_kind(), b.alias_kind())))
         } else {
             let term = relation.relate_with_variance(
                 ty::Invariant,
@@ -553,9 +551,9 @@ pub fn structurally_relate_tys<I: Interner, R: TypeRelation<I>>(
 /// See the HACKs below.
 pub fn structurally_relate_consts<I: Interner, R: TypeRelation<I>>(
     relation: &mut R,
-    mut a: I::Const,
-    mut b: I::Const,
-) -> RelateResult<I, I::Const> {
+    mut a: Const<I>,
+    mut b: Const<I>,
+) -> RelateResult<I, Const<I>> {
     trace!(
         "structurally_relate_consts::<{}>(a = {:?}, b = {:?})",
         std::any::type_name::<R>(),
@@ -639,16 +637,16 @@ impl<I: Interner, T: Relate<I>> Relate<I> for ty::Binder<I, T> {
     }
 }
 
-impl<I: Interner> Relate<I> for ty::TraitPredicate<I> {
+impl<I: Interner> Relate<I> for ty::TraitClause<I> {
     fn relate<R: TypeRelation<I>>(
         relation: &mut R,
-        a: ty::TraitPredicate<I>,
-        b: ty::TraitPredicate<I>,
-    ) -> RelateResult<I, ty::TraitPredicate<I>> {
+        a: ty::TraitClause<I>,
+        b: ty::TraitClause<I>,
+    ) -> RelateResult<I, ty::TraitClause<I>> {
         let trait_ref = relation.relate(a.trait_ref, b.trait_ref)?;
         if a.polarity != b.polarity {
             return Err(TypeError::PolarityMismatch(ExpectedFound::new(a.polarity, b.polarity)));
         }
-        Ok(ty::TraitPredicate { trait_ref, polarity: a.polarity })
+        Ok(ty::TraitClause { trait_ref, polarity: a.polarity })
     }
 }

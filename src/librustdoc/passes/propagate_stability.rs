@@ -12,15 +12,8 @@ use rustc_hir::{Stability, StabilityLevel};
 use crate::clean::{Crate, Item, ItemId, ItemKind};
 use crate::core::DocContext;
 use crate::fold::DocFolder;
-use crate::passes::Pass;
 
-pub(crate) const PROPAGATE_STABILITY: Pass = Pass {
-    name: "propagate-stability",
-    run: Some(propagate_stability),
-    description: "propagates stability to child items",
-};
-
-pub(crate) fn propagate_stability(cr: Crate, cx: &mut DocContext<'_>) -> Crate {
+pub(super) fn propagate_stability(cr: Crate, cx: &mut DocContext<'_>) -> Crate {
     let crate_stability = cx.tcx.lookup_stability(CRATE_DEF_ID);
     StabilityPropagator { parent_stability: crate_stability, cx }.fold_crate(cr)
 }
@@ -44,9 +37,9 @@ impl DocFolder for StabilityPropagator<'_, '_> {
                     matches!(
                         self.cx.tcx.hir_node(hir_id),
                         rustc_hir::Node::Item(rustc_hir::Item {
-                            kind: rustc_hir::ItemKind::Use(_, rustc_hir::UseKind::Glob),
+                            kind: rustc_hir::ItemKind::Use(tree),
                             ..
-                        })
+                        }) | rustc_hir::Node::NestedUseTree(tree) if matches!(tree.kind, rustc_hir::UseKind::Glob)
                     )
                 });
                 let own_stability = if let Some(item_stab) = item_stability

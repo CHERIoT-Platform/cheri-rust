@@ -46,7 +46,7 @@ pub trait Elaboratable<I: Interner> {
         &self,
         clause: I::Clause,
         span: I::Span,
-        parent_trait_pred: ty::Binder<I, ty::TraitPredicate<I>>,
+        parent_trait_pred: ty::Binder<I, ty::TraitClause<I>>,
         index: usize,
     ) -> Self;
 }
@@ -76,7 +76,7 @@ impl<I: Interner> Elaboratable<I> for ClauseWithSupertraitSpan<I> {
         &self,
         clause: <I as Interner>::Clause,
         supertrait_span: <I as Interner>::Span,
-        _parent_trait_pred: crate::Binder<I, crate::TraitPredicate<I>>,
+        _parent_trait_pred: crate::Binder<I, crate::TraitClause<I>>,
         _index: usize,
     ) -> Self {
         ClauseWithSupertraitSpan { clause, supertrait_span }
@@ -151,7 +151,7 @@ impl<I: Interner, O: Elaboratable<I>> Elaborator<I, O> {
         match bound_clause.skip_binder() {
             ty::ClauseKind::Trait(data) => {
                 // Negative trait bounds do not imply any supertrait bounds
-                if data.polarity != ty::PredicatePolarity::Positive {
+                if data.polarity != ty::ClausePolarity::Positive {
                     return;
                 }
 
@@ -318,6 +318,9 @@ impl<I: Interner, O: Elaboratable<I>> Iterator for Elaborator<I, O> {
 /// does not compute the full elaborated super-predicates but just the set of def-ids. It is used
 /// to identify which traits may define a given associated type to help avoid cycle errors,
 /// and to make size estimates for vtable layout computation.
+///
+/// rust-analyzer has a query for this, so don't use this function there.
+#[cfg(feature = "nightly")]
 pub fn supertrait_def_ids<I: Interner>(
     cx: I,
     trait_def_id: I::TraitId,

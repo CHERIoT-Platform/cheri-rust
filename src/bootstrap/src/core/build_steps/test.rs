@@ -15,6 +15,7 @@ use std::{env, fs, iter};
 
 use build_helper::git::get_closest_upstream_commit;
 
+use crate::core::backend::CodegenBackendKind;
 use crate::core::build_steps::compile::{ArtifactKeepMode, Std, run_cargo};
 use crate::core::build_steps::doc::{DocumentationFormat, prepare_doc_compiler};
 use crate::core::build_steps::format::InternalRustfmt;
@@ -31,24 +32,42 @@ use crate::core::build_steps::tool::{
 use crate::core::build_steps::toolstate::ToolState;
 use crate::core::build_steps::{compile, dist, llvm};
 use crate::core::builder::{
-    self, Alias, Builder, CommandLineStep, Compiler, Kind, RunConfig, ShouldRun, Step,
-    StepMetadata, crate_description,
+    self, Alias, Builder, CommandLineStep, Kind, RunConfig, ShouldRun, Step, StepMetadata,
+    crate_description,
 };
+use crate::core::compiler::Compiler;
 use crate::core::config::TargetSelection;
 use crate::core::config::flags::{Subcommand, get_completion, top_level_help};
+use crate::core::session::{CLang, Mode};
 use crate::core::{android, debuggers};
 use crate::utils::build_stamp::{self, BuildStamp};
 use crate::utils::exec::{BootstrapCommand, command};
 use crate::utils::helpers::{
     self, LldThreads, TestFilterCategory, add_dylib_path, add_rustdoc_cargo_linker_args,
-    dylib_path, dylib_path_var, linker_args, linker_flags, t, target_supports_cranelift_backend,
-    up_to_date,
+    dylib_path, dylib_path_var, envify, linker_args, linker_flags, t,
+    target_supports_cranelift_backend, up_to_date,
 };
 use crate::utils::render_tests::{add_flags_and_try_run_tests, try_run_tests};
-use crate::{CLang, CodegenBackendKind, GitRepo, Mode, TestTarget, envify};
-
 mod compiletest;
 pub mod failed_tests;
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum TestTarget {
+    /// Run unit, integration and doc tests (default).
+    Default,
+    /// Run unit, integration, doc tests, examples, bins, benchmarks (no doc tests).
+    AllTargets,
+    /// Only run doc tests.
+    DocOnly,
+    /// Only run unit and integration tests.
+    Tests,
+}
+
+impl TestTarget {
+    pub(crate) fn runs_doctests(&self) -> bool {
+        matches!(self, TestTarget::DocOnly | TestTarget::Default)
+    }
+}
 
 /// Runs `cargo test` on various internal tools used by bootstrap.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -699,7 +718,7 @@ impl CommandLineStep for Miri {
 
     /// Runs `cargo test` for miri.
     fn run(self, builder: &Builder<'_>) {
-        let host = builder.build.host_target;
+        let host = builder.sess.host_target;
         let target = self.target;
         let stage = builder.top_stage;
         if stage == 0 {
@@ -793,7 +812,7 @@ impl CommandLineStep for CargoMiri {
 
     /// Tests `cargo miri test`.
     fn run(self, builder: &Builder<'_>) {
-        let host = builder.build.host_target;
+        let host = builder.sess.host_target;
         let target = self.target;
         let stage = builder.top_stage;
         if stage == 0 {
@@ -877,7 +896,7 @@ impl CommandLineStep for Priroda {
 
     /// Runs `cargo test` for priroda, reusing the Miri sysroot and binary.
     fn run(self, builder: &Builder<'_>) {
-        let host = builder.build.host_target;
+        let host = builder.sess.host_target;
         let target = self.target;
         let stage = builder.top_stage;
 
@@ -1001,7 +1020,12 @@ impl CommandLineStep for StdarchVerify {
     }
 
     fn make_run(run: RunConfig<'_>) {
-        run.builder.ensure(StdarchVerify);
+        let builder = run.builder;
+        if builder.remote_tested(run.target) {
+            builder.info("remote testing is not supported by stdarch-verify. skipping");
+            return;
+        }
+        builder.ensure(StdarchVerify);
     }
 
     fn run(self, builder: &Builder<'_>) {
@@ -1082,6 +1106,14 @@ impl CommandLineStep for IntrinsicTest {
             builder.info(&format!("Skipping intrinsic-test, as it is not available for {host}"));
             return;
         }
+        // intrinsic-test shells out to `cargo` and `rustfmt` make bootstrap's
+        // managed binaries findable by prepending their dirs to PATH.
+        let Some(rustfmt_path) = builder.ensure(InternalRustfmt) else {
+            eprintln!(
+                "WARNING: intrinsic-test skipped because rustfmt is required but not available on this channel"
+            );
+            return;
+        };
 
         let (input_file, skip_file, cflags, sde_runner) = if host.contains("x86_64-unknown-linux") {
             let Some(sde) = &builder.config.sde else {
@@ -1152,14 +1184,6 @@ impl CommandLineStep for IntrinsicTest {
         cmd.arg("--cc-arg-style").arg("gcc");
         cmd.env("CC", builder.cc(host));
         cmd.env("CFLAGS", cflags);
-        // intrinsic-test shells out to `cargo` and `rustfmt` make bootstrap's
-        // managed binaries findable by prepending their dirs to PATH.
-        let Some(rustfmt_path) = builder.ensure(InternalRustfmt) else {
-            eprintln!(
-                "WARNING: intrinsic-test skipped because rustfmt is required but not available on this channel"
-            );
-            return;
-        };
 
         let mut path_dirs: Vec<PathBuf> = Vec::new();
         if let Some(cargo_dir) = builder.initial_cargo.parent() {
@@ -1489,7 +1513,7 @@ fn get_browser_ui_test_version_inner(
     let mut command = command(yarn);
     command
         .arg("--cwd")
-        .arg(&builder.build.out)
+        .arg(&builder.sess.out)
         .arg("list")
         .arg("--parseable")
         .arg("--long")
@@ -1545,7 +1569,7 @@ impl CommandLineStep for RustdocGUI {
 
         let mut cmd = builder.tool_cmd(Tool::RustdocGUITest);
 
-        let out_dir = builder.test_out(self.target).join("rustdoc-gui");
+        let out_dir = builder.out.join(self.target).join("test").join("rustdoc-gui");
         build_stamp::clear_if_dirty(
             builder,
             &out_dir,
@@ -1560,7 +1584,7 @@ impl CommandLineStep for RustdocGUI {
             cmd.arg("--out-dir").arg(out_dir);
         }
 
-        if let Some(initial_cargo) = builder.config.initial_cargo.to_str() {
+        if let Some(initial_cargo) = builder.sess.initial_cargo.to_str() {
             cmd.arg("--initial-cargo").arg(initial_cargo);
         }
 
@@ -2016,6 +2040,12 @@ test!(BuildStd {
     default: false
 });
 
+test!(AssemblyGcc {
+    path: "tests/assembly-gcc",
+    mode: CompiletestMode::Assembly,
+    suite: "assembly-gcc",
+    default: true
+});
 test!(AssemblyLlvm {
     path: "tests/assembly-llvm",
     mode: CompiletestMode::Assembly,
@@ -2257,13 +2287,15 @@ NOTE: if you're sure you want to do this, please open an issue as to why. In the
         // running compiler in stage 2 when plugins run.
         let query_compiler;
         let (stage, stage_id) = if suite == "ui-fulldeps" && test_compiler.stage == 1 {
+            builder.info("Warning: running ui-fulldeps tests in stage 1 might cause failures");
+
             // Even when using the stage 0 compiler, we also need to provide the stage 1 compiler
             // so that compiletest can query it for target information.
             query_compiler = Some(test_compiler);
             // At stage 0 (stage - 1) we are using the stage0 compiler. Using `self.target` can lead
             // finding an incorrect compiler path on cross-targets, as the stage 0 is always equal to
             // `build.build` in the configuration.
-            let build = builder.build.host_target;
+            let build = builder.sess.host_target;
             test_compiler = builder.compiler(test_compiler.stage - 1, build);
             let test_stage = test_compiler.stage + 1;
             (test_stage, format!("stage{test_stage}-{build}"))
@@ -2291,9 +2323,6 @@ NOTE: if you're sure you want to do this, please open an issue as to why. In the
                 target,
             });
         }
-        if mode == CompiletestMode::RunMake {
-            builder.tool_exe(Tool::RunMakeSupport);
-        }
 
         // ensure that `libproc_macro` is available on the host.
         if suite == "mir-opt" {
@@ -2305,6 +2334,36 @@ NOTE: if you're sure you want to do this, please open an issue as to why. In the
         }
 
         let mut cmd = builder.tool_cmd(Tool::Compiletest);
+
+        if mode == CompiletestMode::RunMake {
+            // Find .rlib and .rmeta files of the run-make-support library, and pass them to
+            // compiletest
+            let output = builder.tool(Tool::RunMakeSupport);
+            let find = |extension: &str| -> Option<&PathBuf> {
+                output.artifacts.iter().find_map(|p| {
+                    // We want librun_make_support .rlib and .rmeta files
+                    // They can be in separate directories, because Cargo currently uplifts the
+                    // .rlib file when using -Zembed-metadata=no, but it doesn't uplift the
+                    // .rmeta file
+                    let filename = p.file_name()?.to_str()?;
+                    if !filename.starts_with("librun_make_support") {
+                        return None;
+                    }
+
+                    if extension == p.extension()? { Some(p) } else { None }
+                })
+            };
+            if !builder.config.dry_run() {
+                let rlib =
+                    find("rlib").expect(".rlib not found when compiling librun_make_support");
+                cmd.arg("--run-make-support-rlib").arg(rlib);
+
+                // .rmeta might not be found if we're not using -Zembed-metadata=no
+                if let Some(rmeta) = find("rmeta") {
+                    cmd.arg("--run-make-support-rmeta").arg(rmeta);
+                }
+            }
+        }
 
         if suite == "mir-opt" {
             builder.ensure(compile::Std::new(test_compiler, target).is_for_mir_opt_tests(true));
@@ -2325,6 +2384,7 @@ NOTE: if you're sure you want to do this, please open an issue as to why. In the
         cmd.arg("--rustc-path").arg(builder.rustc(test_compiler));
         if let Some(query_compiler) = query_compiler {
             cmd.arg("--query-rustc-path").arg(builder.rustc(query_compiler));
+            cmd.arg("--query-rustc-lib-path").arg(builder.rustc_libdir(query_compiler));
         }
 
         // Minicore auxiliary lib for `no_core` tests that need `core` stubs in cross-compilation
@@ -2472,11 +2532,11 @@ Please disable assertions with `rust.debug-assertions = false`.
             cmd.arg("--bypass-ignore-backends");
         }
 
-        if builder.build.config.llvm_enzyme {
+        if builder.sess.config.llvm_enzyme {
             cmd.arg("--has-enzyme");
         }
 
-        if builder.build.config.llvm_offload {
+        if builder.sess.config.llvm_offload {
             cmd.arg("--has-offload");
         }
 
@@ -2514,6 +2574,9 @@ Please disable assertions with `rust.debug-assertions = false`.
         }
         if builder.config.rust_optimize_tests {
             cmd.arg("--optimize-tests");
+        }
+        if !builder.config.docs_minification {
+            cmd.arg("--disable-minification");
         }
         if builder.config.rust_randomize_layout {
             cmd.arg("--rust-randomized-layout");
@@ -2567,13 +2630,9 @@ Please disable assertions with `rust.debug-assertions = false`.
 
         // Provide `rust_test_helpers` for both host and target.
         if suite == "ui" || suite == "incremental" {
-            builder.ensure(TestHelpers { target: test_compiler.host });
-            builder.ensure(TestHelpers { target });
-            hostflags.push(format!(
-                "-Lnative={}",
-                builder.test_helpers_out(test_compiler.host).display()
-            ));
-            let target_helpers = builder.test_helpers_out(target);
+            let host_test_helpers = builder.ensure(TestHelpers { target: test_compiler.host });
+            let target_helpers = builder.ensure(TestHelpers { target });
+            hostflags.push(format!("-Lnative={}", host_test_helpers.display()));
             targetflags.push(format!("-Lnative={}", target_helpers.display()));
             if target.is_pauthtest() {
                 // For the pauthtest target, embed an rpath to the directory containing the helper
@@ -2623,7 +2682,8 @@ Please disable assertions with `rust.debug-assertions = false`.
         }
 
         if helpers::forcing_clang_based_tests() {
-            let clang_exe = builder.llvm_out(target).join("bin").join("clang");
+            let llvm = builder.ensure(llvm::Llvm { target });
+            let clang_exe = llvm.root_dir().join("bin").join("clang");
             cmd.arg("--run-clang-based-tests-with").arg(clang_exe);
         }
 
@@ -2707,11 +2767,10 @@ Please disable assertions with `rust.debug-assertions = false`.
         let mut llvm_components_passed = false;
         let mut copts_passed = false;
         if builder.config.llvm_enabled(test_compiler.host) {
-            let llvm::LlvmOutput { host_llvm_config, .. } =
-                builder.ensure(llvm::Llvm { target: builder.config.host_target });
+            let llvm_output = builder.ensure(llvm::Llvm { target: builder.config.host_target });
             if !builder.config.dry_run() {
-                let llvm_version = get_llvm_version(builder, &host_llvm_config);
-                let llvm_components = command(&host_llvm_config)
+                let llvm_version = get_llvm_version(builder, llvm_output.llvm_config());
+                let llvm_components = command(llvm_output.llvm_config())
                     .cached()
                     .arg("--components")
                     .run_capture_stdout(builder)
@@ -2723,7 +2782,7 @@ Please disable assertions with `rust.debug-assertions = false`.
                     .arg(llvm_components.trim());
                 llvm_components_passed = true;
             }
-            if !builder.config.is_rust_llvm(target) {
+            if !builder.config.is_rust_llvm(&llvm_output, target) {
                 cmd.arg("--system-llvm");
             }
 
@@ -2732,7 +2791,7 @@ Please disable assertions with `rust.debug-assertions = false`.
             // separate compilations. We can add LLVM's library path to the
             // rustc args as a workaround.
             if !builder.config.dry_run() && suite.ends_with("fulldeps") {
-                let llvm_libdir = command(&host_llvm_config)
+                let llvm_libdir = command(llvm_output.llvm_config())
                     .cached()
                     .arg("--libdir")
                     .run_capture_stdout(builder)
@@ -2752,7 +2811,8 @@ Please disable assertions with `rust.debug-assertions = false`.
                 // tools. Pass the path to run-make tests so they can use them.
                 // (The coverage-run tests also need these tools to process
                 // coverage reports.)
-                let llvm_bin_path = host_llvm_config
+                let llvm_bin_path = llvm_output
+                    .llvm_config()
                     .parent()
                     .expect("Expected llvm-config to be contained in directory");
                 assert!(llvm_bin_path.is_dir());
@@ -2781,9 +2841,9 @@ Please disable assertions with `rust.debug-assertions = false`.
         // requires that a C++ compiler was configured which isn't always the case.
         if !builder.config.dry_run() && mode == CompiletestMode::RunMake {
             let mut cflags = builder.cc_handled_cflags(target, CLang::C);
-            cflags.extend(builder.cc_unhandled_cflags(target, GitRepo::Rustc, CLang::C));
+            cflags.extend(builder.cc_unhandled_cflags(target, CLang::C));
             let mut cxxflags = builder.cc_handled_cflags(target, CLang::Cxx);
-            cxxflags.extend(builder.cc_unhandled_cflags(target, GitRepo::Rustc, CLang::Cxx));
+            cxxflags.extend(builder.cc_unhandled_cflags(target, CLang::Cxx));
             cmd.arg("--cc")
                 .arg(builder.cc(target))
                 .arg("--cxx")
@@ -3019,8 +3079,14 @@ impl BookTest {
                 let stamp = BuildStamp::new(&builder.cargo_out(test_compiler, mode, target))
                     .with_prefix(PathBuf::from(dep).file_name().and_then(|v| v.to_str()).unwrap());
 
-                let output_paths =
-                    run_cargo(builder, cargo, vec![], &stamp, vec![], ArtifactKeepMode::OnlyRlib);
+                let output_paths = run_cargo(
+                    builder,
+                    cargo,
+                    vec![],
+                    &stamp,
+                    vec![],
+                    ArtifactKeepMode::BothRlibAndRmeta,
+                );
                 let directories = output_paths
                     .into_iter()
                     .filter_map(|p| p.parent().map(ToOwned::to_owned))
@@ -3240,6 +3306,9 @@ fn markdown_test(builder: &Builder<'_>, compiler: Compiler, markdown: &Path) -> 
     builder.do_if_verbose(|| println!("doc tests for: {}", markdown.display()));
     let mut cmd = builder.rustdoc_cmd(compiler);
     builder.add_rust_test_threads(&mut cmd);
+    // FIXME(#160895): While the new solver is enabled by default on nightly,
+    // we don't want to use it in our tests for now.
+    cmd.arg("-Znext-solver=coherence");
     // allow for unstable options such as new editions
     cmd.arg("-Z");
     cmd.arg("unstable-options");
@@ -3312,7 +3381,7 @@ impl CommandLineStep for CrateLibrustc {
 ///
 /// Returns whether the test succeeded.
 fn run_cargo_test<'a>(
-    cargo: builder::Cargo,
+    mut cargo: builder::Cargo,
     libtest_args: &[&str],
     crates: &[String],
     description: impl Into<Option<&'a str>>,
@@ -3325,6 +3394,10 @@ fn run_cargo_test<'a>(
         Mode::Std => compiler.stage,
         _ => compiler.stage + 1,
     };
+
+    // FIXME(#160895): While the new solver is enabled by default on nightly,
+    // we don't want to use it in our tests for now.
+    cargo.rustdocflag("-Znext-solver=coherence");
 
     let mut cargo = prepare_cargo_test(cargo, libtest_args, crates, target, builder);
     let _time = helpers::timeit(builder);
@@ -3567,7 +3640,13 @@ impl CommandLineStep for Crate {
         if crates.iter().any(|crate_| crate_ == "alloc") {
             crates.push("alloctests".to_owned());
         };
-        let description = crate_description(&self.crates);
+        let mut description = crate_description(&self.crates);
+        if builder.kind == Kind::Miri {
+            if !description.is_empty() {
+                description.push(' ');
+            }
+            description.push_str("in Miri");
+        }
         run_cargo_test(cargo, &[], &crates, &*description, target, builder, record_failed_tests);
     }
 }
@@ -3950,7 +4029,7 @@ impl CommandLineStep for BootstrapPy {
             // Forward command-line args after `--` to unittest, for filtering etc.
             .args(builder.config.test_args())
             .env("BUILD_DIR", &builder.out)
-            .env("BUILD_PLATFORM", builder.build.host_target.triple)
+            .env("BUILD_PLATFORM", builder.sess.host_target.triple)
             .env("BOOTSTRAP_TEST_RUSTC_BIN", &builder.initial_rustc)
             .env("BOOTSTRAP_TEST_CARGO_BIN", &builder.initial_cargo)
             .current_dir(builder.src.join("src/bootstrap/"));
@@ -3983,7 +4062,7 @@ impl CommandLineStep for Bootstrap {
         let record_failed_tests = builder.ensure(SetupFailedTestsFile);
 
         // Some tests require cargo submodule to be present.
-        builder.build.require_submodule("src/tools/cargo", None);
+        builder.sess.require_submodule("src/tools/cargo", None);
 
         let mut cargo = tool::prepare_tool_cargo(
             builder,
@@ -4184,28 +4263,28 @@ impl CommandLineStep for RustInstaller {
     }
 }
 
+/// Compiles native (C/C++) code that is used as helper code for tests.
+///
+/// Returns a path to the directory where the native test helpers have been built into.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TestHelpers {
     pub target: TargetSelection,
 }
 
 impl CommandLineStep for TestHelpers {
-    type Output = ();
+    type Output = PathBuf;
 
     fn should_run(run: ShouldRun<'_>) -> ShouldRun<'_> {
         run.path("tests/auxiliary/rust_test_helpers.c")
     }
 
     fn make_run(run: RunConfig<'_>) {
-        run.builder.ensure(TestHelpers { target: run.target })
+        run.builder.ensure(TestHelpers { target: run.target });
     }
 
     /// Compiles the `rust_test_helpers.c` library which we used in various
     /// `run-pass` tests for ABI testing.
-    fn run(self, builder: &Builder<'_>) {
-        if builder.config.dry_run() {
-            return;
-        }
+    fn run(self, builder: &Builder<'_>) -> Self::Output {
         // The x86_64-fortanix-unknown-sgx target doesn't have a working C
         // toolchain. However, some x86_64 ELF objects can be linked
         // without issues. Use this hack to compile the test helpers.
@@ -4214,7 +4293,11 @@ impl CommandLineStep for TestHelpers {
         } else {
             self.target
         };
-        let dst = builder.test_helpers_out(target);
+        let dst = builder.native_dir(target).join("rust-test-helpers");
+        if builder.config.dry_run() {
+            return dst;
+        }
+
         let src = builder.src.join("tests/auxiliary/rust_test_helpers.c");
         let _guard = builder.msg_unstaged(Kind::Build, "test helpers", target);
         t!(fs::create_dir_all(&dst));
@@ -4244,7 +4327,7 @@ impl CommandLineStep for TestHelpers {
         if target.is_pauthtest() {
             let so = dst.join("librust_test_helpers.so");
             if up_to_date(&src, &so) {
-                return;
+                return dst;
             }
 
             let status = Command::new(builder.cc(target))
@@ -4264,6 +4347,7 @@ impl CommandLineStep for TestHelpers {
                 panic!("Linking of librust_test_helpers.so failed (target: {})", target.triple);
             }
         }
+        dst
     }
 }
 
@@ -4345,7 +4429,6 @@ impl CommandLineStep for CodegenCranelift {
         cargo
             .arg("--manifest-path")
             .arg(builder.src.join("compiler/rustc_codegen_cranelift/build_system/Cargo.toml"));
-        compile::rustc_cargo_env(builder, &mut cargo, target);
 
         // Avoid incremental cache issues when changing rustc
         cargo.env("CARGO_BUILD_INCREMENTAL", "false");
@@ -4471,7 +4554,6 @@ impl CommandLineStep for CodegenGCC {
         cargo
             .arg("--manifest-path")
             .arg(builder.src.join("compiler/rustc_codegen_gcc/build_system/Cargo.toml"));
-        compile::rustc_cargo_env(builder, &mut cargo, target);
         add_cg_gcc_cargo_flags(&mut cargo, &gcc);
 
         // Avoid incremental cache issues when changing rustc

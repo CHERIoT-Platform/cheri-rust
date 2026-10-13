@@ -34,7 +34,7 @@ impl<T, const N: usize> IntoIter<T, N> {
     }
 }
 
-#[stable(feature = "boxed_array_value_iter", since = "CURRENT_RUSTC_VERSION")]
+#[stable(feature = "boxed_array_value_iter", since = "1.99.0")]
 impl<T, const N: usize> !Iterator for [T; N] {}
 
 // Note: the `#[rustc_skip_during_method_dispatch(array)]` on `trait IntoIterator`
@@ -172,7 +172,7 @@ impl<T, const N: usize> IntoIter<T, N> {
     /// assert_eq!(empty.len(), 0);
     /// assert_eq!(empty.as_slice(), &[]);
     ///
-    /// let empty = IntoIter::<std::convert::Infallible, 200>::empty();
+    /// let empty = IntoIter::<!, 200>::empty();
     /// assert_eq!(empty.len(), 0);
     /// ```
     ///

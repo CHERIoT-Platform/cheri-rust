@@ -352,6 +352,7 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for CodeBlocks<'_, 'a, I> {
                 tooltip.as_ref(),
                 playground_button.as_deref(),
                 &added_classes,
+                edition,
             )
         );
         Some(Event::Html(s.into()))
@@ -527,7 +528,7 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for TableWrapper<'a, I> {
         Some(match event {
             Event::Start(Tag::Table(t)) => {
                 self.stored_events.push_back(Event::Start(Tag::Table(t)));
-                Event::Html(CowStr::Borrowed("<div>"))
+                Event::Html(CowStr::Borrowed(r#"<div class="table">"#))
             }
             Event::End(TagEnd::Table) => {
                 self.stored_events.push_back(Event::Html(CowStr::Borrowed("</div>")));
@@ -874,7 +875,7 @@ impl<'doc, 'tcx> ExtraInfo<'doc, 'tcx> {
     fn error_invalid_codeblock_attr_with_help(
         &self,
         msg: impl Into<DiagMessage>,
-        f: impl for<'a, 'b> FnOnce(&'b mut Diag<'a, ()>),
+        f: impl for<'a, 'b> FnOnce(&'b mut Diag<'a>),
     ) {
         self.tcx.emit_node_span_lint(
             crate::lint::INVALID_CODEBLOCK_ATTRIBUTES,
@@ -1595,8 +1596,8 @@ impl MarkdownSummaryLine<'_> {
 
         html::push_html(&mut s, without_paragraphs);
 
-        let has_more_content =
-            matches!(summary.inner.peek(), Some(Event::Start(_))) || summary.skipped_tags > 0;
+        let has_more_content = matches!(summary.inner.peek(), Some(Event::Start(_) | Event::Rule))
+            || summary.skipped_tags > 0;
 
         (s, has_more_content)
     }

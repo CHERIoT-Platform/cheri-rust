@@ -211,9 +211,7 @@ macro_rules! size_and_align {
 macro_rules! size_and_align_expr {
     (minicore: $($x:tt),*; stmts: [$($s:tt)*] $($t:tt)*) => {
         {
-            #[allow(dead_code)]
-            #[allow(unused_must_use)]
-            #[allow(path_statements)]
+            #[allow(dead_code, unused_must_use, path_statements)]
             {
                 $($s)*
                 let val = { $($t)* };
@@ -275,12 +273,31 @@ fn recursive() {
         struct BoxLike<T: ?Sized>(*mut T);
         struct Goal(BoxLike<Goal>);
     }
+    size_and_align! {
+        struct Foo<T> {
+            x: *const Foo<[T; 1]>,
+            y: *const T,
+        }
+        struct Goal(Foo<Goal>);
+    }
     check_fail(r#"struct Goal(Goal);"#, LayoutError::RecursiveTypeWithoutIndirection);
     check_fail(
         r#"
         struct Foo<T>(Foo<T>);
         struct Goal(Foo<i32>);
         "#,
+        LayoutError::RecursiveTypeWithoutIndirection,
+    );
+    check_fail(
+        r#"
+struct Foo<T> {
+    x: Foo<[T; 1]>,
+    y: T,
+}
+struct Goal {
+    x: Foo<Goal>,
+}
+"#,
         LayoutError::RecursiveTypeWithoutIndirection,
     );
 }

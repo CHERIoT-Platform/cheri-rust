@@ -29,12 +29,12 @@ use rustc_attr_parsing::validate_attr;
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_errors::{DiagCtxtHandle, Diagnostic, LintBuffer};
 use rustc_feature::Features;
-use rustc_session::Session;
-use rustc_session::diagnostics::feature_err;
-use rustc_session::lint::builtin::{
+use rustc_lint_defs::builtin::{
     DEPRECATED_WHERE_CLAUSE_LOCATION, MISSING_ABI, MISSING_UNSAFE_ON_EXTERN,
     PATTERNS_IN_FNS_WITHOUT_BODY, UNUSED_VISIBILITIES,
 };
+use rustc_session::Session;
+use rustc_session::diagnostics::feature_err;
 use rustc_span::{Ident, Span, Symbol, kw, sym};
 use rustc_target::spec::{AbiMap, AbiMapping};
 
@@ -291,8 +291,11 @@ impl<'a> AstValidator<'a> {
         });
     }
 
-    fn check_decl_no_pat(decl: &FnDecl, mut report_err: impl FnMut(Span, Option<Ident>, bool)) {
-        for Param { pat, .. } in &decl.inputs {
+    fn check_decl_no_pat(
+        fn_inputs: &[Param],
+        mut report_err: impl FnMut(Span, Option<Ident>, bool),
+    ) {
+        for Param { pat, .. } in fn_inputs {
             match pat.kind {
                 PatKind::Missing | PatKind::Ident(BindingMode::NONE, _, None) | PatKind::Wild => {}
                 PatKind::Ident(BindingMode::MUT, ident, None) => {
@@ -368,7 +371,8 @@ impl<'a> AstValidator<'a> {
     fn check_async_fn_in_const_trait_or_impl(&self, sig: &FnSig, parent: &TraitOrImpl) {
         let Some(const_keyword) = parent.constness() else { return };
 
-        let Some(CoroutineKind::Async { span: async_keyword, .. }) = sig.header.coroutine_kind
+        let Some(CoroutineMarker { kind: CoroutineKind::Async, span: async_keyword, .. }) =
+            sig.header.coroutine_marker
         else {
             return;
         };
@@ -396,7 +400,7 @@ impl<'a> AstValidator<'a> {
         let c_variadic_span = self.check_decl_cvariadic_pos(fn_decl);
         self.check_decl_splatting(fn_decl, c_variadic_span, splat_semantic);
         self.check_decl_attrs(fn_decl);
-        self.check_decl_self_param(fn_decl, self_semantic);
+        self.check_decl_self_param(&fn_decl.inputs, self_semantic);
     }
 
     /// Emits fatal error if function declaration has more than `u16::MAX` arguments
@@ -543,8 +547,8 @@ impl<'a> AstValidator<'a> {
             });
     }
 
-    fn check_decl_self_param(&self, fn_decl: &FnDecl, self_semantic: SelfSemantic) {
-        if let (SelfSemantic::No, [param, ..]) = (self_semantic, &*fn_decl.inputs) {
+    fn check_decl_self_param(&self, fn_inputs: &[Param], self_semantic: SelfSemantic) {
+        if let (SelfSemantic::No, [param, ..]) = (self_semantic, fn_inputs) {
             if param.is_self() {
                 self.dcx().emit_err(diagnostics::FnParamForbiddenSelf { span: param.span });
             }
@@ -658,18 +662,18 @@ impl<'a> AstValidator<'a> {
     }
 
     fn reject_coroutine(&self, abi: ExternAbi, sig: &BorrowedFnSig<'_>) {
-        if let Some(coroutine_kind) = sig.header.coroutine_kind {
+        if let Some(coroutine_marker) = sig.header.coroutine_marker {
             let coroutine_kind_span = self
                 .sess
                 .psess
                 .source_map()
-                .span_until_non_whitespace(coroutine_kind.span().to(sig.span));
+                .span_until_non_whitespace(coroutine_marker.span.to(sig.span));
 
             self.dcx().emit_err(diagnostics::AbiCannotBeCoroutine {
                 span: sig.span,
                 abi,
                 coroutine_kind_span,
-                coroutine_kind_str: coroutine_kind.as_str(),
+                coroutine_kind_str: coroutine_marker.kind.as_str(),
             });
         }
     }
@@ -867,7 +871,7 @@ impl<'a> AstValidator<'a> {
     fn check_foreign_fn_headerless(
         &self,
         // Deconstruct to ensure exhaustiveness
-        FnHeader { safety: _, coroutine_kind, constness, ext }: FnHeader,
+        FnHeader { safety: _, coroutine_marker, constness, ext }: FnHeader,
     ) {
         let report_err = |span, kw| {
             self.dcx().emit_err(diagnostics::FnQualifierInExtern {
@@ -876,8 +880,8 @@ impl<'a> AstValidator<'a> {
                 block: self.current_extern_span(),
             });
         };
-        match coroutine_kind {
-            Some(kind) => report_err(kind.span(), kind.as_str()),
+        match coroutine_marker {
+            Some(marker) => report_err(marker.span, marker.kind.as_str()),
             None => (),
         }
         match constness {
@@ -962,11 +966,11 @@ impl<'a> AstValidator<'a> {
             feature_err(&self.sess, sym::const_c_variadic, sig.span, msg).emit();
         }
 
-        if let Some(coroutine_kind) = sig.header.coroutine_kind {
+        if let Some(coroutine_marker) = sig.header.coroutine_marker {
             self.dcx().emit_err(diagnostics::CoroutineAndCVariadic {
-                spans: vec![coroutine_kind.span(), variadic_param.span],
-                coroutine_kind: coroutine_kind.as_str(),
-                coroutine_span: coroutine_kind.span(),
+                spans: vec![coroutine_marker.span, variadic_param.span],
+                coroutine_kind: coroutine_marker.kind.as_str(),
+                coroutine_span: coroutine_marker.span,
                 variadic_span: variadic_param.span,
             });
         }
@@ -1181,7 +1185,7 @@ impl<'a> AstValidator<'a> {
         self.dcx().emit_err(diagnostics::ArgsBeforeConstraint {
             arg_spans: arg_spans.clone(),
             constraints: constraint_spans[0],
-            args: *arg_spans.iter().last().unwrap(),
+            args: *arg_spans.last().unwrap(),
             data: data.span,
             constraint_spans: diagnostics::EmptyLabelManySpans(constraint_spans),
             arg_spans2: diagnostics::EmptyLabelManySpans(arg_spans),
@@ -1200,7 +1204,7 @@ impl<'a> AstValidator<'a> {
                     SelfSemantic::No,
                     SplatSemantic::from_extern(bfty.ext),
                 );
-                Self::check_decl_no_pat(&bfty.decl, |span, _, _| {
+                Self::check_decl_no_pat(&bfty.decl.inputs, |span, _, _| {
                     self.dcx().emit_err(diagnostics::PatternFnPointer { span });
                 });
                 if let Extern::Implicit(extern_span) = bfty.ext {
@@ -1982,15 +1986,15 @@ impl Visitor<'_> for AstValidator<'_> {
         // Functions cannot both be `const async` or `const gen`
         if let Some(&FnHeader {
             constness: Const::Yes(const_span),
-            coroutine_kind: Some(coroutine_kind),
+            coroutine_marker: Some(coroutine_marker),
             ..
         }) = fk.header()
         {
             self.dcx().emit_err(diagnostics::ConstAndCoroutine {
-                spans: vec![coroutine_kind.span(), const_span],
+                spans: vec![coroutine_marker.span, const_span],
                 const_span,
-                coroutine_span: coroutine_kind.span(),
-                coroutine_kind: coroutine_kind.as_str(),
+                coroutine_span: coroutine_marker.span,
+                coroutine_kind: coroutine_marker.kind.as_str(),
                 span,
             });
         }
@@ -2009,7 +2013,7 @@ impl Visitor<'_> for AstValidator<'_> {
 
         // Functions without bodies cannot have patterns.
         if let FnKind::Fn(ctxt, _, Fn { body: None, sig, .. }) = fk {
-            Self::check_decl_no_pat(&sig.decl, |span, ident, mut_ident| {
+            Self::check_decl_no_pat(&sig.decl.inputs, |span, ident, mut_ident| {
                 if mut_ident && matches!(ctxt, FnCtxt::Assoc(_)) {
                     if let Some(ident) = ident {
                         let is_foreign = matches!(ctxt, FnCtxt::Foreign);
@@ -2207,6 +2211,16 @@ impl Visitor<'_> for AstValidator<'_> {
             Some(TildeConstReason::AnonConst { span: anon_const.value.span }),
             |this| visit::walk_anon_const(this, anon_const),
         )
+    }
+
+    fn visit_path_segment(&mut self, seg: &PathSegment) -> Self::Result {
+        if let Some(Parenthesized(args)) = &seg.args {
+            self.check_decl_self_param(&args.inputs, SelfSemantic::No);
+            Self::check_decl_no_pat(&args.inputs, |span, _, _| {
+                self.dcx().emit_err(diagnostics::PatternParenthesizedArgList { span });
+            });
+        }
+        visit::walk_path_segment(self, seg);
     }
 }
 

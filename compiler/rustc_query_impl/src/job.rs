@@ -6,10 +6,9 @@ use std::{iter, mem};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_data_structures::hash_table::HashTable;
 use rustc_data_structures::sync::{DynSend, DynSync};
-use rustc_errors::DiagCtxtHandle;
 use rustc_middle::queries::TaggedQueryKey;
 use rustc_middle::query::{
-    ActiveKeyStatus, Cycle, QueryCache, QueryJob, QueryJobId, QueryKey, QueryLatch,
+    ActiveKeyStatus, QueryCache, QueryCycle, QueryJob, QueryJobId, QueryKey, QueryLatch,
     QueryStackFrame, QueryVTable, QueryWaiter,
 };
 use rustc_middle::ty::TyCtxt;
@@ -142,7 +141,7 @@ pub(crate) fn find_cycle_in_stack<'tcx>(
     job_map: QueryJobMap<'tcx>,
     current_job: &Option<QueryJobId>,
     span: Span,
-) -> Cycle<'tcx> {
+) -> QueryCycle<'tcx> {
     // Find the waitee amongst `current_job` parents.
     let mut frames = Vec::new();
     let mut current_job = Option::clone(current_job);
@@ -163,7 +162,7 @@ pub(crate) fn find_cycle_in_stack<'tcx>(
                 let parent = info.job.parent?;
                 QueryStackFrame { span: info.job.span, tagged_key: job_map.tagged_key_of(parent) }
             };
-            return Cycle { usage, frames };
+            return QueryCycle { usage, frames };
         }
 
         current_job = info.job.parent;
@@ -199,7 +198,7 @@ pub(crate) fn find_dep_kind_root<'tcx>(
 }
 
 /// The locaton of a resumable waiter. The usize is the index into waiters in the query's latch.
-/// We'll use this to remove the waiter using `QueryLatch::extract_waiter` if we're waking it up.
+/// We'll use this to remove the waiter if we're waking it up in `find_and_process_cycle`.
 type ResumableWaiterLocation = (QueryJobId, usize);
 
 /// This abstracts over non-resumable waiters which are found in `QueryJob`'s `parent` field
@@ -316,7 +315,10 @@ fn connected_to_root<'tcx>(
 }
 
 /// Processes a found query cycle into a `Cycle`
-fn process_cycle<'tcx>(job_map: &QueryJobMap<'tcx>, stack: Vec<(Span, QueryJobId)>) -> Cycle<'tcx> {
+fn process_cycle<'tcx>(
+    job_map: &QueryJobMap<'tcx>,
+    stack: Vec<(Span, QueryJobId)>,
+) -> QueryCycle<'tcx> {
     // The stack is a vector of pairs of spans and queries; reverse it so that
     // the earlier entries require later entries
     let (mut spans, queries): (Vec<_>, Vec<_>) = stack.into_iter().rev().unzip();
@@ -380,7 +382,7 @@ fn process_cycle<'tcx>(job_map: &QueryJobMap<'tcx>, stack: Vec<(Span, QueryJobId
         .map(|(span, job)| QueryStackFrame { span, tagged_key: job_map.tagged_key_of(job) });
 
     // Create the cycle error
-    Cycle {
+    QueryCycle {
         usage,
         frames: stack
             .iter()
@@ -407,8 +409,14 @@ fn find_and_process_cycle<'tcx>(
         // edge which is resumable / waited using a query latch
         let (waitee_query, waiter_idx) = resumable.unwrap();
 
-        // Extract the waiter we want to resume
-        let waiter = job_map.latch_of(waitee_query).unwrap().extract_waiter(waiter_idx);
+        // Extract the waiter we want to resume.
+        let waiter = {
+            let latch = job_map.latch_of(waitee_query).unwrap();
+            let mut waiters_guard = latch.waiters.lock();
+            let waiters = waiters_guard.as_mut().expect("non-empty waiters vec");
+            // Remove the waiter from the list of waiters.
+            waiters.remove(waiter_idx)
+        };
 
         // Set the cycle error so it will be picked up when resumed
         *waiter.cycle.lock() = Some(error);
@@ -444,7 +452,6 @@ pub fn break_query_cycle<'tcx>(job_map: QueryJobMap<'tcx>, registry: &rustc_thre
 pub fn print_query_stack<'tcx>(
     tcx: TyCtxt<'tcx>,
     mut current_query: Option<QueryJobId>,
-    dcx: DiagCtxtHandle<'_>,
     limit_frames: Option<usize>,
     mut file: Option<std::fs::File>,
 ) -> usize {
@@ -467,12 +474,10 @@ pub fn print_query_stack<'tcx>(
         let description = query_info.tagged_key.description(tcx);
         if Some(count_printed) < limit_frames || limit_frames.is_none() {
             // Only print to stderr as many stack frames as `num_frames` when present.
-            dcx.struct_failure_note(format!(
+            eprintln!(
                 "#{count_printed} [{query_name}] {description}",
                 query_name = query_info.tagged_key.query_name(),
-            ))
-            .with_span(query_info.job.span)
-            .emit();
+            );
             count_printed += 1;
         }
 

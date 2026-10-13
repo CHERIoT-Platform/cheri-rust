@@ -1,3 +1,4 @@
+//@ compile-flags: -Z merge-functions=disabled
 #![crate_type = "lib"]
 #![no_std]
 #![feature(core_intrinsics)]

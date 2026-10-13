@@ -177,6 +177,7 @@ static ARM_FEATURES: &[(&str, Stability, ImpliedFeatures)] = &[
     ("dsp", Unstable(sym::arm_target_feature), &[]),
     ("fp-armv8", Unstable(sym::arm_target_feature), &["vfp4"]),
     ("fp16", Unstable(sym::arm_target_feature), &["neon"]),
+    ("fp64", Unstable(sym::arm_target_feature), &[]),
     ("fpregs", Unstable(sym::arm_target_feature), &[]),
     ("i8mm", Unstable(sym::arm_target_feature), &["neon"]),
     ("mclass", Unstable(sym::arm_target_feature), &[]),
@@ -206,7 +207,8 @@ static ARM_FEATURES: &[(&str, Stability, ImpliedFeatures)] = &[
     ("v8.1m.main", Unstable(sym::arm_target_feature), &["v8m.main"]),
     ("v8m", Unstable(sym::arm_target_feature), &["v6m"]),
     ("v8m.main", Unstable(sym::arm_target_feature), &["v7"]),
-    ("vfp2", Unstable(sym::arm_target_feature), &[]),
+    ("vfp2", Unstable(sym::arm_target_feature), &["vfp2sp", "fp64"]),
+    ("vfp2sp", Unstable(sym::arm_target_feature), &["fpregs"]),
     ("vfp3", Unstable(sym::arm_target_feature), &["vfp2", "d32"]),
     ("vfp4", Unstable(sym::arm_target_feature), &["vfp3"]),
     ("virtualization", Unstable(sym::arm_target_feature), &[]),
@@ -625,6 +627,8 @@ static POWERPC_FEATURES: &[(&str, Stability, ImpliedFeatures)] = &[
 const MIPS_FEATURES: &[(&str, Stability, ImpliedFeatures)] = &[
     // tidy-alphabetical-start
     ("fp64", Unstable(sym::mips_target_feature), &[]),
+    // FIXME(#150253): msa requires either fp64 or no hard float support at all: LLVM requires fp64
+    // FIXME(#150253): msa requires revision 5 or greater (mips32r5/mips64r5 in LLVM)
     ("msa", Unstable(sym::mips_target_feature), &[]),
     ("virt", Unstable(sym::mips_target_feature), &[]),
     // tidy-alphabetical-end
@@ -676,9 +680,9 @@ static RISCV_FEATURES: &[(&str, Stability, ImpliedFeatures)] = &[
     ("a", Stable, &["zaamo", "zalrsc"]),
     ("b", Stable, &["zba", "zbb", "zbs"]),
     ("c", Stable, &["zca"]),
-    ("d", Unstable(sym::riscv_target_feature), &["f"]),
-    ("e", Unstable(sym::riscv_target_feature), &[]),
-    ("f", Unstable(sym::riscv_target_feature), &["zicsr"]),
+    ("d", Stable, &["f"]),
+    ("e", Unstable(sym::riscv_target_feature), &[]), // negative feature! needs special care.
+    ("f", Stable, &["zicsr"]),
     (
         "forced-atomics",
         // Not implied by any CPU model or other feature.
@@ -688,7 +692,14 @@ static RISCV_FEATURES: &[(&str, Stability, ImpliedFeatures)] = &[
         },
         &[],
     ),
-    ("m", Stable, &[]),
+    // According to the RISC-V spec, the M ISA extension (integer multiplication/division) is supported only when the M bit
+    // of the misa register is 1, while Zmmul means integer multiplication is always supported.
+    //
+    // The Rust/LLVM "m" target feature means something slightly different: with "m" enabled, it is assumed that integer
+    // multiplication and division will always be available (M bit will be 1 in misa), so "m" implies "zmmul".
+    //
+    // See discussion in the PR adding Zmmul: https://github.com/rust-lang/rust/pull/162552
+    ("m", Stable, &["zmmul"]),
     ("relax", Unstable(sym::riscv_target_feature), &[]),
     (
         "rva23u64",
@@ -789,6 +800,7 @@ static RISCV_FEATURES: &[(&str, Stability, ImpliedFeatures)] = &[
     ("zksed", Stable, &[]),
     ("zksh", Stable, &[]),
     ("zkt", Stable, &[]),
+    ("zmmul", Unstable(sym::riscv_target_feature), &[]),
     ("ztso", Stable, &[]),
     ("zvbb", Unstable(sym::riscv_target_feature), &["zvkb"]), // Zvbb ⊃ Zvkb
     ("zvbc", Unstable(sym::riscv_target_feature), &["zve64x"]),
@@ -959,7 +971,14 @@ const IBMZ_FEATURES: &[(&str, Stability, ImpliedFeatures)] = &[
 const SPARC_FEATURES: &[(&str, Stability, ImpliedFeatures)] = &[
     // tidy-alphabetical-start
     ("leoncasa", Unstable(sym::sparc_target_feature), &[]),
+    (
+        "soft-float",
+        InternalOnly { reason: "unsupported ABI-configuration feature", hard_error: false },
+        &[],
+    ),
     ("v8plus", Unstable(sym::sparc_target_feature), &[]),
+    // FIXME: It's unclear what this feature means when `v8plus` is disabled on 32-bit SPARC. See
+    // the discussion around https://github.com/rust-lang/rust/pull/160949#discussion_r3806194355.
     ("v9", Unstable(sym::sparc_target_feature), &[]),
     // tidy-alphabetical-end
 ];
@@ -1099,7 +1118,8 @@ pub fn feature_to_arch_names(feature: &str) -> Vec<&'static str> {
 }
 
 // These arrays represent the least-constraining feature that is required for vector types up to a
-// certain size to have their "proper" ABI on each architecture.
+// certain size to have their "proper" ABI on each architecture. An empty feature name means
+// that the given length is unconditionally available.
 // Note that they must be kept sorted by vector size.
 const X86_FEATURES_FOR_CORRECT_FIXED_LENGTH_VECTOR_ABI: &'static [(u64, &'static str)] =
     &[(128, "sse"), (256, "avx"), (512, "avx512f")]; // FIXME: might need changes for AVX10.
@@ -1290,7 +1310,9 @@ impl Target {
                         // `x87` and all other FPU features so those do not matter.
                         // Note that this one requirement is the entire implementation of the ABI!
                         // LLVM handles the rest.
-                        FeatureConstraints { required: &["soft-float"], incompatible: &[] }
+                        // We mark "sse" as incompatible since LLVM likes to crash when both
+                        // "soft-float" and "sse" are enabled.
+                        FeatureConstraints { required: &["soft-float"], incompatible: &["sse"] }
                     }
                     _ => unreachable!(),
                 }
@@ -1311,7 +1333,9 @@ impl Target {
                         // `x87` and all other FPU features so those do not matter.
                         // Note that this one requirement is the entire implementation of the ABI!
                         // LLVM handles the rest.
-                        FeatureConstraints { required: &["soft-float"], incompatible: &[] }
+                        // We mark "sse" as incompatible since LLVM likes to crash when both
+                        // "soft-float" and "sse" are enabled.
+                        FeatureConstraints { required: &["soft-float"], incompatible: &["sse"] }
                     }
                     _ => unreachable!(),
                 }
@@ -1454,6 +1478,26 @@ impl Target {
                 // to other targets above.)
                 FeatureConstraints { required: &["hard-float"], incompatible: &["spe"] }
             }
+            Arch::Sparc => {
+                // We currently don't have a soft-float target for SPARC.
+                // We need to pin down v8plus as it is a separate ABI (indicated in object files so
+                // things cannot be linked across ABI boundaries).
+                match self.rustc_abi {
+                    None => FeatureConstraints {
+                        required: &[],
+                        incompatible: &["soft-float", "v8plus"],
+                    },
+                    Some(RustcAbi::SparcV8Plus) => {
+                        FeatureConstraints { required: &["v8plus"], incompatible: &["soft-float"] }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            Arch::Sparc64 => {
+                // We currently don't have a soft-float target for SPARC64.
+                // v8plus is for 32bit SPARC only.
+                FeatureConstraints { required: &[], incompatible: &["soft-float", "v8plus"] }
+            }
             Arch::Avr => {
                 // We only support one ABI on AVR at the moment.
                 // SRAM is minimum requirement for C/C++ in both avr-gcc and Clang,
@@ -1465,6 +1509,17 @@ impl Target {
                 // We only support one ABI on wasm at the moment.
                 // No ABI-relevant target features have been identified thus far.
                 NOTHING
+            }
+            Arch::Xtensa => {
+                // All Rust-supported Xtensa targets use the windowed register ABI
+                // (esp32 and later). Non-windowed (historical esp8266 / CALL0) is not
+                // a supported Rust ABI. Requiring `windowed` here means selecting a
+                // -Ctarget-cpu that does not provide windowed produces an ABI mismatch
+                // warning rather than silent UB when mixed with windowed code.
+                //
+                // `windowed` implies `exception` in XTENSA_FEATURES, so exception is
+                // always enabled for this ABI; list it explicitly for complete constraints.
+                FeatureConstraints { required: &["windowed", "exception"], incompatible: &[] }
             }
             _ => NOTHING,
         }
