@@ -1913,8 +1913,7 @@ float_test! {
     }
 }
 
-// FIXME(cheri): space issues and removing this gives us enough to run the rest
-#[cfg(not(target_abi = "cheriot"))]
+#[cfg(any(not(target_abi = "cheriot"), not(feature = "test_num_ieee754")))]
 float_test! {
     name: ln_gamma,
     attrs: {
