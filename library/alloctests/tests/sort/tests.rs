@@ -8,17 +8,18 @@ use std::{env, fs};
 use crate::sort::ffi_types::{F128, FFIOneKibiByte};
 use crate::sort::{Sort, known_good_stable_sort, patterns};
 
-#[cfg(miri)]
+// FIXME(cheri/triage): I haven't tried the larger lengths
+#[cfg(any(miri, target_abi = "cheriot"))]
 const TEST_LENGTHS: &[usize] = &[2, 3, 4, 7, 10, 15, 20, 24, 33, 50, 100, 171, 300];
 
 // node.js gives out of memory error to use with length 1_100_000
-#[cfg(all(not(miri), target_os = "emscripten"))]
+#[cfg(all(not(miri), target_os = "emscripten", not(target_abi = "cheriot")))]
 const TEST_LENGTHS: &[usize] = &[
     2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 16, 17, 20, 24, 30, 32, 33, 35, 50, 100, 200, 500, 1_000,
     2_048, 5_000, 10_000, 100_000,
 ];
 
-#[cfg(all(not(miri), not(target_os = "emscripten")))]
+#[cfg(all(not(miri), not(target_os = "emscripten"), not(target_abi = "cheriot")))]
 const TEST_LENGTHS: &[usize] = &[
     2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 16, 17, 20, 24, 30, 32, 33, 35, 50, 100, 200, 500, 1_000,
     2_048, 5_000, 10_000, 100_000, 1_100_000,
@@ -454,8 +455,8 @@ fn stability_legacy_impl<S: Sort>() {
         return;
     }
 
-    let large_range = if cfg!(miri) { 100..110 } else { 3000..3010 };
-    let rounds = if cfg!(miri) { 1 } else { 10 };
+    let large_range = if cfg!(any(miri, target_abi = "cheriot")) { 100..110 } else { 3000..3010 };
+    let rounds = if cfg!(any(miri, target_abi = "cheriot")) { 1 } else { 10 };
 
     let rand_vals = patterns::random_uniform(5_000, 0..=9);
     let mut rand_idx = 0;
@@ -760,6 +761,11 @@ fn self_cmp<T: Ord + Clone + Debug, S: Sort>(
 
 gen_sort_test_fns_with_default_patterns_3_ty!(self_cmp, self_cmp, []);
 
+// FIXME(jacobpake): these tests partially rely on unwind, so we should ignore them.
+// however, they throw a tagviolation regardless, I believe this is due to the closures
+// related to get_random_0_1_or_2 and invalid_ord_comp_functions violating global/local
+// ordering. if so, it should be possible to "fix" the test not to do that. but even
+// if we fix the test, we will still need to ignore it.
 fn violate_ord_retain_orig_set<T: Ord, S: Sort>(
     len: usize,
     type_into_fn: impl Fn(i32) -> T + Copy,
@@ -773,7 +779,7 @@ fn violate_ord_retain_orig_set<T: Ord, S: Sort>(
     // Ord implies a strict total order see https://en.wikipedia.org/wiki/Total_order.
 
     // Generating random numbers with miri is quite expensive.
-    let random_orderings_len = if cfg!(miri) { 200 } else { 10_000 };
+    let random_orderings_len = if cfg!(any(miri, target_abi = "cheriot")) { 200 } else { 10_000 };
 
     // Make sure we get a good distribution of random orderings, that are repeatable with the seed.
     // Just using random_uniform with the same len and range will always yield the same value.
@@ -911,7 +917,7 @@ fn violate_ord_retain_orig_set<T: Ord, S: Sort>(
         let sum_after: i64 = test_data.iter().map(|x| type_from_fn(x) as i64).sum();
         assert_eq!(sum_before, sum_after);
 
-        if cfg!(miri) {
+        if cfg!(any(miri, target_abi = "cheriot")) {
             // This test is prohibitively expensive in miri, so only run one of the comparison
             // functions. This test is not expected to yield direct UB, but rather surface potential
             // UB by showing that the sum is different now.
@@ -927,15 +933,34 @@ gen_sort_test_fns_with_default_patterns_3_ty!(
 );
 
 macro_rules! instantiate_sort_test_inner {
-    ($sort_impl:ty, miri_yes, $test_fn_name:ident) => {
+    ($sort_impl:ty, miri_yes, panic_yes, $test_chunk:literal, $test_fn_name:ident) => {
         #[test]
+        #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
+        #[cfg(any(not(target_abi = "cheriot"), feature = $test_chunk))]
         fn $test_fn_name() {
             $crate::sort::tests::$test_fn_name::<$sort_impl>();
         }
     };
-    ($sort_impl:ty, miri_no, $test_fn_name:ident) => {
+    ($sort_impl:ty, miri_yes, panic_no, $test_chunk:literal, $test_fn_name:ident) => {
+        #[test]
+        #[cfg(any(not(target_abi = "cheriot"), feature = $test_chunk))]
+        fn $test_fn_name() {
+            $crate::sort::tests::$test_fn_name::<$sort_impl>();
+        }
+    };
+    ($sort_impl:ty, miri_no, panic_yes, $test_chunk:literal, $test_fn_name:ident) => {
         #[test]
         #[cfg_attr(miri, ignore)]
+        #[cfg_attr(not(panic = "unwind"), ignore = "test requires unwinding support")]
+        #[cfg(any(not(target_abi = "cheriot"), feature = $test_chunk))]
+        fn $test_fn_name() {
+            $crate::sort::tests::$test_fn_name::<$sort_impl>();
+        }
+    };
+    ($sort_impl:ty, miri_no, panic_no, $test_chunk:literal, $test_fn_name:ident) => {
+        #[test]
+        #[cfg_attr(miri, ignore)]
+        #[cfg(any(not(target_abi = "cheriot"), feature = $test_chunk))]
         fn $test_fn_name() {
             $crate::sort::tests::$test_fn_name::<$sort_impl>();
         }
@@ -944,7 +969,7 @@ macro_rules! instantiate_sort_test_inner {
 
 // Using this construct allows us to get warnings for unused test functions.
 macro_rules! define_instantiate_sort_tests {
-    ($([$miri_use:ident, $test_fn_name:ident]),*,) => {
+    ($([$miri_use:ident, $test_chunk:literal, $panic_use:ident, $test_fn_name:ident]),*,) => {
         $(pub fn $test_fn_name<S: Sort>() {
             ${concat($test_fn_name, _impl)}::<S>();
         })*
@@ -956,6 +981,8 @@ macro_rules! define_instantiate_sort_tests {
                     instantiate_sort_test_inner!(
                         $sort_impl,
                         $miri_use,
+                        $panic_use,
+                        $test_chunk,
                         $test_fn_name
                     );
                 )*
@@ -969,224 +996,224 @@ macro_rules! define_instantiate_sort_tests {
 // can lead to UB are tested directly, for example that the original set of elements is retained
 // even when a panic occurs or Ord is implemented incorrectly.
 define_instantiate_sort_tests!(
-    [miri_yes, basic],
-    [miri_yes, fixed_seed],
-    [miri_yes, fixed_seed_rand_vec_prefix],
-    [miri_yes, int_edge],
-    [miri_yes, sort_vs_sort_by],
-    [miri_yes, box_value],
-    [miri_yes, correct_i32_random],
-    [miri_yes, correct_i32_random_z1],
-    [miri_yes, correct_i32_random_d2],
-    [miri_yes, correct_i32_random_d20],
-    [miri_yes, correct_i32_random_s95],
-    [miri_yes, correct_i32_ascending],
-    [miri_yes, correct_i32_descending],
-    [miri_yes, correct_i32_saw_mixed],
-    [miri_no, correct_i32_random_d4],
-    [miri_no, correct_i32_random_d8],
-    [miri_no, correct_i32_random_d311],
-    [miri_no, correct_i32_random_d1024],
-    [miri_no, correct_i32_random_z1_03],
-    [miri_no, correct_i32_random_z2],
-    [miri_no, correct_i32_random_s50],
-    [miri_no, correct_i32_narrow],
-    [miri_no, correct_i32_all_equal],
-    [miri_no, correct_i32_saw_mixed_range],
-    [miri_yes, correct_i32_pipe_organ],
-    [miri_no, correct_u64_random],
-    [miri_yes, correct_u64_random_z1],
-    [miri_no, correct_u64_random_d2],
-    [miri_no, correct_u64_random_d20],
-    [miri_no, correct_u64_random_s95],
-    [miri_no, correct_u64_ascending],
-    [miri_no, correct_u64_descending],
-    [miri_no, correct_u64_saw_mixed],
-    [miri_no, correct_u128_random],
-    [miri_yes, correct_u128_random_z1],
-    [miri_no, correct_u128_random_d2],
-    [miri_no, correct_u128_random_d20],
-    [miri_no, correct_u128_random_s95],
-    [miri_no, correct_u128_ascending],
-    [miri_no, correct_u128_descending],
-    [miri_no, correct_u128_saw_mixed],
-    [miri_no, correct_cell_i32_random],
-    [miri_yes, correct_cell_i32_random_z1],
-    [miri_no, correct_cell_i32_random_d2],
-    [miri_no, correct_cell_i32_random_d20],
-    [miri_no, correct_cell_i32_random_s95],
-    [miri_no, correct_cell_i32_ascending],
-    [miri_no, correct_cell_i32_descending],
-    [miri_no, correct_cell_i32_saw_mixed],
-    [miri_no, correct_string_random],
-    [miri_yes, correct_string_random_z1],
-    [miri_no, correct_string_random_d2],
-    [miri_no, correct_string_random_d20],
-    [miri_no, correct_string_random_s95],
-    [miri_no, correct_string_ascending],
-    [miri_no, correct_string_descending],
-    [miri_no, correct_string_saw_mixed],
-    [miri_no, correct_f128_random],
-    [miri_yes, correct_f128_random_z1],
-    [miri_no, correct_f128_random_d2],
-    [miri_no, correct_f128_random_d20],
-    [miri_no, correct_f128_random_s95],
-    [miri_no, correct_f128_ascending],
-    [miri_no, correct_f128_descending],
-    [miri_no, correct_f128_saw_mixed],
-    [miri_no, correct_1k_random],
-    [miri_yes, correct_1k_random_z1],
-    [miri_no, correct_1k_random_d2],
-    [miri_no, correct_1k_random_d20],
-    [miri_no, correct_1k_random_s95],
-    [miri_no, correct_1k_ascending],
-    [miri_no, correct_1k_descending],
-    [miri_no, correct_1k_saw_mixed],
-    [miri_no, correct_dyn_val_random],
-    [miri_yes, correct_dyn_val_random_z1],
-    [miri_no, correct_dyn_val_random_d2],
-    [miri_no, correct_dyn_val_random_d20],
-    [miri_no, correct_dyn_val_random_s95],
-    [miri_no, correct_dyn_val_ascending],
-    [miri_no, correct_dyn_val_descending],
-    [miri_no, correct_dyn_val_saw_mixed],
-    [miri_no, stability_legacy],
-    [miri_no, stability_i32_random],
-    [miri_yes, stability_i32_random_z1],
-    [miri_no, stability_i32_random_d2],
-    [miri_no, stability_i32_random_d20],
-    [miri_no, stability_i32_random_s95],
-    [miri_no, stability_i32_ascending],
-    [miri_no, stability_i32_descending],
-    [miri_no, stability_i32_saw_mixed],
-    [miri_no, stability_cell_i32_random],
-    [miri_yes, stability_cell_i32_random_z1],
-    [miri_no, stability_cell_i32_random_d2],
-    [miri_no, stability_cell_i32_random_d20],
-    [miri_no, stability_cell_i32_random_s95],
-    [miri_no, stability_cell_i32_ascending],
-    [miri_no, stability_cell_i32_descending],
-    [miri_no, stability_cell_i32_saw_mixed],
-    [miri_no, stability_string_random],
-    [miri_yes, stability_string_random_z1],
-    [miri_no, stability_string_random_d2],
-    [miri_no, stability_string_random_d20],
-    [miri_no, stability_string_random_s95],
-    [miri_no, stability_string_ascending],
-    [miri_no, stability_string_descending],
-    [miri_no, stability_string_saw_mixed],
-    [miri_no, observable_is_less_random],
-    [miri_yes, observable_is_less_random_z1],
-    [miri_no, observable_is_less_random_d2],
-    [miri_no, observable_is_less_random_d20],
-    [miri_no, observable_is_less_random_s95],
-    [miri_no, observable_is_less_ascending],
-    [miri_no, observable_is_less_descending],
-    [miri_no, observable_is_less_saw_mixed],
-    [miri_no, panic_retain_orig_set_i32_random],
-    [miri_yes, panic_retain_orig_set_i32_random_z1],
-    [miri_no, panic_retain_orig_set_i32_random_d2],
-    [miri_no, panic_retain_orig_set_i32_random_d20],
-    [miri_no, panic_retain_orig_set_i32_random_s95],
-    [miri_no, panic_retain_orig_set_i32_ascending],
-    [miri_no, panic_retain_orig_set_i32_descending],
-    [miri_no, panic_retain_orig_set_i32_saw_mixed],
-    [miri_no, panic_retain_orig_set_cell_i32_random],
-    [miri_yes, panic_retain_orig_set_cell_i32_random_z1],
-    [miri_no, panic_retain_orig_set_cell_i32_random_d2],
-    [miri_no, panic_retain_orig_set_cell_i32_random_d20],
-    [miri_no, panic_retain_orig_set_cell_i32_random_s95],
-    [miri_no, panic_retain_orig_set_cell_i32_ascending],
-    [miri_no, panic_retain_orig_set_cell_i32_descending],
-    [miri_no, panic_retain_orig_set_cell_i32_saw_mixed],
-    [miri_no, panic_retain_orig_set_string_random],
-    [miri_yes, panic_retain_orig_set_string_random_z1],
-    [miri_no, panic_retain_orig_set_string_random_d2],
-    [miri_no, panic_retain_orig_set_string_random_d20],
-    [miri_no, panic_retain_orig_set_string_random_s95],
-    [miri_no, panic_retain_orig_set_string_ascending],
-    [miri_no, panic_retain_orig_set_string_descending],
-    [miri_no, panic_retain_orig_set_string_saw_mixed],
-    [miri_no, panic_observable_is_less_random],
-    [miri_yes, panic_observable_is_less_random_z1],
-    [miri_no, panic_observable_is_less_random_d2],
-    [miri_no, panic_observable_is_less_random_d20],
-    [miri_no, panic_observable_is_less_random_s95],
-    [miri_no, panic_observable_is_less_ascending],
-    [miri_no, panic_observable_is_less_descending],
-    [miri_no, panic_observable_is_less_saw_mixed],
-    [miri_no, deterministic_i32_random],
-    [miri_yes, deterministic_i32_random_z1],
-    [miri_no, deterministic_i32_random_d2],
-    [miri_no, deterministic_i32_random_d20],
-    [miri_no, deterministic_i32_random_s95],
-    [miri_no, deterministic_i32_ascending],
-    [miri_no, deterministic_i32_descending],
-    [miri_no, deterministic_i32_saw_mixed],
-    [miri_no, deterministic_cell_i32_random],
-    [miri_yes, deterministic_cell_i32_random_z1],
-    [miri_no, deterministic_cell_i32_random_d2],
-    [miri_no, deterministic_cell_i32_random_d20],
-    [miri_no, deterministic_cell_i32_random_s95],
-    [miri_no, deterministic_cell_i32_ascending],
-    [miri_no, deterministic_cell_i32_descending],
-    [miri_no, deterministic_cell_i32_saw_mixed],
-    [miri_no, deterministic_string_random],
-    [miri_yes, deterministic_string_random_z1],
-    [miri_no, deterministic_string_random_d2],
-    [miri_no, deterministic_string_random_d20],
-    [miri_no, deterministic_string_random_s95],
-    [miri_no, deterministic_string_ascending],
-    [miri_no, deterministic_string_descending],
-    [miri_no, deterministic_string_saw_mixed],
-    [miri_no, self_cmp_i32_random],
-    [miri_yes, self_cmp_i32_random_z1],
-    [miri_no, self_cmp_i32_random_d2],
-    [miri_no, self_cmp_i32_random_d20],
-    [miri_no, self_cmp_i32_random_s95],
-    [miri_no, self_cmp_i32_ascending],
-    [miri_no, self_cmp_i32_descending],
-    [miri_no, self_cmp_i32_saw_mixed],
-    [miri_no, self_cmp_cell_i32_random],
-    [miri_yes, self_cmp_cell_i32_random_z1],
-    [miri_no, self_cmp_cell_i32_random_d2],
-    [miri_no, self_cmp_cell_i32_random_d20],
-    [miri_no, self_cmp_cell_i32_random_s95],
-    [miri_no, self_cmp_cell_i32_ascending],
-    [miri_no, self_cmp_cell_i32_descending],
-    [miri_no, self_cmp_cell_i32_saw_mixed],
-    [miri_no, self_cmp_string_random],
-    [miri_yes, self_cmp_string_random_z1],
-    [miri_no, self_cmp_string_random_d2],
-    [miri_no, self_cmp_string_random_d20],
-    [miri_no, self_cmp_string_random_s95],
-    [miri_no, self_cmp_string_ascending],
-    [miri_no, self_cmp_string_descending],
-    [miri_no, self_cmp_string_saw_mixed],
-    [miri_no, violate_ord_retain_orig_set_i32_random],
-    [miri_yes, violate_ord_retain_orig_set_i32_random_z1],
-    [miri_no, violate_ord_retain_orig_set_i32_random_d2],
-    [miri_no, violate_ord_retain_orig_set_i32_random_d20],
-    [miri_no, violate_ord_retain_orig_set_i32_random_s95],
-    [miri_no, violate_ord_retain_orig_set_i32_ascending],
-    [miri_no, violate_ord_retain_orig_set_i32_descending],
-    [miri_no, violate_ord_retain_orig_set_i32_saw_mixed],
-    [miri_no, violate_ord_retain_orig_set_cell_i32_random],
-    [miri_yes, violate_ord_retain_orig_set_cell_i32_random_z1],
-    [miri_no, violate_ord_retain_orig_set_cell_i32_random_d2],
-    [miri_no, violate_ord_retain_orig_set_cell_i32_random_d20],
-    [miri_no, violate_ord_retain_orig_set_cell_i32_random_s95],
-    [miri_no, violate_ord_retain_orig_set_cell_i32_ascending],
-    [miri_no, violate_ord_retain_orig_set_cell_i32_descending],
-    [miri_no, violate_ord_retain_orig_set_cell_i32_saw_mixed],
-    [miri_no, violate_ord_retain_orig_set_string_random],
-    [miri_yes, violate_ord_retain_orig_set_string_random_z1],
-    [miri_no, violate_ord_retain_orig_set_string_random_d2],
-    [miri_no, violate_ord_retain_orig_set_string_random_d20],
-    [miri_no, violate_ord_retain_orig_set_string_random_s95],
-    [miri_no, violate_ord_retain_orig_set_string_ascending],
-    [miri_no, violate_ord_retain_orig_set_string_descending],
-    [miri_no, violate_ord_retain_orig_set_string_saw_mixed],
+    [miri_yes, "test_sort_misc", panic_no, basic],
+    [miri_yes, "test_sort_misc", panic_no, fixed_seed],
+    [miri_yes, "test_sort_misc", panic_no, fixed_seed_rand_vec_prefix],
+    [miri_yes, "test_sort_misc", panic_no, int_edge],
+    [miri_yes, "test_sort_misc", panic_no, sort_vs_sort_by],
+    [miri_yes, "test_sort_misc", panic_no, box_value],
+    [miri_yes, "test_sort_i32", panic_no, correct_i32_random],
+    [miri_yes, "test_sort_i32", panic_no, correct_i32_random_z1],
+    [miri_yes, "test_sort_i32", panic_no, correct_i32_random_d2],
+    [miri_yes, "test_sort_i32", panic_no, correct_i32_random_d20],
+    [miri_yes, "test_sort_i32", panic_no, correct_i32_random_s95],
+    [miri_yes, "test_sort_i32", panic_no, correct_i32_ascending],
+    [miri_yes, "test_sort_i32", panic_no, correct_i32_descending],
+    [miri_yes, "test_sort_i32", panic_no, correct_i32_saw_mixed],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_random_d4],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_random_d8],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_random_d311],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_random_d1024],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_random_z1_03],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_random_z2],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_random_s50],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_narrow],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_all_equal],
+    [miri_no, "test_sort_i32", panic_no, correct_i32_saw_mixed_range],
+    [miri_yes, "test_sort_i32", panic_no, correct_i32_pipe_organ],
+    [miri_no, "test_sort_u64", panic_no, correct_u64_random],
+    [miri_yes, "test_sort_u64", panic_no, correct_u64_random_z1],
+    [miri_no, "test_sort_u64", panic_no, correct_u64_random_d2],
+    [miri_no, "test_sort_u64", panic_no, correct_u64_random_d20],
+    [miri_no, "test_sort_u64", panic_no, correct_u64_random_s95],
+    [miri_no, "test_sort_u64", panic_no, correct_u64_ascending],
+    [miri_no, "test_sort_u64", panic_no, correct_u64_descending],
+    [miri_no, "test_sort_u64", panic_no, correct_u64_saw_mixed],
+    [miri_no, "test_sort_u128", panic_no, correct_u128_random],
+    [miri_yes, "test_sort_u128", panic_no, correct_u128_random_z1],
+    [miri_no, "test_sort_u128", panic_no, correct_u128_random_d2],
+    [miri_no, "test_sort_u128", panic_no, correct_u128_random_d20],
+    [miri_no, "test_sort_u128", panic_no, correct_u128_random_s95],
+    [miri_no, "test_sort_u128", panic_no, correct_u128_ascending],
+    [miri_no, "test_sort_u128", panic_no, correct_u128_descending],
+    [miri_no, "test_sort_u128", panic_no, correct_u128_saw_mixed],
+    [miri_no, "test_sort_cell_i32", panic_no, correct_cell_i32_random],
+    [miri_yes, "test_sort_cell_i32", panic_no, correct_cell_i32_random_z1],
+    [miri_no, "test_sort_cell_i32", panic_no, correct_cell_i32_random_d2],
+    [miri_no, "test_sort_cell_i32", panic_no, correct_cell_i32_random_d20],
+    [miri_no, "test_sort_cell_i32", panic_no, correct_cell_i32_random_s95],
+    [miri_no, "test_sort_cell_i32", panic_no, correct_cell_i32_ascending],
+    [miri_no, "test_sort_cell_i32", panic_no, correct_cell_i32_descending],
+    [miri_no, "test_sort_cell_i32", panic_no, correct_cell_i32_saw_mixed],
+    [miri_no, "test_sort_string", panic_no, correct_string_random],
+    [miri_yes, "test_sort_string", panic_no, correct_string_random_z1],
+    [miri_no, "test_sort_string", panic_no, correct_string_random_d2],
+    [miri_no, "test_sort_string", panic_no, correct_string_random_d20],
+    [miri_no, "test_sort_string", panic_no, correct_string_random_s95],
+    [miri_no, "test_sort_string", panic_no, correct_string_ascending],
+    [miri_no, "test_sort_string", panic_no, correct_string_descending],
+    [miri_no, "test_sort_string", panic_no, correct_string_saw_mixed],
+    [miri_no, "test_sort_f128", panic_no, correct_f128_random],
+    [miri_yes, "test_sort_f128", panic_no, correct_f128_random_z1],
+    [miri_no, "test_sort_f128", panic_no, correct_f128_random_d2],
+    [miri_no, "test_sort_f128", panic_no, correct_f128_random_d20],
+    [miri_no, "test_sort_f128", panic_no, correct_f128_random_s95],
+    [miri_no, "test_sort_f128", panic_no, correct_f128_ascending],
+    [miri_no, "test_sort_f128", panic_no, correct_f128_descending],
+    [miri_no, "test_sort_f128", panic_no, correct_f128_saw_mixed],
+    [miri_no, "test_sort_1k", panic_no, correct_1k_random],
+    [miri_yes, "test_sort_1k", panic_no, correct_1k_random_z1],
+    [miri_no, "test_sort_1k", panic_no, correct_1k_random_d2],
+    [miri_no, "test_sort_1k", panic_no, correct_1k_random_d20],
+    [miri_no, "test_sort_1k", panic_no, correct_1k_random_s95],
+    [miri_no, "test_sort_1k", panic_no, correct_1k_ascending],
+    [miri_no, "test_sort_1k", panic_no, correct_1k_descending],
+    [miri_no, "test_sort_1k", panic_no, correct_1k_saw_mixed],
+    [miri_no, "test_sort_dyn", panic_no, correct_dyn_val_random],
+    [miri_yes, "test_sort_dyn", panic_no, correct_dyn_val_random_z1],
+    [miri_no, "test_sort_dyn", panic_no, correct_dyn_val_random_d2],
+    [miri_no, "test_sort_dyn", panic_no, correct_dyn_val_random_d20],
+    [miri_no, "test_sort_dyn", panic_no, correct_dyn_val_random_s95],
+    [miri_no, "test_sort_dyn", panic_no, correct_dyn_val_ascending],
+    [miri_no, "test_sort_dyn", panic_no, correct_dyn_val_descending],
+    [miri_no, "test_sort_dyn", panic_no, correct_dyn_val_saw_mixed],
+    [miri_no, "test_sort_stability", panic_no, stability_legacy],
+    [miri_no, "test_sort_stability", panic_no, stability_i32_random],
+    [miri_yes, "test_sort_stability", panic_no, stability_i32_random_z1],
+    [miri_no, "test_sort_stability", panic_no, stability_i32_random_d2],
+    [miri_no, "test_sort_stability", panic_no, stability_i32_random_d20],
+    [miri_no, "test_sort_stability", panic_no, stability_i32_random_s95],
+    [miri_no, "test_sort_stability", panic_no, stability_i32_ascending],
+    [miri_no, "test_sort_stability", panic_no, stability_i32_descending],
+    [miri_no, "test_sort_stability", panic_no, stability_i32_saw_mixed],
+    [miri_no, "test_sort_stability", panic_no, stability_cell_i32_random],
+    [miri_yes, "test_sort_stability", panic_no, stability_cell_i32_random_z1],
+    [miri_no, "test_sort_stability", panic_no, stability_cell_i32_random_d2],
+    [miri_no, "test_sort_stability", panic_no, stability_cell_i32_random_d20],
+    [miri_no, "test_sort_stability", panic_no, stability_cell_i32_random_s95],
+    [miri_no, "test_sort_stability", panic_no, stability_cell_i32_ascending],
+    [miri_no, "test_sort_stability", panic_no, stability_cell_i32_descending],
+    [miri_no, "test_sort_stability", panic_no, stability_cell_i32_saw_mixed],
+    [miri_no, "test_sort_stability", panic_no, stability_string_random],
+    [miri_yes, "test_sort_stability", panic_no, stability_string_random_z1],
+    [miri_no, "test_sort_stability", panic_no, stability_string_random_d2],
+    [miri_no, "test_sort_stability", panic_no, stability_string_random_d20],
+    [miri_no, "test_sort_stability", panic_no, stability_string_random_s95],
+    [miri_no, "test_sort_stability", panic_no, stability_string_ascending],
+    [miri_no, "test_sort_stability", panic_no, stability_string_descending],
+    [miri_no, "test_sort_stability", panic_no, stability_string_saw_mixed],
+    [miri_no, "test_sort_observable", panic_no, observable_is_less_random],
+    [miri_yes, "test_sort_observable", panic_no, observable_is_less_random_z1],
+    [miri_no, "test_sort_observable", panic_no, observable_is_less_random_d2],
+    [miri_no, "test_sort_observable", panic_no, observable_is_less_random_d20],
+    [miri_no, "test_sort_observable", panic_no, observable_is_less_random_s95],
+    [miri_no, "test_sort_observable", panic_no, observable_is_less_ascending],
+    [miri_no, "test_sort_observable", panic_no, observable_is_less_descending],
+    [miri_no, "test_sort_observable", panic_no, observable_is_less_saw_mixed],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_i32_random],
+    [miri_yes, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_i32_random_z1],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_i32_random_d2],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_i32_random_d20],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_i32_random_s95],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_i32_ascending],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_i32_descending],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_i32_saw_mixed],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_cell_i32_random],
+    [miri_yes, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_cell_i32_random_z1],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_cell_i32_random_d2],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_cell_i32_random_d20],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_cell_i32_random_s95],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_cell_i32_ascending],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_cell_i32_descending],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_cell_i32_saw_mixed],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_string_random],
+    [miri_yes, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_string_random_z1],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_string_random_d2],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_string_random_d20],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_string_random_s95],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_string_ascending],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_string_descending],
+    [miri_no, "test_sort_panic_retain", panic_yes, panic_retain_orig_set_string_saw_mixed],
+    [miri_no, "test_sort_panic_observable", panic_yes, panic_observable_is_less_random],
+    [miri_yes, "test_sort_panic_observable", panic_yes, panic_observable_is_less_random_z1],
+    [miri_no, "test_sort_panic_observable", panic_yes, panic_observable_is_less_random_d2],
+    [miri_no, "test_sort_panic_observable", panic_yes, panic_observable_is_less_random_d20],
+    [miri_no, "test_sort_panic_observable", panic_yes, panic_observable_is_less_random_s95],
+    [miri_no, "test_sort_panic_observable", panic_yes, panic_observable_is_less_ascending],
+    [miri_no, "test_sort_panic_observable", panic_yes, panic_observable_is_less_descending],
+    [miri_no, "test_sort_panic_observable", panic_yes, panic_observable_is_less_saw_mixed],
+    [miri_no, "test_sort_det", panic_no, deterministic_i32_random],
+    [miri_yes, "test_sort_det", panic_no, deterministic_i32_random_z1],
+    [miri_no, "test_sort_det", panic_no, deterministic_i32_random_d2],
+    [miri_no, "test_sort_det", panic_no, deterministic_i32_random_d20],
+    [miri_no, "test_sort_det", panic_no, deterministic_i32_random_s95],
+    [miri_no, "test_sort_det", panic_no, deterministic_i32_ascending],
+    [miri_no, "test_sort_det", panic_no, deterministic_i32_descending],
+    [miri_no, "test_sort_det", panic_no, deterministic_i32_saw_mixed],
+    [miri_no, "test_sort_det", panic_no, deterministic_cell_i32_random],
+    [miri_yes, "test_sort_det", panic_no, deterministic_cell_i32_random_z1],
+    [miri_no, "test_sort_det", panic_no, deterministic_cell_i32_random_d2],
+    [miri_no, "test_sort_det", panic_no, deterministic_cell_i32_random_d20],
+    [miri_no, "test_sort_det", panic_no, deterministic_cell_i32_random_s95],
+    [miri_no, "test_sort_det", panic_no, deterministic_cell_i32_ascending],
+    [miri_no, "test_sort_det", panic_no, deterministic_cell_i32_descending],
+    [miri_no, "test_sort_det", panic_no, deterministic_cell_i32_saw_mixed],
+    [miri_no, "test_sort_det", panic_no, deterministic_string_random],
+    [miri_yes, "test_sort_det", panic_no, deterministic_string_random_z1],
+    [miri_no, "test_sort_det", panic_no, deterministic_string_random_d2],
+    [miri_no, "test_sort_det", panic_no, deterministic_string_random_d20],
+    [miri_no, "test_sort_det", panic_no, deterministic_string_random_s95],
+    [miri_no, "test_sort_det", panic_no, deterministic_string_ascending],
+    [miri_no, "test_sort_det", panic_no, deterministic_string_descending],
+    [miri_no, "test_sort_det", panic_no, deterministic_string_saw_mixed],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_i32_random],
+    [miri_yes, "test_sort_cmp", panic_no, self_cmp_i32_random_z1],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_i32_random_d2],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_i32_random_d20],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_i32_random_s95],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_i32_ascending],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_i32_descending],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_i32_saw_mixed],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_cell_i32_random],
+    [miri_yes, "test_sort_cmp", panic_no, self_cmp_cell_i32_random_z1],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_cell_i32_random_d2],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_cell_i32_random_d20],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_cell_i32_random_s95],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_cell_i32_ascending],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_cell_i32_descending],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_cell_i32_saw_mixed],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_string_random],
+    [miri_yes, "test_sort_cmp", panic_no, self_cmp_string_random_z1],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_string_random_d2],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_string_random_d20],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_string_random_s95],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_string_ascending],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_string_descending],
+    [miri_no, "test_sort_cmp", panic_no, self_cmp_string_saw_mixed],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random],
+    [miri_yes, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random_z1],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random_d2],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random_d20],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_random_s95],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_ascending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_descending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_i32_saw_mixed],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random],
+    [miri_yes, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random_z1],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random_d2],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random_d20],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_random_s95],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_ascending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_descending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_cell_i32_saw_mixed],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random],
+    [miri_yes, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random_z1],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random_d2],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random_d20],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_random_s95],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_ascending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_descending],
+    [miri_no, "test_sort_ord", panic_yes, violate_ord_retain_orig_set_string_saw_mixed],
 );
 
 macro_rules! instantiate_sort_tests {
