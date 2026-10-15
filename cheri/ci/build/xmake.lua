@@ -3,7 +3,7 @@ includes("cheriot-rtos/sdk")
 set_toolchains("cheriot-clang")
 
 option("board")
-    set_default("sail")
+    set_default("board.json")
 
 option("needs-softfloat")
     set_default(false)
