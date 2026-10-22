@@ -1,7 +1,8 @@
+use rustc_attr_ir::find_attr;
 use rustc_hir::def::Res;
-use rustc_hir::{self as hir, AmbigArg, GenericArg, PathSegment, QPath, TyKind, find_attr};
+use rustc_hir::{self as hir, AmbigArg, GenericArg, PathSegment, QPath, TyKind};
+use rustc_lint_defs::{declare_lint_pass, declare_tool_lint};
 use rustc_middle::ty;
-use rustc_session::{declare_lint_pass, declare_tool_lint};
 
 use crate::diagnostics::DisallowedPassByRefDiag;
 use crate::{LateContext, LateLintPass, LintContext};

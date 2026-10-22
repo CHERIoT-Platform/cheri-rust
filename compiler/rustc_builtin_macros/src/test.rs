@@ -3,7 +3,7 @@
 
 use std::{assert_matches, iter};
 
-use rustc_ast::{self as ast, GenericParamKind, attr, join_path_idents};
+use rustc_ast::{self as ast, GenericParamKind, Mutability, Safety, attr, join_path_idents};
 use rustc_ast_pretty::pprust;
 use rustc_attr_ir::{Attribute, AttributeKind};
 use rustc_attr_parsing::AttributeParser;
@@ -23,9 +23,6 @@ use crate::util::{check_builtin_macro_attribute, warn_on_duplicate_attribute};
 ///
 /// We mark item with an inert attribute "rustc_test_marker" which the test generation
 /// logic will pick up on.
-///
-/// The test function also gains a `#[rustc_test_entrypoint_marker]` attribute for tools to pick up
-/// on. This behavior is *unstable*.
 pub(crate) fn expand_test_case(
     ecx: &mut ExtCtxt<'_>,
     attr_sp: Span,
@@ -264,7 +261,7 @@ pub(crate) fn expand_test_or_bench(
         &fn_.ident,
     ));
 
-    let location_info = get_location_info(cx, &fn_);
+    let location_info = get_location_info(cx, fn_);
 
     let mut test_const =
         cx.item(
@@ -277,17 +274,21 @@ pub(crate) fn expand_test_or_bench(
                 // #[doc(hidden)]
                 cx.attr_nested_word(sym::doc, sym::hidden, attr_sp),
             ],
-            // const $ident: test::TestDescAndFn =
-            ast::ItemKind::Const(
-                ast::ConstItem {
-                    defaultness: ast::Defaultness::Implicit,
+            // static $ident: test::TestDescAndFn =
+            // We use a static because these things only exist to have references taken
+            // to them for the test case array. No reason to introduce tons of promoteds for that.
+            // Promoteds have the advantage that they can be merged to save space, but every one
+            // of these points to a different function so that will not happen.
+            ast::ItemKind::Static(
+                ast::StaticItem {
                     ident: Ident::new(fn_.ident.name, sp),
-                    generics: ast::Generics::default(),
                     ty: cx.ty(sp, ast::TyKind::Path(None, test_path("TestDescAndFn"))),
+                    safety: Safety::Default,
+                    mutability: Mutability::Not,
                     define_opaque: None,
-                    kind: ast::ConstItemKind::Body,
+                    eii_impl: None,
                     // test::TestDescAndFn {
-                    body: Some(
+                    expr: Some(
                         cx.expr_struct(
                             sp,
                             test_path("TestDescAndFn"),
@@ -380,12 +381,6 @@ pub(crate) fn expand_test_or_bench(
     let test_extern =
         cx.item(sp, ast::AttrVec::new(), ast::ItemKind::ExternCrate(None, test_ident));
 
-    let item = {
-        let mut item = item;
-        item.attrs.push(cx.attr_word(sym::rustc_test_entrypoint_marker, attr_sp));
-        item
-    };
-
     debug!("synthetic test item:\n{}\n", pprust::item_to_string(&test_const));
 
     if is_stmt {
@@ -416,10 +411,10 @@ fn not_testable_error(cx: &ExtCtxt<'_>, is_bench: bool, attr_sp: Span, item: Opt
     let level = match item.map(|i| &i.kind) {
         // These were a warning before #92959 and need to continue being that to avoid breaking
         // stable user code (#94508).
-        Some(ast::ItemKind::MacCall(_)) => Level::Warning,
+        Some(ast::ItemKind::MacCall(_)) => Level::Warning(None),
         _ => Level::Error,
     };
-    let mut err = Diag::<()>::new(dcx, level, msg);
+    let mut err = Diag::new(dcx, level, msg);
     err.span(attr_sp);
     if let Some(item) = item {
         err.span_label(
@@ -537,30 +532,12 @@ fn check_test_signature(
         }));
     }
 
-    if let Some(coroutine_kind) = f.sig.header.coroutine_kind {
-        match coroutine_kind {
-            ast::CoroutineKind::Async { span, .. } => {
-                return Err(dcx.emit_err(diagnostics::TestBadFn {
-                    span: i.span,
-                    cause: span,
-                    kind: "async",
-                }));
-            }
-            ast::CoroutineKind::Gen { span, .. } => {
-                return Err(dcx.emit_err(diagnostics::TestBadFn {
-                    span: i.span,
-                    cause: span,
-                    kind: "gen",
-                }));
-            }
-            ast::CoroutineKind::AsyncGen { span, .. } => {
-                return Err(dcx.emit_err(diagnostics::TestBadFn {
-                    span: i.span,
-                    cause: span,
-                    kind: "async gen",
-                }));
-            }
-        }
+    if let Some(coroutine_marker) = f.sig.header.coroutine_marker {
+        return Err(dcx.emit_err(diagnostics::TestBadFn {
+            span: i.span,
+            cause: coroutine_marker.span,
+            kind: coroutine_marker.kind.as_str(),
+        }));
     }
 
     // If the termination trait is active, the compiler will check that the output

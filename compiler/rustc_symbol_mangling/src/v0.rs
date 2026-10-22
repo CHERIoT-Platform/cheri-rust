@@ -14,14 +14,14 @@ use rustc_hir as hir;
 use rustc_hir::def::CtorKind;
 use rustc_hir::def_id::{CrateNum, DefId};
 use rustc_hir::definitions::{DefPathData, DisambiguatedDefPathData};
-use rustc_middle::bug;
+use rustc_middle::ty::consts::ConstExt;
 use rustc_middle::ty::layout::IntegerExt;
 use rustc_middle::ty::print::{Print, PrintError, Printer};
 use rustc_middle::ty::{
     self, FloatTy, GenericArg, GenericArgKind, Instance, IntTy, ReifyReason, Ty, TyCtxt,
     TypeVisitable, TypeVisitableExt, UintTy, Unnormalized,
 };
-use rustc_span::sym;
+use rustc_span::{bug, sym};
 
 pub(super) fn mangle<'tcx>(
     tcx: TyCtxt<'tcx>,
@@ -749,7 +749,8 @@ impl<'tcx> Printer<'tcx> for V0SymbolMangler<'tcx> {
             // logic sometimes passing identity-substituted impl headers.
             ty::ConstKind::Alias(_, ty::AliasConst { kind, args, .. }) => match kind {
                 ty::AliasConstKind::Projection { def_id }
-                | ty::AliasConstKind::Inherent { def_id }
+                | ty::AliasConstKind::InherentSelf { def_id }
+                | ty::AliasConstKind::InherentImpl { def_id }
                 | ty::AliasConstKind::Free { def_id }
                 | ty::AliasConstKind::Anon { def_id } => {
                     return self.print_def_path(def_id, args);
@@ -971,7 +972,8 @@ impl<'tcx> Printer<'tcx> for V0SymbolMangler<'tcx> {
             | DefPathData::MacroNs(_)
             | DefPathData::LifetimeNs(_)
             | DefPathData::OpaqueLifetime(_)
-            | DefPathData::AnonAssocTy(..) => {
+            | DefPathData::AnonAssocTy(..)
+            | DefPathData::TestBinderConstraints => {
                 bug!("symbol_names: unexpected DefPathData: {:?}", disambiguated_data.data)
             }
         };

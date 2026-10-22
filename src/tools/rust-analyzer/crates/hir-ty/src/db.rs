@@ -1,6 +1,8 @@
 //! The home of `HirDatabase`, which is the Salsa database containing all the
 //! type inference-related queries.
 
+use std::sync::LazyLock;
+
 use arrayvec::ArrayVec;
 use base_db::{Crate, SourceDatabase, target::TargetLoadError};
 use either::Either;
@@ -23,7 +25,7 @@ use triomphe::Arc;
 
 use crate::{
     FieldType, GenericDefaultsRef, GenericPredicates, ImplTraitId, InferBodyId, TyDefId,
-    TyLoweringResult, ValueTyDefId,
+    TyLoweringDiagnostic, TyLoweringResult, ValueTyDefId,
     consteval::ConstEvalError,
     dyn_compatibility::DynCompatibilityViolation,
     layout::{Layout, LayoutError},
@@ -160,6 +162,13 @@ pub trait HirDatabase: SourceDatabase + 'static {
     fn target_data_layout(&self, krate: Crate) -> Result<&TargetDataLayout, TargetLoadError> {
         let db = self.as_dyn();
         crate::layout::target_data_layout_query(db, krate).map_err(|err| err.clone())
+    }
+
+    fn target_data_layout_or_default(&self, krate: Crate) -> &TargetDataLayout {
+        static DEFAULT: LazyLock<TargetDataLayout> = LazyLock::new(TargetDataLayout::default);
+
+        let db = self.as_dyn();
+        crate::layout::target_data_layout_query(db, krate).unwrap_or_else(|_| &*DEFAULT)
     }
 
     fn dyn_compatibility_of_trait(&self, trait_: TraitId) -> Option<DynCompatibilityViolation> {
@@ -497,42 +506,53 @@ impl HasResolver for AnonConstId<'_> {
     }
 }
 
+pub fn signature_anon_consts_and_diagnostics<'db>(
+    db: &'db dyn HirDatabase,
+    def: GenericDefId,
+) -> ArrayVec<(&'db [AnonConstId<'db>], &'db [TyLoweringDiagnostic]), 5> {
+    let mut result = ArrayVec::new();
+
+    // Queries common to all generic defs:
+    push(&mut result, db.generic_defaults_with_diagnostics(def));
+    push(&mut result, GenericPredicates::query_with_diagnostics(db, def));
+    push(&mut result, db.const_param_types_with_diagnostics(def));
+
+    match def {
+        GenericDefId::ImplId(id) => {
+            push(&mut result, db.impl_self_ty_with_diagnostics(id));
+            if let Some(trait_ref) = db.impl_trait_with_diagnostics(id) {
+                push(&mut result, trait_ref);
+            }
+        }
+        GenericDefId::TypeAliasId(id) => {
+            push(&mut result, db.type_for_type_alias_with_diagnostics(id));
+            push(&mut result, db.type_alias_bounds_with_diagnostics(id));
+        }
+        GenericDefId::FunctionId(id) => push(&mut result, db.fn_sig_for_fn_with_diagnostics(id)),
+        GenericDefId::ConstId(def) => push(&mut result, db.type_for_const_with_diagnostics(def)),
+        GenericDefId::StaticId(def) => push(&mut result, db.type_for_static_with_diagnostics(def)),
+        GenericDefId::TraitId(_) | GenericDefId::AdtId(_) => {}
+    }
+
+    return result;
+
+    fn push<'db, T>(
+        result: &mut ArrayVec<(&'db [AnonConstId<'db>], &'db [TyLoweringDiagnostic]), 5>,
+        item: &'db TyLoweringResult<'db, T>,
+    ) {
+        result.push((item.defined_anon_consts(), item.diagnostics()));
+    }
+}
+
 impl<'db> AnonConstId<'db> {
     pub fn all_from_signature(
         db: &'db dyn HirDatabase,
         def: GenericDefId,
-    ) -> ArrayVec<&'db [Self], 5> {
-        let mut result = ArrayVec::new();
-
-        // Queries common to all generic defs:
-        result.push(db.generic_defaults_with_diagnostics(def).defined_anon_consts());
-        result.push(GenericPredicates::query_with_diagnostics(db, def).defined_anon_consts());
-        result.push(db.const_param_types_with_diagnostics(def).defined_anon_consts());
-
-        match def {
-            GenericDefId::ImplId(id) => {
-                result.push(db.impl_self_ty_with_diagnostics(id).defined_anon_consts());
-                if let Some(trait_ref) = db.impl_trait_with_diagnostics(id) {
-                    result.push(trait_ref.defined_anon_consts());
-                }
-            }
-            GenericDefId::TypeAliasId(id) => {
-                result.push(db.type_for_type_alias_with_diagnostics(id).defined_anon_consts());
-                result.push(db.type_alias_bounds_with_diagnostics(id).defined_anon_consts());
-            }
-            GenericDefId::FunctionId(id) => {
-                result.push(db.fn_sig_for_fn_with_diagnostics(id).defined_anon_consts())
-            }
-            GenericDefId::ConstId(def) => {
-                result.push(db.type_for_const_with_diagnostics(def).defined_anon_consts())
-            }
-            GenericDefId::StaticId(def) => {
-                result.push(db.type_for_static_with_diagnostics(def).defined_anon_consts())
-            }
-            GenericDefId::TraitId(_) | GenericDefId::AdtId(_) => {}
-        }
-
-        result
+    ) -> impl Iterator<Item = AnonConstId<'db>> {
+        signature_anon_consts_and_diagnostics(db, def)
+            .into_iter()
+            .flat_map(|(anon_consts, _)| anon_consts)
+            .copied()
     }
 }
 

@@ -3,8 +3,7 @@ use std::num::IntErrorKind;
 use rustc_attr_ir::{AttrPath, MirDialect, MirPhase};
 use rustc_errors::codes::*;
 use rustc_errors::{
-    Applicability, Diag, DiagArgValue, DiagCtxtHandle, Diagnostic, E0264, EmissionGuarantee, Level,
-    MultiSpan,
+    Applicability, Diag, DiagArgValue, DiagCtxtHandle, Diagnostic, E0264, Level, MultiSpan,
 };
 use rustc_macros::{Diagnostic, Subdiagnostic};
 use rustc_span::{Ident, Span, Symbol};
@@ -1166,6 +1165,15 @@ pub(crate) struct RustcAllowedUnstablePairing {
 }
 
 #[derive(Diagnostic)]
+#[diag(
+    "`rustc_allowed_through_unstable_modules` attribute must have `message` and `module` params"
+)]
+pub(crate) struct RustcAtumMissingParams {
+    #[primary_span]
+    pub span: Span,
+}
+
+#[derive(Diagnostic)]
 #[diag("suggestions on deprecated items are unstable")]
 pub(crate) struct DeprecatedItemSuggestion {
     #[primary_span]
@@ -1176,6 +1184,26 @@ pub(crate) struct DeprecatedItemSuggestion {
 
     #[note("see #94785 for more details")]
     pub details: (),
+}
+
+#[derive(Diagnostic)]
+#[diag("this `#[deprecated]` annotation has no effect")]
+pub(crate) struct DeprecatedAnnotationHasNoEffect {
+    #[suggestion(
+        "remove the unnecessary deprecation attribute",
+        applicability = "machine-applicable",
+        code = ""
+    )]
+    pub span: Span,
+}
+
+#[derive(Diagnostic)]
+#[diag("`#[non_exhaustive]` can't be used to annotate items with default field values")]
+pub(crate) struct NonExhaustiveWithDefaultFieldValues {
+    #[primary_span]
+    pub attr_span: Span,
+    #[label("this struct has default field values")]
+    pub defn_span: Span,
 }
 
 #[derive(Diagnostic)]
@@ -1477,14 +1505,12 @@ pub(crate) enum AttributeParseErrorSuggestions {
 }
 
 impl<'a> AttributeParseError<'a> {
-    fn render_expected_specific_argument<G>(
+    fn render_expected_specific_argument(
         &self,
-        diag: &mut Diag<'_, G>,
+        diag: &mut Diag<'_>,
         possibilities: &[Symbol],
         strings: bool,
-    ) where
-        G: EmissionGuarantee,
-    {
+    ) {
         let quote = if strings { '"' } else { '`' };
         match possibilities {
             &[] => {}
@@ -1512,14 +1538,12 @@ impl<'a> AttributeParseError<'a> {
         }
     }
 
-    fn render_expected_specific_argument_list<G>(
+    fn render_expected_specific_argument_list(
         &self,
-        diag: &mut Diag<'_, G>,
+        diag: &mut Diag<'_>,
         possibilities: &[Symbol],
         strings: bool,
-    ) where
-        G: EmissionGuarantee,
-    {
+    ) {
         let description = self.description();
 
         let quote = if strings { '"' } else { '`' };
@@ -1548,10 +1572,7 @@ impl<'a> AttributeParseError<'a> {
         }
     }
 
-    fn render_suggestions<G>(&self, diag: &mut Diag<'_, G>)
-    where
-        G: EmissionGuarantee,
-    {
+    fn render_suggestions(&self, diag: &mut Diag<'_>) {
         let description = self.description();
 
         match &self.suggestions {
@@ -1600,8 +1621,8 @@ impl AttributeParseErrorSuggestions {
     }
 }
 
-impl<'a, G: EmissionGuarantee> Diagnostic<'a, G> for AttributeParseError<'_> {
-    fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, G> {
+impl<'a> Diagnostic<'a> for AttributeParseError<'_> {
+    fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a> {
         let name = self.path.to_string();
 
         let description = self.description();
@@ -1612,7 +1633,7 @@ impl<'a, G: EmissionGuarantee> Diagnostic<'a, G> for AttributeParseError<'_> {
         match &self.reason {
             AttributeParseErrorReason::ExpectedStringLiteral { byte_string } => {
                 if let Some(start_point_span) = byte_string {
-                    diag.span_suggestion(
+                    diag.span_suggestion_short(
                         *start_point_span,
                         "consider removing the prefix",
                         "",

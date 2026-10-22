@@ -1,9 +1,10 @@
 //! Conversion of internal Rust compiler `ty` items to stable ones.
 
 use rustc_middle::ty::Ty;
-use rustc_middle::{bug, mir, ty};
+use rustc_middle::{mir, ty};
 use rustc_public_bridge::Tables;
 use rustc_public_bridge::context::CompilerCtxt;
+use rustc_span::bug;
 
 use crate::alloc;
 use crate::compiler_interface::BridgeTys;
@@ -60,7 +61,8 @@ impl<'tcx> Stable<'tcx> for ty::AliasTerm<'tcx> {
             | ty::AliasTermKind::AnonConst { def_id }
             | ty::AliasTermKind::ProjectionConst { def_id }
             | ty::AliasTermKind::FreeConst { def_id }
-            | ty::AliasTermKind::InherentConst { def_id } => def_id,
+            | ty::AliasTermKind::InherentConstSelf { def_id }
+            | ty::AliasTermKind::InherentConstImpl { def_id } => def_id,
         };
         crate::ty::AliasTerm { def_id: tables.alias_def(def_id), args: args.stable(tables, cx) }
     }
@@ -555,9 +557,13 @@ impl<'tcx> Stable<'tcx> for ty::Const<'tcx> {
             }
             ty::ConstKind::Param(param) => crate::ty::TyConstKind::Param(param.stable(tables, cx)),
             ty::ConstKind::Alias(_, alias_const) => {
-                let Some(def_id) = alias_const.kind.opt_def_id() else {
-                    // FIXME: implement (both AliasTy and AliasConst will be needing this soon)
-                    panic!("non-defid alias consts are not supported by rustc_public at the moment")
+                // rustc_public must change its API once we introduce a variant without a def_id.
+                let def_id = match alias_const.kind {
+                    ty::AliasConstKind::Projection { def_id }
+                    | ty::AliasConstKind::InherentSelf { def_id }
+                    | ty::AliasConstKind::InherentImpl { def_id }
+                    | ty::AliasConstKind::Free { def_id }
+                    | ty::AliasConstKind::Anon { def_id } => def_id,
                 };
                 crate::ty::TyConstKind::Unevaluated(
                     tables.const_def(def_id),
@@ -840,16 +846,16 @@ impl<'tcx> Stable<'tcx> for ty::CoercePredicate<'tcx> {
     }
 }
 
-impl<'tcx> Stable<'tcx> for ty::TraitPredicate<'tcx> {
-    type T = crate::ty::TraitPredicate;
+impl<'tcx> Stable<'tcx> for ty::TraitClause<'tcx> {
+    type T = crate::ty::TraitClause;
 
     fn stable<'cx>(
         &self,
         tables: &mut Tables<'cx, BridgeTys>,
         cx: &CompilerCtxt<'cx, BridgeTys>,
     ) -> Self::T {
-        let ty::TraitPredicate { trait_ref, polarity } = self;
-        crate::ty::TraitPredicate {
+        let ty::TraitClause { trait_ref, polarity } = self;
+        crate::ty::TraitClause {
             trait_ref: trait_ref.stable(tables, cx),
             polarity: polarity.stable(tables, cx),
         }
@@ -872,16 +878,16 @@ where
     }
 }
 
-impl<'tcx> Stable<'tcx> for ty::ProjectionPredicate<'tcx> {
-    type T = crate::ty::ProjectionPredicate;
+impl<'tcx> Stable<'tcx> for ty::ProjectionClause<'tcx> {
+    type T = crate::ty::ProjectionClause;
 
     fn stable<'cx>(
         &self,
         tables: &mut Tables<'cx, BridgeTys>,
         cx: &CompilerCtxt<'cx, BridgeTys>,
     ) -> Self::T {
-        let ty::ProjectionPredicate { projection_term, term } = self;
-        crate::ty::ProjectionPredicate {
+        let ty::ProjectionClause { projection_term, term } = self;
+        crate::ty::ProjectionClause {
             projection_term: projection_term.stable(tables, cx),
             term: term.kind().stable(tables, cx),
         }
@@ -896,19 +902,18 @@ impl<'tcx> Stable<'tcx> for ty::ImplPolarity {
         match self {
             Positive => crate::ty::ImplPolarity::Positive,
             Negative => crate::ty::ImplPolarity::Negative,
-            Reservation => crate::ty::ImplPolarity::Reservation,
         }
     }
 }
 
-impl<'tcx> Stable<'tcx> for ty::PredicatePolarity {
-    type T = crate::ty::PredicatePolarity;
+impl<'tcx> Stable<'tcx> for ty::ClausePolarity {
+    type T = crate::ty::ClausePolarity;
 
     fn stable(&self, _: &mut Tables<'_, BridgeTys>, _: &CompilerCtxt<'_, BridgeTys>) -> Self::T {
-        use rustc_middle::ty::PredicatePolarity::*;
+        use rustc_middle::ty::ClausePolarity::*;
         match self {
-            Positive => crate::ty::PredicatePolarity::Positive,
-            Negative => crate::ty::PredicatePolarity::Negative,
+            Positive => crate::ty::ClausePolarity::Positive,
+            Negative => crate::ty::ClausePolarity::Negative,
         }
     }
 }
@@ -1037,7 +1042,7 @@ impl<'tcx> Stable<'tcx> for rustc_abi::ExternAbi {
             ExternAbi::CHERIoTLibraryCall => Abi::CHERIoTLibraryCall,
             ExternAbi::System { unwind } => Abi::System { unwind },
             ExternAbi::RustCall => Abi::RustCall,
-            ExternAbi::Unadjusted => Abi::Unadjusted,
+            ExternAbi::LlvmIntrinsic => Abi::LlvmIntrinsic,
             ExternAbi::RustCold => Abi::RustCold,
             ExternAbi::RustPreserveNone => Abi::RustPreserveNone,
             ExternAbi::RustTail => Abi::RustTail,

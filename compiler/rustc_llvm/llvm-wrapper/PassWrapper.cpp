@@ -66,10 +66,8 @@ using namespace llvm;
 
 static codegen::RegisterCodeGenFlags CGF;
 
-typedef struct LLVMOpaquePass *LLVMPassRef;
 typedef struct LLVMOpaqueTargetMachine *LLVMTargetMachineRef;
 
-DEFINE_STDCXX_CONVERSION_FUNCTIONS(Pass, LLVMPassRef)
 DEFINE_STDCXX_CONVERSION_FUNCTIONS(TargetMachine, LLVMTargetMachineRef)
 
 extern "C" void LLVMRustTimeTraceProfilerInitialize() {
@@ -91,15 +89,32 @@ extern "C" void LLVMRustTimeTraceProfilerFinish(const char *FileName) {
   timeTraceProfilerCleanup();
 }
 
-extern "C" bool LLVMRustHasFeature(LLVMTargetMachineRef TM,
-                                   const char *Feature) {
-  TargetMachine *Target = unwrap(TM);
-#if LLVM_VERSION_GE(23, 0)
-  const MCSubtargetInfo &MCInfo = Target->getMCSubtargetInfo();
+extern "C" MCSubtargetInfo *
+LLVMRustCreateMCSubtargetInfo(const char *TripleStr, const char *CPU,
+                              const char *Features) {
+  std::string Error;
+  auto Trip = Triple(Triple::normalize(TripleStr));
+  const llvm::Target *TheTarget = TargetRegistry::lookupTarget(Trip, Error);
+  if (TheTarget == nullptr) {
+    LLVMRustSetLastError(Error.c_str());
+    return nullptr;
+  }
+
+#if LLVM_VERSION_GE(22, 0)
+  return TheTarget->createMCSubtargetInfo(Trip, CPU, Features);
 #else
-  const MCSubtargetInfo &MCInfo = *Target->getMCSubtargetInfo();
+  return TheTarget->createMCSubtargetInfo(Trip.str(), CPU, Features);
 #endif
-  return MCInfo.checkFeatures(std::string("+") + Feature);
+}
+
+extern "C" bool LLVMRustMCSubtargetInfoCheckFeatures(MCSubtargetInfo *MCInfo,
+                                                     const char *Features,
+                                                     size_t FeaturesLen) {
+  return MCInfo->checkFeatures(StringRef{Features, FeaturesLen});
+}
+
+extern "C" void LLVMRustDisposeMCSubtargetInfo(MCSubtargetInfo *MCInfo) {
+  delete MCInfo;
 }
 
 /// Check whether the target has a specific assembly mnemonic like `ret` or
@@ -365,7 +380,9 @@ extern "C" LLVMTargetMachineRef LLVMRustCreateTargetMachine(
 
   TargetOptions Options = codegen::InitTargetOptionsFromCodeGenFlags(Trip);
 
+#if LLVM_VERSION_LT(24, 0)
   Options.FloatABIType = FloatABIType;
+#endif
   Options.DataSections = DataSections;
   Options.FunctionSections = FunctionSections;
   Options.UniqueSectionNames = UniqueSectionNames;
@@ -409,9 +426,11 @@ extern "C" LLVMTargetMachineRef LLVMRustCreateTargetMachine(
     }
   }
 
+#if LLVM_VERSION_LT(24, 0)
   if (Singlethread) {
     Options.ThreadModel = ThreadModel::Single;
   }
+#endif
 
   if (UseWasmEH)
     Options.ExceptionModel = ExceptionHandling::Wasm;
@@ -439,7 +458,13 @@ extern "C" void LLVMRustAddLibraryInfo(LLVMTargetMachineRef T,
   if (DisableSimplifyLibCalls)
     TLII.disableAllFunctions();
   unwrap(PMR)->add(new TargetLibraryInfoWrapperPass(TLII));
-#if LLVM_VERSION_GE(22, 0)
+#if LLVM_VERSION_GE(24, 0)
+  // LLVM 24 removed TargetOptions::EABIVersion and ExceptionModel; the EABI
+  // version and exception model are now derived from the target triple and
+  // module flags respectively instead.
+  unwrap(PMR)->add(new RuntimeLibraryInfoWrapper(Options->MCOptions.ABIName,
+                                                 Options->VecLib));
+#elif LLVM_VERSION_GE(22, 0)
   unwrap(PMR)->add(new RuntimeLibraryInfoWrapper(
       TargetTriple, Options->ExceptionModel, Options->FloatABIType,
       Options->EABIVersion, Options->MCOptions.ABIName, Options->VecLib));
@@ -523,6 +548,17 @@ extern "C" typedef void (*LLVMRustSelfProfileBeforePassCallback)(
 extern "C" typedef void (*LLVMRustSelfProfileAfterPassCallback)(
     void *); // LlvmSelfProfiler
 
+#if LLVM_VERSION_GE(24, 0)
+std::string LLVMRustwrappedIrGetName(const llvm::IRUnitRef &WrappedIr) {
+  if (const auto *Cast = dyn_cast<Module>(WrappedIr))
+    return Cast->getName().str();
+  if (const auto *Cast = dyn_cast<Function>(WrappedIr))
+    return Cast->getName().str();
+  if (const auto *Cast = dyn_cast<Loop>(WrappedIr))
+    return Cast->getName().str();
+  if (const auto *Cast = dyn_cast<LazyCallGraph::SCC>(WrappedIr))
+    return Cast->getName();
+#else
 std::string LLVMRustwrappedIrGetName(const llvm::Any &WrappedIr) {
   if (const auto *Cast = any_cast<const Module *>(&WrappedIr))
     return (*Cast)->getName().str();
@@ -532,6 +568,7 @@ std::string LLVMRustwrappedIrGetName(const llvm::Any &WrappedIr) {
     return (*Cast)->getName().str();
   if (const auto *Cast = any_cast<const LazyCallGraph::SCC *>(&WrappedIr))
     return (*Cast)->getName();
+#endif
   return "<UNKNOWN>";
 }
 
@@ -540,15 +577,26 @@ void LLVMSelfProfileInitializeCallbacks(
     LLVMRustSelfProfileBeforePassCallback BeforePassCallback,
     LLVMRustSelfProfileAfterPassCallback AfterPassCallback) {
   PIC.registerBeforeNonSkippedPassCallback(
+#if LLVM_VERSION_GE(24, 0)
+      [LlvmSelfProfiler, BeforePassCallback](StringRef Pass,
+                                             llvm::IRUnitRef Ir) {
+#else
       [LlvmSelfProfiler, BeforePassCallback](StringRef Pass, llvm::Any Ir) {
+#endif
         std::string PassName = Pass.str();
         std::string IrName = LLVMRustwrappedIrGetName(Ir);
         BeforePassCallback(LlvmSelfProfiler, PassName.c_str(), IrName.c_str());
       });
 
   PIC.registerAfterPassCallback(
+#if LLVM_VERSION_GE(24, 0)
+      [LlvmSelfProfiler,
+       AfterPassCallback](StringRef Pass, llvm::IRUnitRef IR,
+                          const PreservedAnalyses &Preserved) {
+#else
       [LlvmSelfProfiler, AfterPassCallback](
           StringRef Pass, llvm::Any IR, const PreservedAnalyses &Preserved) {
+#endif
         AfterPassCallback(LlvmSelfProfiler);
       });
 
@@ -558,17 +606,27 @@ void LLVMSelfProfileInitializeCallbacks(
         AfterPassCallback(LlvmSelfProfiler);
       });
 
+#if LLVM_VERSION_GE(24, 0)
+  PIC.registerBeforeAnalysisCallback([LlvmSelfProfiler, BeforePassCallback](
+                                         StringRef Pass, llvm::IRUnitRef Ir) {
+#else
   PIC.registerBeforeAnalysisCallback(
       [LlvmSelfProfiler, BeforePassCallback](StringRef Pass, llvm::Any Ir) {
-        std::string PassName = Pass.str();
-        std::string IrName = LLVMRustwrappedIrGetName(Ir);
-        BeforePassCallback(LlvmSelfProfiler, PassName.c_str(), IrName.c_str());
-      });
+#endif
+    std::string PassName = Pass.str();
+    std::string IrName = LLVMRustwrappedIrGetName(Ir);
+    BeforePassCallback(LlvmSelfProfiler, PassName.c_str(), IrName.c_str());
+  });
 
+#if LLVM_VERSION_GE(24, 0)
+  PIC.registerAfterAnalysisCallback([LlvmSelfProfiler, AfterPassCallback](
+                                        StringRef Pass, llvm::IRUnitRef Ir) {
+#else
   PIC.registerAfterAnalysisCallback(
       [LlvmSelfProfiler, AfterPassCallback](StringRef Pass, llvm::Any Ir) {
-        AfterPassCallback(LlvmSelfProfiler);
-      });
+#endif
+    AfterPassCallback(LlvmSelfProfiler);
+  });
 }
 
 enum class LLVMRustOptStage {
@@ -1128,7 +1186,9 @@ extern "C" LLVMRustResult LLVMRustPrintModule(LLVMModuleRef M, const char *Path,
     LLVMRustSetLastError(ErrorInfo.c_str());
     return LLVMRustResult::Failure;
   }
-
+#if LLVM_VERSION_GE(24, 0)
+  unwrap(M)->renumberMetadataForAssembly();
+#endif
   auto AAW = RustAssemblyAnnotationWriter(Demangle);
   auto FOS = formatted_raw_ostream(OS);
   unwrap(M)->print(FOS, &AAW);
@@ -1177,6 +1237,11 @@ extern "C" void LLVMRustSetModuleCodeModel(LLVMModuleRef M,
   if (!CM)
     return;
   unwrap(M)->setCodeModel(*CM);
+}
+
+extern "C" void LLVMRustSetModuleLargeDataThreshold(LLVMModuleRef M,
+                                                    uint64_t Threshold) {
+  unwrap(M)->setLargeDataThreshold(Threshold);
 }
 
 // Here you'll find an implementation of ThinLTO as used by the Rust compiler

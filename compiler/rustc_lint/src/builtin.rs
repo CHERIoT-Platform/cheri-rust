@@ -1,7 +1,7 @@
 //! Lints in the Rust compiler.
 //!
 //! This contains lints which can feasibly be implemented as their own
-//! AST visitor. Also see `rustc_session::lint::builtin`, which contains the
+//! AST visitor. Also see `rustc_lint_defs::builtin`, which contains the
 //! definitions of lints that are emitted directly inside the main compiler.
 //!
 //! To add a new lint to rustc, declare it here using [`declare_lint!`].
@@ -21,27 +21,26 @@ use rustc_ast::tokenstream::{TokenStream, TokenTree};
 use rustc_ast::visit::{FnCtxt, FnKind};
 use rustc_ast::{self as ast, *};
 use rustc_ast_pretty::pprust::expr_to_string;
+use rustc_attr_ir::lang_items::LangItem;
+use rustc_attr_ir::{AttributeKind, DocAttribute, find_attr};
 use rustc_attr_parsing::AttributeParser;
 use rustc_errors::{Applicability, Diagnostic, msg};
 use rustc_feature::GateIssue;
-use rustc_hir::attrs::lang_items::LangItem;
-use rustc_hir::attrs::{AttributeKind, DocAttribute};
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{CRATE_DEF_ID, DefId, LocalDefId};
 use rustc_hir::intravisit::FnKind as HirFnKind;
-use rustc_hir::{self as hir, Body, FnDecl, ImplItemImplKind, PatKind, PredicateOrigin, find_attr};
-use rustc_middle::bug;
+use rustc_hir::{self as hir, Body, FnDecl, ImplItemImplKind, PatKind, PredicateOrigin};
+// Lints from rustc_lint_defs
+pub use rustc_lint_defs::builtin::*;
+use rustc_lint_defs::{declare_lint, declare_lint_pass, fcw, impl_lint_pass};
+use rustc_middle::ty::consts::ConstExt;
 use rustc_middle::ty::layout::LayoutOf;
 use rustc_middle::ty::print::with_no_trimmed_paths;
 use rustc_middle::ty::{
     self, AssocContainer, Ty, TyCtxt, TypeVisitableExt, Unnormalized, Upcast, VariantDef,
 };
-// hardwired lints from rustc_lint_defs
-pub use rustc_session::lint::builtin::*;
-use rustc_session::lint::fcw;
-use rustc_session::{declare_lint, declare_lint_pass, impl_lint_pass};
 use rustc_span::edition::Edition;
-use rustc_span::{DUMMY_SP, Ident, InnerSpan, Span, Spanned, Symbol, kw, sym};
+use rustc_span::{DUMMY_SP, Ident, InnerSpan, Span, Spanned, Symbol, bug, kw, sym};
 use rustc_target::asm::InlineAsmArch;
 use rustc_trait_selection::infer::{InferCtxtExt, TyCtxtInferExt};
 use rustc_trait_selection::traits;
@@ -150,10 +149,7 @@ declare_lint_pass!(NonShorthandFieldPatterns => [NON_SHORTHAND_FIELD_PATTERNS]);
 
 impl<'tcx> LateLintPass<'tcx> for NonShorthandFieldPatterns {
     fn check_pat(&mut self, cx: &LateContext<'_>, pat: &hir::Pat<'_>) {
-        // The result shouldn't be tainted, otherwise it will cause ICE.
-        if let PatKind::Struct(ref qpath, field_pats, _) = pat.kind
-            && cx.typeck_results().tainted_by_errors.is_none()
-        {
+        if let PatKind::Struct(ref qpath, field_pats, _) = pat.kind {
             let variant = cx
                 .typeck_results()
                 .pat_ty(pat)
@@ -197,7 +193,7 @@ impl UnsafeCode {
         &self,
         cx: &EarlyContext<'_>,
         span: Span,
-        decorate: impl for<'a> Diagnostic<'a, ()>,
+        decorate: impl for<'a> Diagnostic<'a>,
     ) {
         // This comes from a macro that has `#[allow_internal_unsafe]`.
         if span.allows_unsafe() {
@@ -243,13 +239,13 @@ impl EarlyLintPass for UnsafeCode {
             }
 
             ast::ItemKind::MacroDef(..) => {
-                if let Some(hir::Attribute::Parsed(AttributeKind::AllowInternalUnsafe(span))) =
-                    AttributeParser::parse_limited_sym(
-                        cx.builder.sess(),
-                        &it.attrs,
-                        &[sym::allow_internal_unsafe],
-                    )
-                {
+                if let Some(rustc_attr_ir::Attribute::Parsed(AttributeKind::AllowInternalUnsafe(
+                    span,
+                ))) = AttributeParser::parse_limited_sym(
+                    cx.builder.sess(),
+                    &it.attrs,
+                    &[sym::allow_internal_unsafe],
+                ) {
                     self.report_unsafe(cx, span, BuiltinUnsafe::AllowInternalUnsafe);
                 }
             }
@@ -311,12 +307,12 @@ pub struct MissingDoc;
 
 impl_lint_pass!(MissingDoc => [MISSING_DOCS]);
 
-fn has_doc(attr: &hir::Attribute) -> bool {
-    if matches!(attr, hir::Attribute::Parsed(AttributeKind::DocComment { .. })) {
+fn has_doc(attr: &rustc_attr_ir::Attribute) -> bool {
+    if matches!(attr, rustc_attr_ir::Attribute::Parsed(AttributeKind::DocComment { .. })) {
         return true;
     }
 
-    if let hir::Attribute::Parsed(AttributeKind::Doc(d)) = attr
+    if let rustc_attr_ir::Attribute::Parsed(AttributeKind::Doc(d)) = attr
         && matches!(d.as_ref(), DocAttribute { hidden: Some(..), .. })
     {
         return true;
@@ -557,7 +553,7 @@ fn type_implements_negative_copy_modulo_regions<'tcx>(
 ) -> bool {
     let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(typing_env);
     let trait_ref = ty::TraitRef::new(tcx, tcx.require_lang_item(LangItem::Copy, DUMMY_SP), [ty]);
-    let pred = ty::TraitPredicate { trait_ref, polarity: ty::PredicatePolarity::Negative };
+    let pred = ty::TraitClause { trait_ref, polarity: ty::ClausePolarity::Negative };
     let obligation = traits::Obligation {
         cause: traits::ObligationCause::dummy(),
         param_env,
@@ -1034,7 +1030,7 @@ declare_lint_pass!(
 );
 
 impl<'tcx> LateLintPass<'tcx> for UnstableFeatures {
-    fn check_attributes(&mut self, cx: &LateContext<'_>, attrs: &[hir::Attribute]) {
+    fn check_attributes(&mut self, cx: &LateContext<'_>, attrs: &[rustc_attr_ir::Attribute]) {
         if let Some(features) = find_attr!(attrs, Feature(features, _) => features) {
             for feature in features {
                 cx.emit_span_lint(UNSTABLE_FEATURES, feature.span, BuiltinUnstableFeatures);
@@ -1152,49 +1148,46 @@ impl UnreachablePub {
         exportable: bool,
     ) {
         let mut applicability = Applicability::MachineApplicable;
-        if cx.tcx.visibility(def_id).is_public() && !cx.effective_visibilities.is_reachable(def_id)
+        if !cx.tcx.visibility(def_id).is_public() || cx.effective_visibilities.is_reachable(def_id)
         {
-            // prefer suggesting `pub(super)` instead of `pub(crate)` when possible,
-            // except when `pub(super) == pub(crate)`
-            let new_vis = if let Some(ty::Visibility::Restricted(restricted_did)) =
-                cx.effective_visibilities.effective_vis(def_id).map(|effective_vis| {
-                    effective_vis.at_level(rustc_middle::middle::privacy::Level::Reachable)
-                })
-                && let parent_parent = cx
-                    .tcx
-                    .parent_module_from_def_id(cx.tcx.parent_module_from_def_id(def_id).into())
-                && *restricted_did == parent_parent
-                && !restricted_did.to_def_id().is_crate_root()
-            {
-                "pub(super)"
-            } else {
-                "pub(crate)"
-            };
-
-            if vis_span.from_expansion() {
-                applicability = Applicability::MaybeIncorrect;
-            }
-            let def_span = cx.tcx.def_span(def_id);
-            cx.emit_span_lint(
-                UNREACHABLE_PUB,
-                def_span,
-                BuiltinUnreachablePub {
-                    what,
-                    new_vis,
-                    suggestion: (vis_span, applicability),
-                    help: exportable,
-                },
-            );
+            return;
         }
+
+        // prefer suggesting `pub(super)` instead of `pub(crate)` when possible,
+        // except when `pub(super) == pub(crate)`
+        let new_vis = if let Some(ty::Visibility::Restricted(restricted_did)) =
+            cx.effective_visibilities.effective_vis(def_id).map(|effective_vis| {
+                effective_vis.at_level(rustc_middle::middle::privacy::Level::Reachable)
+            })
+            && let parent_parent =
+                cx.tcx.parent_module_from_def_id(cx.tcx.parent_module_from_def_id(def_id).into())
+            && *restricted_did == parent_parent
+            && !restricted_did.to_def_id().is_crate_root()
+        {
+            "pub(super)"
+        } else {
+            "pub(crate)"
+        };
+
+        if vis_span.from_expansion() {
+            applicability = Applicability::MaybeIncorrect;
+        }
+        let def_span = cx.tcx.def_span(def_id);
+        cx.emit_span_lint(
+            UNREACHABLE_PUB,
+            def_span,
+            BuiltinUnreachablePub {
+                what,
+                new_vis,
+                suggestion: (vis_span, applicability),
+                help: exportable,
+            },
+        );
     }
 }
 
 impl<'tcx> LateLintPass<'tcx> for UnreachablePub {
     fn check_item(&mut self, cx: &LateContext<'_>, item: &hir::Item<'_>) {
-        // Do not warn for fake `use` statements.
-        if let hir::ItemKind::Use(_, hir::UseKind::ListStem) = &item.kind {
-            return;
-        }
         self.perform_lint(cx, "item", item.owner_id.def_id, item.vis_span, true);
     }
 
@@ -1402,7 +1395,7 @@ declare_lint! {
     /// See [RFC 2056] for more details. This feature is currently only
     /// available on the nightly channel, see [tracking issue #48214].
     ///
-    /// [RFC 2056]: https://github.com/rust-lang/rfcs/blob/master/text/2056-allow-trivial-where-clause-constraints.md
+    /// [RFC 2056]: https://rust-lang.github.io/rfcs/2056-allow-trivial-where-clause-constraints.html
     /// [tracking issue #48214]: https://github.com/rust-lang/rust/issues/48214
     TRIVIAL_BOUNDS,
     Warn,
@@ -1759,11 +1752,11 @@ impl KeywordIdents {
             match tt {
                 // Only report non-raw idents.
                 TokenTree::Token(token, _) => {
-                    if let Some((ident, token::IdentIsRaw::No)) = token.ident() {
+                    if let Some((ident, token::IdentKind::Normal)) = token.ident() {
                         if !prev_dollar {
                             self.check_ident_token(cx, UnderMacro(true), ident, "");
                         }
-                    } else if let Some((ident, token::IdentIsRaw::No)) = token.lifetime() {
+                    } else if let Some((ident, token::IdentKind::Normal)) = token.lifetime() {
                         self.check_ident_token(
                             cx,
                             UnderMacro(true),
@@ -2510,7 +2503,7 @@ impl<'tcx> LateLintPass<'tcx> for InvalidValue {
                     let span = cx.tcx.def_span(adt_def.did());
                     let mut potential_variants = adt_def.variants().iter().filter_map(|variant| {
                         let definitely_inhabited = match variant
-                            .inhabited_predicate(cx.tcx, *adt_def)
+                            .inhabited_predicate(cx.tcx)
                             .instantiate(cx.tcx, args)
                             .apply_any_module(cx.tcx, cx.typing_env())
                         {

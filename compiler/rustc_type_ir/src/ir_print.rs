@@ -3,9 +3,9 @@ use std::fmt;
 #[cfg(feature = "nightly")]
 use crate::{AliasConst, ClosureKind};
 use crate::{
-    AliasTerm, AliasTy, Binder, CoercePredicate, ExistentialProjection, ExistentialTraitRef, FnSig,
-    HostEffectClause, Interner, NormalizesTo, OutlivesClause, PatternKind, Placeholder,
-    ProjectionPredicate, Region, SubtypePredicate, TraitPredicate, TraitRef,
+    AliasTerm, AliasTy, Binder, CoercePredicate, Const, ExistentialProjection, ExistentialTraitRef,
+    FnSig, HostEffectClause, Interner, NormalizesTo, OutlivesClause, PatternKind, Placeholder,
+    ProjectionClause, Region, SubtypePredicate, TraitClause, TraitRef,
 };
 
 pub trait IrPrint<T> {
@@ -39,10 +39,10 @@ macro_rules! define_debug_via_print {
 
 define_display_via_print!(
     TraitRef,
-    TraitPredicate,
+    TraitClause,
     ExistentialTraitRef,
     ExistentialProjection,
-    ProjectionPredicate,
+    ProjectionClause,
     NormalizesTo,
     SubtypePredicate,
     CoercePredicate,
@@ -61,6 +61,15 @@ where
 {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         <I as IrPrint<Region<I>>>::print(self, fmt)
+    }
+}
+
+impl<I: Interner> fmt::Display for Const<I>
+where
+    I: IrPrint<Const<I>>,
+{
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <I as IrPrint<Const<I>>>::print(self, fmt)
     }
 }
 

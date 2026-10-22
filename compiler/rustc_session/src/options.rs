@@ -5,8 +5,6 @@ use std::str;
 
 use rustc_abi::Align;
 use rustc_ast::attr::version::RustcVersion;
-use rustc_attr_ir::CollapseMacroDebuginfo;
-use rustc_data_structures::fx::FxIndexMap;
 use rustc_data_structures::profiling::TimePassesFormat;
 use rustc_data_structures::stable_hash::StableHasher;
 use rustc_errors::{ColorConfig, TerminalUrl};
@@ -16,6 +14,7 @@ use rustc_macros::{BlobDecodable, Encodable};
 use rustc_span::edit_distance::edit_distance;
 use rustc_span::edition::Edition;
 use rustc_span::{RealFileName, RemapPathScopeComponents, SourceFileHashAlgorithm};
+use rustc_structures::{CollapseMacroDebuginfo, CrateType};
 use rustc_target::spec::{
     CodeModel, FramePointer, LinkerFlavorCli, MergeFunctions, OnBrokenPipe, PanicStrategy,
     RelocModel, RelroLevel, SanitizerSet, SplitDebuginfo, StackProtector, SymbolVisibility,
@@ -90,14 +89,20 @@ pub mod mitigation_coverage;
 
 mod target_modifier_consistency_check {
     use super::*;
-    pub(super) fn sanitizer(l: &TargetModifier, r: Option<&TargetModifier>) -> bool {
-        let mut lparsed: SanitizerSet = Default::default();
+    pub(super) fn sanitizer(
+        sess: &Session,
+        l: &TargetModifier,
+        r: Option<&TargetModifier>,
+    ) -> bool {
+        let mut lparsed: SanitizerSet = SanitizerSet::empty();
         let lval = if l.value_name.is_empty() { None } else { Some(l.value_name.as_str()) };
         parse::parse_sanitizers(&mut lparsed, lval);
+        let lparsed = lparsed.combine_with_defaults(sess.target.options.default_sanitizers);
 
-        let mut rparsed: SanitizerSet = Default::default();
+        let mut rparsed: SanitizerSet = SanitizerSet::empty();
         let rval = r.filter(|v| !v.value_name.is_empty()).map(|v| v.value_name.as_str());
         parse::parse_sanitizers(&mut rparsed, rval);
+        let rparsed = rparsed.combine_with_defaults(sess.target.options.default_sanitizers);
 
         // Some sanitizers need to be target modifiers, and some do not.
         // For now, we should mark all sanitizers as target modifiers except for these:
@@ -166,7 +171,7 @@ impl TargetModifier {
         match self.opt {
             OptionsTargetModifiers::UnstableOptions(unstable) => match unstable {
                 UnstableOptionsTargetModifiers::Sanitizer => {
-                    return target_modifier_consistency_check::sanitizer(self, other);
+                    return target_modifier_consistency_check::sanitizer(sess, self, other);
                 }
                 UnstableOptionsTargetModifiers::SanitizerCfiNormalizeIntegers => {
                     return target_modifier_consistency_check::sanitizer_cfi_normalize_integers(
@@ -350,9 +355,6 @@ top_level_options!(
 
         target_triple: TargetTuple [TRACKED],
 
-        /// Effective logical environment used by `env!`/`option_env!` macros
-        logical_env: FxIndexMap<String, String> [TRACKED],
-
         test: bool [TRACKED],
         error_format: ErrorOutputType [UNTRACKED],
         diagnostic_width: Option<usize> [UNTRACKED],
@@ -506,7 +508,7 @@ macro_rules! options {
                 $( { TARGET_MODIFIER: $tmod_variant:ident } )?
                 $( { MITIGATION: $mitigation_variant:ident } )?
                 ,
-                $desc:literal
+                $desc:expr
                 $(, removed: $removed:ident )?
             ),
         )*
@@ -2302,6 +2304,8 @@ options! {
     profile_generate: SwitchWithOptPath = (SwitchWithOptPath::Disabled,
         parse_switch_with_opt_path, [TRACKED],
         "compile the program with profiling instrumentation"),
+    profile_sample_use: Option<PathBuf> = (None, parse_opt_pathbuf, [TRACKED],
+        "use the given `.prof` file for sample-based profile-guided optimization"),
     profile_use: Option<PathBuf> = (None, parse_opt_pathbuf, [TRACKED],
         "use the given `.profdata` file for profile-guided optimization"),
     #[rustc_lint_opt_deny_field_access("use `Session::relocation_model` instead of this field")]
@@ -2329,10 +2333,12 @@ options! {
         parse_symbol_mangling_version, [TRACKED],
         "which mangling version to use for symbol names ('legacy', 'v0' (default), or 'hashed')"),
     target_cpu: Option<String> = (None, parse_opt_string, [TRACKED] { TARGET_MODIFIER: TargetCpu },
-        "select target processor (`rustc --print target-cpus` for details)"),
+        "select target processor (`rustc --print target-cpus` for details) \
+        The resulting binary must only be executed on CPUs that have all the features \
+        of the given CPU."),
     target_feature: String = (String::new(), parse_target_feature, [TRACKED],
-        "target specific attributes. (`rustc --print target-features` for details). \
-        This feature is unsafe."),
+        "target-specific attributes (`rustc --print target-features` for details). \
+        The resulting binary must only be executed on CPUs that have all the given features."),
     unsafe_allow_abi_mismatch: Vec<String> = (Vec::new(), parse_comma_list, [UNTRACKED],
         "Allow incompatible target modifiers in dependency crates (comma separated list)"),
     // tidy-alphabetical-end
@@ -2341,6 +2347,12 @@ options! {
     // - compiler/rustc_interface/src/tests.rs
     // - src/doc/rustc/src/codegen-options/index.md
 }
+
+const POLONIUS_HELP: &str = match Polonius::DEFAULT {
+    Polonius::Off => "enable polonius-based borrow-checker (default: no)",
+    Polonius::Next => "enable polonius-based borrow-checker (default: next)",
+    Polonius::Legacy => panic!("Polonius::Legacy is not a valid default value"),
+};
 
 options! {
     UnstableOptions, UnstableOptionsTargetModifiers, Z_OPTIONS, dbopts, "Z", "unstable",
@@ -2426,7 +2438,7 @@ options! {
     debuginfo_compression: DebugInfoCompression = (DebugInfoCompression::None, parse_debuginfo_compression, [TRACKED],
         "compress debug info sections (none, zlib, zstd, default: none)"),
     debuginfo_for_profiling: bool = (false, parse_bool, [TRACKED],
-        "emit discriminators and other data necessary for AutoFDO"),
+        "emit extra debug info to make sample profile more accurate"),
     deduplicate_diagnostics: bool = (true, parse_bool, [UNTRACKED],
         "deduplicate identical diagnostics (default: yes)"),
     default_visibility: Option<SymbolVisibility> = (None, parse_opt_symbol_visibility, [TRACKED],
@@ -2447,7 +2459,7 @@ options! {
     dual_proc_macros: bool = (false, parse_bool, [TRACKED],
         "load proc macros for both target and host, but only link to the target (default: no)"),
     dump_dep_graph: bool = (false, parse_bool, [UNTRACKED],
-        "dump the dependency graph to $RUST_DEP_GRAPH (default: /tmp/dep_graph.gv) \
+        "dump the dependency graph to `$RUST_DEP_GRAPH` as both a text file and a GraphViz dot file (default: ./dep_graph.{dot, txt}) \
         (default: no)"),
     dump_mir: Option<String> = (None, parse_opt_string, [UNTRACKED],
         "dump MIR state to file.
@@ -2631,11 +2643,15 @@ options! {
     maximal_hir_to_mir_coverage: bool = (false, parse_bool, [TRACKED],
         "save as much information as possible about the correspondence between MIR and HIR \
         as source scopes (default: no)"),
+    #[rustc_lint_opt_deny_field_access("use `Session::merge_functions` instead of this field")]
     merge_functions: Option<MergeFunctions> = (None, parse_merge_functions, [TRACKED],
         "control the operation of the MergeFunctions LLVM pass, taking \
         the same values as the target option of the same name"),
     meta_stats: bool = (false, parse_bool, [UNTRACKED],
         "gather metadata statistics (default: no)"),
+    metadata_crate_hash: bool = (true, parse_bool, [TRACKED],
+        "compute the crate hash (SVH) from the encoded crate metadata; set to `no` to \
+         revert to computing it from the HIR (default: yes)"),
     metrics_dir: Option<PathBuf> = (None, parse_opt_pathbuf, [UNTRACKED],
         "the directory metrics emitted by rustc are dumped into (implicitly enables default set of metrics)"),
     min_function_alignment: Option<Align> = (None, parse_align, [TRACKED],
@@ -2742,7 +2758,7 @@ options! {
         `vt-ptr-type-discrimination - incorporate type discrimination in authenticated vtable pointers
         Example: `-Zpointer-authentication=+calls,-init-fini`."),
     polonius: Polonius = (Polonius::default(), parse_polonius, [TRACKED],
-        "enable polonius-based borrow-checker (default: no)"),
+        POLONIUS_HELP),
     pre_link_arg: (/* redirected to pre_link_args */) = ((), parse_string_push, [UNTRACKED],
         "a single extra argument to prepend the linker invocation (can be used several times)"),
     pre_link_args: Vec<String> = (Vec::new(), parse_list, [UNTRACKED],
@@ -2770,8 +2786,6 @@ options! {
         "how to run proc-macro code (default: same-thread)"),
     profile_closures: bool = (false, parse_no_value, [UNTRACKED],
         "profile size of closures"),
-    profile_sample_use: Option<PathBuf> = (None, parse_opt_pathbuf, [TRACKED],
-        "use the given `.prof` file for sampled profile-guided optimization (also known as AutoFDO)"),
     profiler_runtime: String = (String::from("profiler_builtins"), parse_string, [TRACKED],
         "name of the profiler runtime crate to automatically inject (default: `profiler_builtins`)"),
     query_dep_graph: bool = (false, parse_bool, [UNTRACKED],
@@ -2803,6 +2817,8 @@ written to standard error output)"),
     #[rustc_lint_opt_deny_field_access("use `Session::sanitizers()` instead of this field")]
     sanitizer: SanitizerSet = (SanitizerSet::empty(), parse_sanitizers, [TRACKED] { TARGET_MODIFIER: Sanitizer },
         "use a sanitizer"),
+    sanitizer_ignorelist: Vec<String> = (vec![], parse_list, [TRACKED],
+        "list of files providing ignorelists for sanitizers"),
     sanitizer_cfi_canonical_jump_tables: Option<bool> = (Some(true), parse_opt_bool, [TRACKED],
         "enable canonical jump tables (default: yes)"),
     sanitizer_cfi_generalize_pointers: Option<bool> = (None, parse_opt_bool, [TRACKED],
@@ -2821,9 +2837,6 @@ written to standard error output)"),
         "enable origins tracking in MemorySanitizer"),
     sanitizer_recover: SanitizerSet = (SanitizerSet::empty(), parse_sanitizers, [TRACKED],
         "enable recovery for selected sanitizers"),
-    saturating_float_casts: Option<bool> = (None, parse_opt_bool, [TRACKED],
-        "make float->int casts UB-free: numbers outside the integer type's range are clipped to \
-        the max/min integer respectively, and NaN is mapped to 0 (default: yes)"),
     self_profile: SwitchWithOptPath = (SwitchWithOptPath::Disabled,
         parse_switch_with_opt_path, [UNTRACKED],
         "run the self profiler and output the raw event data"),
@@ -2833,12 +2846,15 @@ written to standard error output)"),
         `instructions:u` (retired instructions, userspace-only)
         `instructions-minus-irqs:u` (subtracting hardware interrupt counts for extra accuracy)"
     ),
-    /// keep this in sync with the event filter names in librustc_data_structures/profiling.rs
+    /// keep this in sync with the event filter names and defaults in rustc_data_structures/src/profiling.rs
     self_profile_events: Option<Vec<String>> = (None, parse_opt_comma_list, [UNTRACKED],
         "specify the events recorded by the self profiler;
         for example: `-Z self-profile-events=default,query-keys`
-        all options: none, all, default, generic-activity, query-provider, query-cache-hit
-                     query-blocked, incr-cache-load, incr-result-hashing, query-keys, function-args, args, llvm, artifact-sizes"),
+        all option groups: none, all, default, args
+          `default` contains: generic-activity, query-provider, query-cache-hit-count, \
+                            query-blocked, incr-cache-load, incr-result-hashing, artifact-sizes
+             `args` contains: query-keys, function-args
+        remaining (ungrouped) options: query-cache-hit, llvm"),
     share_generics: Option<bool> = (None, parse_opt_bool, [TRACKED],
         "make the current crate share its generic instantiations"),
     shell_argfiles: bool = (false, parse_bool, [UNTRACKED],
