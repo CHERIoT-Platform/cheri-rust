@@ -115,6 +115,21 @@ fn test() {
 }
 
 #[test]
+fn array_repeat_never_can_be_reinferred() {
+    check_no_mismatches(
+        r#"
+fn test() {
+    let y = [return; 2];
+    match y {
+        [(1, _), (_, false)] => {}
+        [_, _] => {}
+    }
+}
+"#,
+    );
+}
+
+#[test]
 fn match_no_arm() {
     check_types(
         r#"
@@ -924,6 +939,17 @@ async fn test() -> ! {
 
 pub async fn test1() -> ! {
     test().await;
+}
+    "#,
+    );
+}
+
+#[test]
+fn break_diverge() {
+    check_no_mismatches(
+        r#"
+fn test() -> i32 {
+    let loop_value = loop { break (return 5); };
 }
     "#,
     );

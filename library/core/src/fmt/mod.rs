@@ -2610,21 +2610,6 @@ impl<'a> Formatter<'a> {
         builder.finish()
     }
 
-    /// Shrinks `derive(Debug)` code, for faster compilation and smaller binaries.
-    /// For C-like enums with concatenated variant name strings.
-    #[doc(hidden)]
-    #[unstable(feature = "fmt_helpers_for_derive", issue = "none")]
-    pub fn debug_c_like_enum_write_str<'b>(
-        &'b mut self,
-        names: &str,
-        offset: &[usize],
-        discr: usize,
-    ) -> Result {
-        let start = offset[discr];
-        let end = offset[discr + 1];
-        self.write_str(&names[start..end])
-    }
-
     /// Creates a `DebugTuple` builder designed to assist with creation of
     /// `fmt::Debug` implementations for tuple structs.
     ///
@@ -2929,7 +2914,7 @@ macro_rules! fmt_refs {
 
 fmt_refs! { Debug, Display, Octal, Binary, LowerHex, UpperHex, LowerExp, UpperExp }
 
-#[unstable(feature = "never_type", issue = "35121")]
+#[stable(feature = "never_type", since = "CURRENT_RUSTC_VERSION")]
 impl Debug for ! {
     #[inline]
     fn fmt(&self, _: &mut Formatter<'_>) -> Result {
@@ -2937,7 +2922,7 @@ impl Debug for ! {
     }
 }
 
-#[unstable(feature = "never_type", issue = "35121")]
+#[stable(feature = "never_type", since = "CURRENT_RUSTC_VERSION")]
 impl Display for ! {
     #[inline]
     fn fmt(&self, _: &mut Formatter<'_>) -> Result {
@@ -2989,7 +2974,6 @@ impl Debug for str {
             let mut chars = rest.chars();
             if let Some(c) = chars.next() {
                 let esc = c.escape_debug_ext(EscapeDebugExtArgs {
-                    escape_grapheme_extender: true,
                     escape_single_quote: false,
                     escape_double_quote: true,
                 });
@@ -3021,7 +3005,6 @@ impl Debug for char {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.write_char('\'')?;
         let esc = self.escape_debug_ext(EscapeDebugExtArgs {
-            escape_grapheme_extender: true,
             escape_single_quote: true,
             escape_double_quote: false,
         });
@@ -3222,7 +3205,7 @@ impl<T: ?Sized + Debug> Debug for Ref<'_, T> {
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T: ?Sized + Debug> Debug for RefMut<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        Debug::fmt(&*(self.deref()), f)
+        Debug::fmt(self.deref(), f)
     }
 }
 

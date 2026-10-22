@@ -36,7 +36,7 @@ cfg_select! {
         target_os = "vexos",
         target_family = "wasm",
         target_os = "zkvm",
-        target_os = "trusty",
+        target_os = "trusty"
     ) => {
         mod generic;
         pub use generic::*;

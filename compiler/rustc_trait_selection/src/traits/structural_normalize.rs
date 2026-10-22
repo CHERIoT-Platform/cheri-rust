@@ -60,7 +60,7 @@ impl<'tcx> At<'_, 'tcx> {
                 self.infcx.tcx,
                 self.cause.clone(),
                 self.param_env,
-                ty::ProjectionPredicate { projection_term: alias, term: new_infer },
+                ty::ProjectionClause { projection_term: alias, term: new_infer },
             );
 
             fulfill_cx.register_predicate_obligation(self.infcx, obligation);
@@ -69,7 +69,7 @@ impl<'tcx> At<'_, 'tcx> {
                 return Err(errors);
             }
 
-            Ok(self.infcx.resolve_vars_if_possible(new_infer))
+            Ok(self.infcx.deeply_resolve_ignoring_regions(new_infer))
         } else {
             Ok(self.normalize(term).into_value_registering_obligations(self.infcx, fulfill_cx))
         }

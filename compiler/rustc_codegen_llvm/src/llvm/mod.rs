@@ -128,6 +128,10 @@ pub(crate) fn CreateByValAttr<'ll>(llcx: &'ll Context, ty: &'ll Type) -> &'ll At
     unsafe { LLVMRustCreateByValAttr(llcx, ty) }
 }
 
+pub(crate) fn CreateByRefAttr<'ll>(llcx: &'ll Context, ty: &'ll Type) -> &'ll Attribute {
+    unsafe { LLVMRustCreateByRefAttr(llcx, ty) }
+}
+
 pub(crate) fn CreateStructRetAttr<'ll>(llcx: &'ll Context, ty: &'ll Type) -> &'ll Attribute {
     unsafe { LLVMRustCreateStructRetAttr(llcx, ty) }
 }
@@ -480,11 +484,24 @@ pub(crate) fn set_dso_local<'ll>(v: &'ll Value) {
     }
 }
 
-/// Safe wrapper for `LLVMAppendModuleInlineAsm`, which delegates to
+/// Safe wrapper for `LLVMRustAppendModuleInlineAsm`, which delegates to
 /// `Module::appendModuleInlineAsm`.
-pub(crate) fn append_module_inline_asm<'ll>(llmod: &'ll Module, asm: &[u8]) {
+pub(crate) fn append_module_inline_asm<'ll>(
+    llmod: &'ll Module,
+    asm: &[u8],
+    target_features: &str,
+    target_cpu: &str,
+) {
     unsafe {
-        LLVMAppendModuleInlineAsm(llmod, asm.as_ptr(), asm.len());
+        LLVMRustAppendModuleInlineAsm(
+            llmod,
+            asm.as_ptr(),
+            asm.len(),
+            target_features.as_ptr(),
+            target_features.len(),
+            target_cpu.as_ptr(),
+            target_cpu.len(),
+        );
     }
 }
 

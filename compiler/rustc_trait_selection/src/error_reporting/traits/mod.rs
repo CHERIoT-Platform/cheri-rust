@@ -7,11 +7,11 @@ pub mod suggestions;
 
 use std::{fmt, iter};
 
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_crate_store::{ExternCrate, ExternCrateSource};
 use rustc_data_structures::fx::{FxIndexMap, FxIndexSet};
 use rustc_data_structures::unord::UnordSet;
 use rustc_errors::{Applicability, Diag, E0038, E0276, MultiSpan, struct_span_code_err};
-use rustc_hir::attrs::lang_items::LangItem;
 use rustc_hir::def_id::{DefId, LOCAL_CRATE, LocalDefId};
 use rustc_hir::intravisit::Visitor;
 use rustc_hir::{self as hir, AmbigArg};
@@ -224,6 +224,21 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
         // We do this in 2 passes because we want to display errors in order, though
         // maybe it *is* better to sort errors by span or something.
         let mut is_suppressed = vec![false; errors.len()];
+        // A failing trait goal also fails every projection goal resting on it. Ambiguity
+        // errors are exempt: they get merged into a single diagnostic whose notes list all
+        // the constraints the annotation has to satisfy, so their projections still say
+        // something the trait error doesn't.
+        let covered_by_trait_error =
+            |cond: &ErrorDescriptor<'tcx>, error: &ErrorDescriptor<'tcx>| {
+                let is_definite = |error: &ErrorDescriptor<'tcx>| {
+                    error.index.is_some_and(|index| {
+                        !matches!(errors[index].code, FulfillmentErrorCode::Ambiguity { .. })
+                    })
+                };
+                is_definite(cond)
+                    && is_definite(error)
+                    && self.trait_error_implies_projection_error(cond.goal, error.goal)
+            };
         for (_, error_set) in error_map.iter() {
             // We want to suppress "duplicate" errors with the same span.
             for error in error_set {
@@ -239,9 +254,10 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                             continue;
                         }
 
-                        if self.error_implies(error2.goal, error.goal)
+                        if (self.error_implies(error2.goal, error.goal)
                             && !(error2.index >= error.index
-                                && self.error_implies(error.goal, error2.goal))
+                                && self.error_implies(error.goal, error2.goal)))
+                            || covered_by_trait_error(error2, error)
                         {
                             info!("skipping {:?} (implied by {:?})", error, error2);
                             is_suppressed[index] = true;
@@ -264,7 +280,7 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
         // roots, like `need_type_info` does when looking for the annotation source.
         let ambiguity_infer_var = |error: &FulfillmentError<'tcx>| match error.code {
             FulfillmentErrorCode::Ambiguity { overflow: None } => self
-                .ambiguity_term(self.resolve_vars_if_possible(error.obligation.predicate))
+                .ambiguity_term(self.deeply_resolve_ignoring_regions(error.obligation.predicate))
                 .and_then(|term| {
                     ty::GenericArg::from(term)
                         .walk()
@@ -403,6 +419,13 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
             FulfillmentErrorCode::Project(ref e) => {
                 self.report_projection_error(&error.obligation, e)
             }
+            FulfillmentErrorCode::Outlives => self
+                .dcx()
+                .struct_span_err(
+                    error.obligation.cause.span,
+                    "higher-ranked lifetime bound could not be satisfied",
+                )
+                .emit_err(),
             FulfillmentErrorCode::Ambiguity { overflow: None } => {
                 self.maybe_report_ambiguity(&error.obligation, related)
             }
@@ -417,7 +440,7 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                     expected_found.found,
                     *err,
                 )
-                .emit(),
+                .emit_err(),
             FulfillmentErrorCode::ConstEquate(ref expected_found, ref err) => {
                 let mut diag = self.report_mismatched_consts(
                     &error.obligation.cause,
@@ -440,7 +463,7 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                         &mut Default::default(),
                     );
                 }
-                diag.emit()
+                diag.emit_err()
             }
             FulfillmentErrorCode::Cycle(ref cycle) => self.report_overflow_obligation_cycle(cycle),
         }

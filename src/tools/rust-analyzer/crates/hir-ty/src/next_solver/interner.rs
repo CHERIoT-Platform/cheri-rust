@@ -12,8 +12,8 @@ pub use tls_db::{attach_db, attach_db_allow_change, with_attached_db};
 
 use base_db::Crate;
 use hir_def::{
-    AdtId, CallableDefId, EnumId, HasModule, ItemContainerId, StructId, TraitId, TypeAliasId,
-    UnionId, VariantId,
+    AdtId, CallableDefId, EnumId, GenericParamId, HasModule, ItemContainerId, StructId, TraitId,
+    TypeAliasId, UnionId, VariantId,
     attrs::AttrFlags,
     expr_store::{ExpressionStore, StoreVisitor},
     hir::{ClosureKind as HirClosureKind, CoroutineKind as HirCoroutineKind, ExprId, PatId},
@@ -90,8 +90,8 @@ macro_rules! interned_slice {
 
         impl<'db> $name<'db> {
             #[inline]
-            pub fn empty(interner: DbInterner<'db>) -> Self {
-                interner.default_types().empty.$default_types_field
+            pub fn empty() -> Self {
+                $crate::next_solver::default_types().empty.$default_types_field
             }
 
             #[inline]
@@ -168,7 +168,7 @@ macro_rules! interned_slice {
         impl<'db> Default for $name<'db> {
             #[inline]
             fn default() -> Self {
-                $name::empty(DbInterner::conjure())
+                $name::empty()
             }
         }
 
@@ -399,7 +399,7 @@ impl<'db> DbInterner<'db> {
 
     #[inline]
     pub fn default_types(&self) -> &'db crate::next_solver::DefaultAny<'db> {
-        crate::next_solver::default_types(self.db)
+        crate::next_solver::default_types()
     }
 
     #[inline]
@@ -1092,7 +1092,7 @@ impl<'db> Interner for DbInterner<'db> {
             | SolverDefId::InternedCoroutineId(_)
             | SolverDefId::InternedCoroutineClosureId(_)
             | SolverDefId::AnonConstId(_) => {
-                return VariancesOf::empty(self);
+                return VariancesOf::empty();
             }
         };
         self.db.variances_of(generic_def)
@@ -1169,9 +1169,17 @@ impl<'db> Interner for DbInterner<'db> {
         (TraitRef::new_from_args(self, trait_def_id.into(), trait_args), alias_args)
     }
 
-    fn check_args_compatible(self, _def_id: Self::DefId, _args: Self::GenericArgs) -> bool {
-        // FIXME
-        true
+    fn check_args_compatible(self, def_id: Self::DefId, args: Self::GenericArgs) -> bool {
+        let generics = self.generics_of(def_id);
+        generics.count() == args.len()
+            && std::iter::zip(generics.iter(), args).all(|((param, _), arg)| {
+                matches!(
+                    (param, arg.kind()),
+                    (GenericParamId::LifetimeParamId(_), GenericArgKind::Lifetime(_))
+                        | (GenericParamId::TypeParamId(_), GenericArgKind::Type(_))
+                        | (GenericParamId::ConstParamId(_), GenericArgKind::Const(_))
+                )
+            })
     }
 
     fn debug_assert_args_compatible(self, _def_id: Self::DefId, _args: Self::GenericArgs) {}
@@ -1337,7 +1345,7 @@ impl<'db> Interner for DbInterner<'db> {
         let own_bounds: FxHashSet<_> =
             self.item_self_bounds(def_id).skip_binder().into_iter().collect();
         if all_bounds.len() == own_bounds.len() {
-            EarlyBinder::bind(Clauses::empty(self))
+            EarlyBinder::bind(Clauses::empty())
         } else {
             EarlyBinder::bind(Clauses::new_from_iter(
                 self,
@@ -1852,8 +1860,8 @@ impl<'db> Interner for DbInterner<'db> {
         false
     }
 
-    fn delay_bug(self, msg: impl ToString) -> Self::ErrorGuaranteed {
-        panic!("Bug encountered in next-trait-solver: {}", msg.to_string())
+    fn delay_bug(self, _msg: impl ToString) -> Self::ErrorGuaranteed {
+        ErrorGuaranteed
     }
 
     fn is_general_coroutine(self, def_id: Self::CoroutineId) -> bool {
@@ -2164,7 +2172,7 @@ impl<'db> Interner for DbInterner<'db> {
         };
         EarlyBinder::bind(Const::new_unevaluated(
             self,
-            UnevaluatedConst { def: GeneralConstIdWrapper(id), args: GenericArgs::empty(self) },
+            UnevaluatedConst { def: GeneralConstIdWrapper(id), args: GenericArgs::empty() },
         ))
     }
 

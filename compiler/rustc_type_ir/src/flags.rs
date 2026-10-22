@@ -1,6 +1,6 @@
 use crate::inherent::*;
 use crate::visit::Flags;
-use crate::{self as ty, Interner, Region};
+use crate::{self as ty, Const, Interner, Region};
 
 bitflags::bitflags! {
     /// Flags that we track on types. These flags are propagated upwards
@@ -418,7 +418,7 @@ impl<I: Interner> FlagComputation<I> {
                 self.add_ty(a);
                 self.add_ty(b);
             }
-            ty::PredicateKind::Clause(ty::ClauseKind::Projection(ty::ProjectionPredicate {
+            ty::PredicateKind::Clause(ty::ClauseKind::Projection(ty::ProjectionClause {
                 projection_term,
                 term,
             })) => {
@@ -463,7 +463,7 @@ impl<I: Interner> FlagComputation<I> {
         }
     }
 
-    fn add_const(&mut self, c: I::Const) {
+    fn add_const(&mut self, c: Const<I>) {
         self.add_flags(c.flags());
         self.add_exclusive_binder(c.outer_exclusive_binder());
     }
