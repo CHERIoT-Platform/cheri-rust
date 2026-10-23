@@ -1,0 +1,54 @@
+From dfcd820732f5769b0ffad8a64258507971c0f626 Mon Sep 17 00:00:00 2001
+From: Edoardo Marangoni <me@livo.re>
+Date: Thu, 17 Sep 2026 12:24:04 +0200
+Subject: [PATCH] Add `--whole-archive` flag to linker invocation iff.
+ objectfiles has archive files in it
+
+Should mostly impact Rust firmwares. The reason is that without this
+flag the compartment export tables contained in the objects in the
+archive file won't be added, but generally the intended behaviour is
+that they should.
+
+In initial tests, adding this flag does not dramatically increment the
+size of the final firmware.
+---
+ sdk/xmake.lua | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/sdk/xmake.lua b/sdk/xmake.lua
+index ed22fce..29321fd 100644
+--- a/sdk/xmake.lua
++++ b/sdk/xmake.lua
+@@ -374,6 +374,20 @@ rule("cheriot.component")
+ 		-- Get a specified linker script
+ 		local linkerscript_name = target:get("cheriot.ldscript")
+ 		local linkerscript = path.join(scriptdir, linkerscript_name)
++		local objectfiles = target:objectfiles()
++
++		local objectfiles_with_flags = {}
++		local archive_suffix = ".a"
++
++		for _, o in ipairs(objectfiles) do
++
++			if o:sub(-#archive_suffix) == archive_suffix then
++				table.insert(objectfiles_with_flags, "--whole-archive")
++			end
++
++			table.insert(objectfiles_with_flags, o)
++		end
++		
+ 		-- Link using the compartment's linker script.
+ 		batchcmds:show_progress(opt.progress, "linking " .. target:get("cheriot.type") .. ' ' .. target:filename())
+ 		batchcmds:mkdir(target:targetdir())
+@@ -387,7 +401,7 @@ rule("cheriot.component")
+ 				},
+ 				target:get("ldflags") or {},
+ 				opt.verbose and { "--print-gc-sections" } or {},
+-				target:objectfiles()),
++				objectfiles_with_flags),
+ 			opt)
+ 		-- This depends on all of the object files and the linker script.
+ 		batchcmds:add_depfiles(linkerscript)
+-- 
+2.50.1 (Apple Git-155)
+
