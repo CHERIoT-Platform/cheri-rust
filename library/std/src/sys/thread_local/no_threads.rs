@@ -4,6 +4,7 @@
 use crate::cell::{Cell, UnsafeCell};
 use crate::mem::MaybeUninit;
 use crate::ptr;
+use crate::sys::thread::current_os_id;
 
 #[cfg(target_has_threads)]
 compile_error!("Using no_threads implementation on a target with threads");
@@ -23,8 +24,8 @@ pub macro thread_local_inner {
             $crate::thread::LocalKey::new(|_| {
                 $(#[$align_attr])*
                 static __RUST_STD_INTERNAL_VAL: $crate::thread::local_impl::EagerStorage<$t> =
-                    $crate::thread::local_impl::EagerStorage { value: __RUST_STD_INTERNAL_INIT };
-                &__RUST_STD_INTERNAL_VAL.value
+                    $crate::thread::local_impl::EagerStorage::new(__RUST_STD_INTERNAL_INIT);
+                __RUST_STD_INTERNAL_VAL.get()
             })
         }
     }},
@@ -45,9 +46,29 @@ pub macro thread_local_inner {
 }
 
 #[allow(missing_debug_implementations)]
-#[repr(transparent)] // Required for correctness of `#[rustc_align_static]`
+#[repr(C)]
 pub struct EagerStorage<T> {
-    pub value: T,
+    // This field must be first, for correctness of `#[rustc_align_static]`
+    value: T,
+    thread_id: Cell<Option<u64>>,
+}
+impl<T> EagerStorage<T> {
+    pub const fn new(value: T) -> EagerStorage<T> {
+        EagerStorage { value, thread_id: Cell::new(None) }
+    }
+    pub fn get(&self) -> &T {
+        // Once initialised, ensure value is only accessed from same thread.
+        // This is a bit of a hack, but it gives us extra safety when testing
+        // CHERIoT.
+        let id = current_os_id();
+        if let Some(id) = id
+            && self.thread_id.get().is_none()
+        {
+            self.thread_id.set(Some(id));
+        }
+        assert_eq!(self.thread_id.get(), id);
+        &self.value
+    }
 }
 
 // SAFETY: the target doesn't have threads.
@@ -66,6 +87,7 @@ pub struct LazyStorage<T> {
     // This field must be first, for correctness of `#[rustc_align_static]`
     value: UnsafeCell<MaybeUninit<T>>,
     state: Cell<State>,
+    thread_id: Cell<Option<u64>>,
 }
 
 impl<T> LazyStorage<T> {
@@ -73,6 +95,7 @@ impl<T> LazyStorage<T> {
         LazyStorage {
             value: UnsafeCell::new(MaybeUninit::uninit()),
             state: Cell::new(State::Initial),
+            thread_id: Cell::new(None),
         }
     }
 
@@ -83,6 +106,17 @@ impl<T> LazyStorage<T> {
     /// has occurred.
     #[inline]
     pub fn get(&'static self, i: Option<&mut Option<T>>, f: impl FnOnce() -> T) -> *const T {
+        // Once initialised, ensure value is only accessed from same thread.
+        // This is a bit of a hack, but it gives us extra safety when testing
+        // CHERIoT.
+        let id = current_os_id();
+        if let Some(id) = id
+            && self.thread_id.get().is_none()
+        {
+            self.thread_id.set(Some(id));
+        }
+        assert_eq!(self.thread_id.get(), id);
+
         if self.state.get() == State::Alive {
             self.value.get() as *const T
         } else {
