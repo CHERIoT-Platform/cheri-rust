@@ -1,7 +1,8 @@
-use regex::RegexSet;
 use std::fmt;
 use std::ops::Add;
 use std::sync::LazyLock;
+
+use regex::RegexSet;
 
 pub enum FailureMode {
     UnexpectedFail(Failure, String),
