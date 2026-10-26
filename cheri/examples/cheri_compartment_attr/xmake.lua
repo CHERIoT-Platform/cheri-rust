@@ -13,7 +13,8 @@ option("board")
    set_default("sail")
 
 compartment("my_app")
-	  -- The following line is the important bit.
+	  -- The following line is the important bit. The `override = true` and `force = true` additions are there to convince xmake to _actually_ use
+	  -- the additional settings we put here.
     add_files("./crates/my_app/Cargo.toml", { rules = { "cheriot.rust.crate", override = true }, force = true, sourcekind = "cheriot.rust.crate" })
 	  add_files("./rtos_shim.cc")
 
