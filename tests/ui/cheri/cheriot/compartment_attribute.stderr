@@ -1,5 +1,5 @@
 error: the `cheri_compartment` attribute cannot be used on structs
-  --> $DIR/compartment_attribute.rs:15:3
+  --> $DIR/compartment_attribute.rs:16:3
    |
 LL | #[cheri_compartment = "comp1"]
    |   ^^^^^^^^^^^^^^^^^
@@ -7,13 +7,13 @@ LL | #[cheri_compartment = "comp1"]
    = help: the `cheri_compartment` attribute can be applied to crates, extern crates, foreign functions, and foreign modules
 
 error: the compartment name in `#[cheri_compartment = "..."] cannot be empty
-  --> $DIR/compartment_attribute.rs:20:1
+  --> $DIR/compartment_attribute.rs:21:1
    |
 LL | #[cheri_compartment = ""]
    | ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: the `cheri_compartment` attribute cannot be used on functions
-  --> $DIR/compartment_attribute.rs:29:3
+  --> $DIR/compartment_attribute.rs:30:3
    |
 LL | #[cheri_compartment = "comp1"]
    |   ^^^^^^^^^^^^^^^^^
@@ -21,7 +21,7 @@ LL | #[cheri_compartment = "comp1"]
    = help: the `cheri_compartment` attribute can be applied to crates, extern crates, foreign functions, and foreign modules
 
 error: invalid item in a extern block with the `#[cheri_compartment]` attribute
-  --> $DIR/compartment_attribute.rs:43:5
+  --> $DIR/compartment_attribute.rs:60:5
    |
 LL | #[cheri_compartment = "comp1"]
    | ------------------------------ use of #[cheri_compartment] here
@@ -32,8 +32,20 @@ LL |     static mut MY_STATIC: i32;
    = note: only function declarations are valid in extern blocks with the `#[cheri_compartment] attribute`
    = help: remove the items in this block that are not function declarations
 
+error: incompatible ABI for compartment entrypoint declaration
+  --> $DIR/compartment_attribute.rs:65:1
+   |
+LL |   #[cheri_compartment = "comp1"]
+   |   ------------------------------ use of #[cheri_compartment] here
+LL | / unsafe extern "cheriot-library-call" {
+LL | |         fn comp1_lib_entry_point();
+LL | | }
+   | |_^
+   |
+   = help: compartment calls can use either the `Rust`, `C`, `CHERIoTCompartmentCall` or `CHERIoTCompartmentCallee` ABI
+
 error: use of nested `#[cheri_compartment]` attribute with different compartment names
-  --> $DIR/compartment_attribute.rs:38:5
+  --> $DIR/compartment_attribute.rs:55:5
    |
 LL | #[cheri_compartment = "comp1"]
    | ------------------------------ parent foreign module with #[cheri_compartment] here
@@ -43,5 +55,27 @@ LL |     #[cheri_compartment = "comp2"]
    |
    = help: move the foreign function in a new foreign module
 
-error: aborting due to 5 previous errors
+error: incompatible ABI for compartment entrypoint declaration
+  --> $DIR/compartment_attribute.rs:34:1
+   |
+LL | #![cheri_compartment = "comp0"]
+   | ------------------------------- use of #[cheri_compartment] here
+...
+LL | pub extern "cheriot-library-call" fn my_other_entry_point() {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: compartment calls can use either the `Rust`, `C`, `CHERIoTCompartmentCall` or `CHERIoTCompartmentCallee` ABI
+
+error: incompatible ABI for compartment entrypoint declaration
+  --> $DIR/compartment_attribute.rs:41:5
+   |
+LL | #![cheri_compartment = "comp0"]
+   | ------------------------------- use of #[cheri_compartment] here
+...
+LL |     pub extern "cheriot-library-call" fn prv_entry_point1() {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: compartment calls can use either the `Rust`, `C`, `CHERIoTCompartmentCall` or `CHERIoTCompartmentCallee` ABI
+
+error: aborting due to 8 previous errors
 

@@ -1144,6 +1144,19 @@ pub(crate) struct CHERIoTCompartmentOnExternWithNonFnDeclItems {
 }
 
 #[derive(Diagnostic)]
+#[diag("incompatible ABI for compartment entry-point declaration")]
+#[help(
+    "compartment calls can use either the `Rust`, `C`, `CHERIoTCompartmentCall` or `CHERIoTCompartmentCallee` ABI"
+)]
+pub(crate) struct CHERIoTCompartmentEntrypointDeclaredWithIncompatibleABI {
+    #[primary_span]
+    pub invalid_abi_span: Span,
+
+    #[label("use of #[cheri_compartment] here")]
+    pub attr_span: Span,
+}
+
+#[derive(Diagnostic)]
 #[diag("use of nested `#[cheri_compartment]` attribute with different compartment names")]
 #[help("move the foreign function in a new foreign module")]
 pub(crate) struct CHERIoTCompartmentNestedForeignMod {

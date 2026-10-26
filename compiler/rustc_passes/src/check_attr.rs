@@ -1692,14 +1692,48 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
     }
 
     fn check_cheri_compartment(&self, hir_id: HirId, attr: &AttributeKind, attr_span: Span) {
+        let check_abi = |abi: rustc_abi::ExternAbi, abi_span: Span, attr_span: Span| {
+            if !matches!(
+                abi,
+                ExternAbi::Rust
+                    | ExternAbi::CHERIoTCompartmentCall
+                    | ExternAbi::CHERIoTCompartmentCallee
+                    | ExternAbi::C { .. }
+            ) {
+                self.dcx().emit_err(
+                    diagnostics::CHERIoTCompartmentEntrypointDeclaredWithIncompatibleABI {
+                        invalid_abi_span: abi_span,
+                        attr_span,
+                    },
+                );
+            }
+        };
+
+        if let Node::Crate(_) = self.tcx.hir_node(hir_id) {
+            let visibilities = self.tcx.effective_visibilities(());
+
+            let functions = visibilities
+                .iter()
+                .filter_map(|(&def_id, vis)| vis.public_at_level().is_some().then_some(def_id))
+                .filter(|&def_id| self.tcx.def_kind(def_id) == DefKind::Fn);
+
+            for func in functions {
+                let sig = self.tcx.fn_sig(func).skip_binder();
+                check_abi(sig.abi(), self.tcx.def_span(func), attr_span)
+            }
+        }
+
         // Check if there are items in this foreign mod that are not function declarations.
-        if let Node::Item(Item { kind: ItemKind::ForeignMod { items, .. }, .. }) =
+        if let Node::Item(Item { kind: ItemKind::ForeignMod { items, abi }, .. }) =
             self.tcx.hir_node(hir_id)
         {
+            check_abi(*abi, self.tcx.hir_span(hir_id), attr_span);
             for item in items.iter() {
                 let item_node = self.tcx.hir_node(item.hir_id());
                 let item_span = self.tcx.hir_span(item.hir_id());
-                if item_node.fn_decl().is_none() {
+                if let Some(fn_sig) = item_node.fn_sig() {
+                    check_abi(fn_sig.header.abi, fn_sig.span, attr_span)
+                } else {
                     self.dcx().emit_err(
                         diagnostics::CHERIoTCompartmentOnExternWithNonFnDeclItems {
                             attr_span,

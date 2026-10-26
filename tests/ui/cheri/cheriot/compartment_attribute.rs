@@ -4,8 +4,9 @@
 
 // This tests the errors when using the `cheri_compartment` attribute.
 
-#![feature(no_core, lang_items, cheriot_attributes)]
+#![feature(no_core, lang_items, cheriot_attributes, abi_cheriot_library_call)]
 #![no_core]
+#![cheri_compartment = "comp0"]
 
 extern crate minicore;
 use minicore::*;
@@ -29,6 +30,28 @@ unsafe extern "C" {
 #[cheri_compartment = "comp1"] //~ ERROR the `cheri_compartment` attribute cannot be used on functions
 pub fn my_entry_point() {}
 
+
+pub extern "cheriot-library-call" fn my_other_entry_point() {} //~  ERROR incompatible ABI for compartment entrypoint declaration
+
+mod prv {
+    // Fine: not really public.
+    pub extern "cheriot-library-call" fn prv_entry_point0() {}
+
+    // Not fine: re-exported later.
+    pub extern "cheriot-library-call" fn prv_entry_point1() {} //~  ERROR incompatible ABI for compartment entrypoint declaration
+}
+
+pub use prv::prv_entry_point1;
+
+// This one should not fail because it is private, although it doesn't make sense
+// for a compartment to export a library entry-point.
+extern "cheriot-library-call" fn fake_library_entry_point() {}
+
+// No polymorphism in compartment entry-points
+pub fn entry_point2<T>(arg: T) -> T { arg } //~ ERROR use of generics in compartment entry-point
+pub fn entry_point3(_arg: impl Copy) -> usize { 0 } //~ ERROR use of generics in compartment entry-point
+pub fn entry_point4(_arg: impl Copy) -> impl Copy { 0 } //~ ERROR use of generics in compartment entry-point
+
 #[cheri_compartment = "comp1"]
 unsafe extern "C" {
 
@@ -41,4 +64,10 @@ unsafe extern "C" {
     // It doesn't make sense to mark static globals as belonging
     // to a compartment.
     static mut MY_STATIC: i32; //~ ERROR invalid item in a extern block with the `#[cheri_compartment]` attribute
+}
+
+
+#[cheri_compartment = "comp1"]
+unsafe extern "cheriot-library-call" { //~  ERROR incompatible ABI for compartment entrypoint declaration
+        fn comp1_lib_entry_point();
 }
