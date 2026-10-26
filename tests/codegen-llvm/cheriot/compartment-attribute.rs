@@ -53,7 +53,6 @@ mod prv {
     pub fn not_an_entrypoint() {}
 }
 
-
 pub mod public {
     // Public, just via a slightly less direct route.
     #[no_mangle]

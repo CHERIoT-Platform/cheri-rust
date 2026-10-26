@@ -1099,9 +1099,6 @@ impl SingleAttributeParser for CheriCompartmentParser {
             return None;
         }
 
-        Some(AttributeKind::CheriCompartment {
-            compartment_name: name,
-            attr_span: cx.attr_span,
-        })
+        Some(AttributeKind::CheriCompartment { compartment_name: name, attr_span: cx.attr_span })
     }
 }

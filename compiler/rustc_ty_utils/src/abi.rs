@@ -573,7 +573,7 @@ fn fn_abi_new_uncached<'tcx>(
             let maybe_function_compartment = tcx.codegen_fn_attrs(fn_def_id).cheri_compartment;
 
             match (maybe_function_compartment, maybe_crate_compartment) {
-                (None, Some(_)) =>  {
+                (None, Some(_)) => {
                     // If we are here the function must not be local, otherwise the function should have the same
                     // compartment attribute as the crate.
                     //
