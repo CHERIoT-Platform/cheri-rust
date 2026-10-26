@@ -15,7 +15,6 @@ extern crate alloc;
 mod cheriot_alloc;
 mod print;
 
-#[allow(unused_imports)]
 pub use print::*;
 
 /// Our panic handler. Does nothing: it just loops.
