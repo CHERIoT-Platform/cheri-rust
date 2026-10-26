@@ -8,9 +8,6 @@
 #[cfg(not(target_family = "cheriot"))]
 compile_error!("This crate can only compile to CHERIoT!");
 
-#[allow(unused)]
-use cheriot::*;
-
 /// Our entry-point. Simulates getting username and password from the user.
 #[unsafe(export_name = "_Z9call_rustv")]
 pub fn call_rust() -> core::ffi::c_int {
