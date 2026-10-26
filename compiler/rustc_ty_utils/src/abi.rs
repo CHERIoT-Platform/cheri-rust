@@ -573,14 +573,12 @@ fn fn_abi_new_uncached<'tcx>(
             let maybe_function_compartment = tcx.codegen_fn_attrs(fn_def_id).cheri_compartment;
 
             match (maybe_function_compartment, maybe_crate_compartment) {
-                (None, Some(_)) => {
-                    if let Some(local_fn_def_id) = fn_def_id.as_local() {
-                        if !tcx.local_visibility(local_fn_def_id).is_public() {
-                            conv = rustc_abi::CanonAbi::CHERIoT(
-                                rustc_abi::CHERIoTCall::CompartmentCallee,
-                            );
-                        }
-                    }
+                (None, Some(_)) =>  {
+                    // If we are here the function must not be local, otherwise the function should have the same
+                    // compartment attribute as the crate.
+                    //
+                    // If the function is not local, do nothing and use the "normal" CC.
+                    assert!(!fn_def_id.is_local())
                 }
                 (Some(_), None) => {
                     conv = rustc_abi::CanonAbi::CHERIoT(rustc_abi::CHERIoTCall::CompartmentCall);
