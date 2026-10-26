@@ -5,7 +5,7 @@
 //@ ignore-emscripten globals are used instead of thread locals
 //@ ignore-android does not use #[thread_local]
 //@ ignore-nto does not use #[thread_local]
-//@ ignore-riscv32cheriot-unknown-cheriotrtos See CHERIoT-Platform/cheri-rust/issues/89
+//@ ignore-riscv32cheriot-unknown-cheriotrtos we don't have thread local storage
 //@ ignore-qnx does not use #[thread_local]
 //@ ignore-ohos does not use #[thread_local]
 

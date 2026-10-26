@@ -269,6 +269,7 @@
 //
 // Language features:
 // tidy-alphabetical-start
+#![feature(abi_cheriot_library_call)]
 #![feature(alloc_error_handler)]
 #![feature(allocator_internals)]
 #![feature(allow_internal_unsafe)]

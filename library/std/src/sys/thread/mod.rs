@@ -1,4 +1,13 @@
 cfg_select! {
+    target_os = "cheriotrtos" => {
+        mod cheriot;
+        pub use cheriot::current_os_id;
+        #[expect(dead_code)]
+        mod unsupported;
+        pub use unsupported::{
+            DEFAULT_MIN_STACK_SIZE, Thread, available_parallelism, set_name, sleep, yield_now,
+        };
+    }
     target_os = "hermit" => {
         mod hermit;
         pub use hermit::{DEFAULT_MIN_STACK_SIZE, Thread, available_parallelism, sleep, yield_now};
