@@ -27,6 +27,3 @@ pub fn _print(args: core::fmt::Arguments) {
 
     drop(str);
 }
-
-#[allow(unused)]
-pub use {print, println};
