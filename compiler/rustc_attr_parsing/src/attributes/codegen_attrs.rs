@@ -1101,7 +1101,6 @@ impl SingleAttributeParser for CheriCompartmentParser {
 
         Some(AttributeKind::CheriCompartment {
             compartment_name: name,
-            compartment_name_span: name_value.value_span,
             attr_span: cx.attr_span,
         })
     }

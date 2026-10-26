@@ -850,7 +850,6 @@ pub enum AttributeKind {
     /// Represents `#[cheri_compartment]`.
     CheriCompartment {
         compartment_name: Symbol,
-        compartment_name_span: Span,
         attr_span: Span,
     },
 
