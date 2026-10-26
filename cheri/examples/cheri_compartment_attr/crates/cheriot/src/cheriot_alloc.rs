@@ -1,7 +1,5 @@
 //! Our allocator.
 
-extern crate alloc;
-
 unsafe extern "C" {
     pub fn cheriot_alloc(bytes: u32) -> *mut core::ffi::c_void;
     pub fn cheriot_free(ptr: *mut core::ffi::c_void);

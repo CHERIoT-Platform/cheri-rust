@@ -1,7 +1,5 @@
 //! Our reproduction of the `print!` and `println!` macros.
 
-extern crate alloc;
-
 unsafe extern "C" {
     // For now the implementation of the actual printing is delegated to the C shim.
     pub fn cheriot_print_str(v: *const core::ffi::c_char);
