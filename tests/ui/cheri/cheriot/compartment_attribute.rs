@@ -15,6 +15,13 @@ use minicore::*;
 #[cheri_compartment = "comp1"] //~ ERROR the `cheri_compartment` attribute cannot be used on structs
 pub struct Hello;
 
+
+// We don't allow an empty compartment name.
+#[cheri_compartment = ""] //~ ERROR the compartment name in `#[cheri_compartment = "..."] cannot be empty
+unsafe extern "C" {
+    fn missing_compartment_name();
+}
+
 // At this stage it also doesn't make sense to have effectively visible functions
 // marked as public. Exporting a function as a compartment entry-point is done
 // with the crate-level cheri-compartment attribute, because mixed compartment exports

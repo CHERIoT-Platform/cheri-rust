@@ -6,8 +6,14 @@ LL | #[cheri_compartment = "comp1"]
    |
    = help: the `cheri_compartment` attribute can be applied to crates, extern crates, foreign functions, and foreign modules
 
+error: the compartment name in `#[cheri_compartment = "..."] cannot be empty
+  --> $DIR/compartment_attribute.rs:20:1
+   |
+LL | #[cheri_compartment = ""]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+
 error: the `cheri_compartment` attribute cannot be used on functions
-  --> $DIR/compartment_attribute.rs:22:3
+  --> $DIR/compartment_attribute.rs:29:3
    |
 LL | #[cheri_compartment = "comp1"]
    |   ^^^^^^^^^^^^^^^^^
@@ -15,7 +21,7 @@ LL | #[cheri_compartment = "comp1"]
    = help: the `cheri_compartment` attribute can be applied to crates, extern crates, foreign functions, and foreign modules
 
 error: invalid item in a extern block with the `#[cheri_compartment]` attribute
-  --> $DIR/compartment_attribute.rs:36:5
+  --> $DIR/compartment_attribute.rs:43:5
    |
 LL | #[cheri_compartment = "comp1"]
    | ------------------------------ use of #[cheri_compartment] here
@@ -27,7 +33,7 @@ LL |     static mut MY_STATIC: i32;
    = help: remove the items in this block that are not function declarations
 
 error: use of nested `#[cheri_compartment]` attribute with different compartment names
-  --> $DIR/compartment_attribute.rs:31:5
+  --> $DIR/compartment_attribute.rs:38:5
    |
 LL | #[cheri_compartment = "comp1"]
    | ------------------------------ parent foreign module with #[cheri_compartment] here
@@ -37,5 +43,5 @@ LL |     #[cheri_compartment = "comp2"]
    |
    = help: move the foreign function in a new foreign module
 
-error: aborting due to 4 previous errors
+error: aborting due to 5 previous errors
 
