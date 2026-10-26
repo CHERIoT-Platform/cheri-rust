@@ -53,6 +53,14 @@ mod prv {
     pub fn not_an_entrypoint() {}
 }
 
+
+pub mod public {
+    // Public, just via a slightly less direct route.
+    #[no_mangle]
+    // CHECK: define dso_local cheriot_compartmentcalleecc void @nested_entrypoint() unnamed_addr addrspace(200) #0
+    pub fn nested_entrypoint() {}
+}
+
 // Not public: no compartment CC.
 #[no_mangle]
 // CHECK: define dso_local void @not_public() unnamed_addr addrspace(200) #0
