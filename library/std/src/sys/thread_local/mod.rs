@@ -35,6 +35,9 @@
 
 cfg_select! {
     any(
+        // CHERIoT doesn't provide thread local storage, but does have threads.
+        // For testing purposes, we assume threads will never be used and check
+        // in the `no_threads` module to ensure this assumption isn't violated.
         target_os = "cheriotrtos",
         all(target_family = "wasm", not(target_feature = "atomics"), not(target_env = "p3")),
         target_os = "uefi",
