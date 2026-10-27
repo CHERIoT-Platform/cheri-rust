@@ -28,17 +28,17 @@ unsafe extern "C" {
 // with the crate-level cheri-compartment attribute, because mixed compartment exports
 // and crate exports aren't supported.
 #[cheri_compartment = "comp1"] //~ ERROR the `cheri_compartment` attribute cannot be used on functions
-pub fn my_entry_point() {}
+pub fn entry_point0() {}
 
 
-pub extern "cheriot-library-call" fn my_other_entry_point() {} //~  ERROR incompatible ABI for compartment entrypoint declaration
+pub extern "cheriot-library-call" fn entry_point1() {} //~  ERROR incompatible ABI for compartment entry-point declaration
 
 mod prv {
     // Fine: not really public.
     pub extern "cheriot-library-call" fn prv_entry_point0() {}
 
     // Not fine: re-exported later.
-    pub extern "cheriot-library-call" fn prv_entry_point1() {} //~  ERROR incompatible ABI for compartment entrypoint declaration
+    pub extern "cheriot-library-call" fn prv_entry_point1() {} //~  ERROR incompatible ABI for compartment entry-point declaration
 }
 
 pub use prv::prv_entry_point1;
@@ -67,7 +67,8 @@ unsafe extern "C" {
 }
 
 
+
 #[cheri_compartment = "comp1"]
-unsafe extern "cheriot-library-call" { //~  ERROR incompatible ABI for compartment entrypoint declaration
+unsafe extern "cheriot-library-call" { //~  ERROR incompatible ABI for compartment entry-point declaration
         fn comp1_lib_entry_point();
 }

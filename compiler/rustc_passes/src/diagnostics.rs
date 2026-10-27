@@ -1157,6 +1157,17 @@ pub(crate) struct CHERIoTCompartmentEntrypointDeclaredWithIncompatibleABI {
 }
 
 #[derive(Diagnostic)]
+#[diag("use of generics in compartment entry-point")]
+#[note("function declared in compartment `{$compartment}`")]
+#[note("compartment entrypoints cannot be monomorphised in calling compartments")]
+#[help("make this function private, or use an ad-hoc crate to expose compartment entry-points")]
+pub(crate) struct CHERIoTCompartmentEntrypointWithGenerics {
+    #[primary_span]
+    pub span: Span,
+    pub compartment: rustc_span::Symbol,
+}
+
+#[derive(Diagnostic)]
 #[diag("use of nested `#[cheri_compartment]` attribute with different compartment names")]
 #[help("move the foreign function in a new foreign module")]
 pub(crate) struct CHERIoTCompartmentNestedForeignMod {

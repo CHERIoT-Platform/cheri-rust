@@ -1692,6 +1692,15 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
     }
 
     fn check_cheri_compartment(&self, hir_id: HirId, attr: &AttributeKind, attr_span: Span) {
+        let AttributeKind::CheriCompartment { compartment_name, .. } = attr else { unreachable!() };
+
+        if !self.tcx.sess.target.is_like_cheri {
+            self.dcx().emit_err(diagnostics::NotCHERIoTTarget {
+                span: attr_span,
+                attr: &sym::cheri_compartment.to_string(),
+            });
+        }
+
         let check_abi = |abi: rustc_abi::ExternAbi, abi_span: Span, attr_span: Span| {
             if !matches!(
                 abi,
@@ -1709,6 +1718,19 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
             }
         };
 
+        // HACK(xdoardo): This really belongs to the type checking phase.
+        // However, if we are to recompute all the info in the tyck pass, we will also have to recompute the effective visibilities,
+        // which may induce cycles in the query system and result in weird errors.
+        let check_sig = |fn_def_id, compartment: rustc_span::Symbol| {
+            // The signature of compartment entry-points cannot contain any generic parameters
+            if !self.tcx.generics_of(fn_def_id).is_empty() {
+                self.dcx().emit_err(diagnostics::CHERIoTCompartmentEntrypointWithGenerics {
+                    span: self.tcx.def_span(fn_def_id),
+                    compartment,
+                });
+            }
+        };
+
         if let Node::Crate(_) = self.tcx.hir_node(hir_id) {
             let visibilities = self.tcx.effective_visibilities(());
 
@@ -1719,7 +1741,8 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
 
             for func in functions {
                 let sig = self.tcx.fn_sig(func).skip_binder();
-                check_abi(sig.abi(), self.tcx.def_span(func), attr_span)
+                check_abi(sig.abi(), self.tcx.def_span(func), attr_span);
+                check_sig(func, *compartment_name);
             }
         }
 
