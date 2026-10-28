@@ -24,6 +24,4 @@ pub fn _print(args: core::fmt::Arguments) {
     unsafe {
         cheriot_print_str(str.as_ptr());
     }
-
-    drop(str);
 }
