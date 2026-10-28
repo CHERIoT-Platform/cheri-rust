@@ -1160,7 +1160,12 @@ pub(crate) struct CHERIoTCompartmentEntrypointDeclaredWithIncompatibleABI {
 #[diag("use of generics in compartment entry-point")]
 #[note("function declared in compartment `{$compartment}`")]
 #[note("compartment entrypoints cannot be monomorphised in calling compartments")]
-#[help("make this function private, or use an ad-hoc crate to expose compartment entry-points")]
+#[help(
+    "make this function private, or use wrapper functions to provide access to specific monomorphizations of it"
+)]
+#[help(
+    "if the public API of your crate needs polymorphism, perhaps another crate should import this crate?"
+)]
 pub(crate) struct CHERIoTCompartmentEntrypointWithGenerics {
     #[primary_span]
     pub span: Span,

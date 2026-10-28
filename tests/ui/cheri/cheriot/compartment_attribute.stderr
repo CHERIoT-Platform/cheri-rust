@@ -120,7 +120,8 @@ LL | pub fn entry_point2<T>(arg: T) -> T { arg }
    |
    = note: function declared in compartment `comp0`
    = note: compartment entrypoints cannot be monomorphised in calling compartments
-   = help: make this function private, or use an ad-hoc crate to expose compartment entry-points
+   = help: make this function private, or use wrapper functions to provide access to specific monomorphizations of it
+   = help: if the public API of your crate needs polymorphism, perhaps another crate should import this crate?
 
 error: use of generics in compartment entry-point
   --> $DIR/compartment_attribute.rs:57:1
@@ -130,7 +131,8 @@ LL | pub fn entry_point3(_arg: impl Copy) -> usize { 0 }
    |
    = note: function declared in compartment `comp0`
    = note: compartment entrypoints cannot be monomorphised in calling compartments
-   = help: make this function private, or use an ad-hoc crate to expose compartment entry-points
+   = help: make this function private, or use wrapper functions to provide access to specific monomorphizations of it
+   = help: if the public API of your crate needs polymorphism, perhaps another crate should import this crate?
 
 error: use of generics in compartment entry-point
   --> $DIR/compartment_attribute.rs:58:1
@@ -140,7 +142,8 @@ LL | pub fn entry_point4(_arg: impl Copy) -> impl Copy { 0 }
    |
    = note: function declared in compartment `comp0`
    = note: compartment entrypoints cannot be monomorphised in calling compartments
-   = help: make this function private, or use an ad-hoc crate to expose compartment entry-points
+   = help: make this function private, or use wrapper functions to provide access to specific monomorphizations of it
+   = help: if the public API of your crate needs polymorphism, perhaps another crate should import this crate?
 
 error: aborting due to 15 previous errors
 
