@@ -15,13 +15,13 @@ LL | #[cheri_compartment = "comp1"]
    = help: the `cheri_compartment` attribute can be applied to crates, extern crates, foreign functions, and foreign modules
 
 error: the compartment name in `#[cheri_compartment = "..."] cannot be empty
-  --> $DIR/compartment_attribute.rs:23:1
+  --> $DIR/compartment_attribute.rs:26:1
    |
 LL | #[cheri_compartment = ""]
    | ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: the `cheri_compartment` attribute cannot be used on functions
-  --> $DIR/compartment_attribute.rs:32:3
+  --> $DIR/compartment_attribute.rs:35:3
    |
 LL | #[cheri_compartment = "comp1"]
    |   ^^^^^^^^^^^^^^^^^
@@ -29,7 +29,7 @@ LL | #[cheri_compartment = "comp1"]
    = help: the `cheri_compartment` attribute can be applied to crates, extern crates, foreign functions, and foreign modules
 
 error: invalid item in a extern block with the `#[cheri_compartment]` attribute
-  --> $DIR/compartment_attribute.rs:68:5
+  --> $DIR/compartment_attribute.rs:71:5
    |
 LL | #[cheri_compartment = "comp1"]
    | ------------------------------ use of #[cheri_compartment] here
@@ -41,7 +41,7 @@ LL |     static mut MY_STATIC: i32;
    = help: remove the items in this block that are not function declarations
 
 error: incompatible ABI for compartment entry-point declaration
-  --> $DIR/compartment_attribute.rs:74:1
+  --> $DIR/compartment_attribute.rs:77:1
    |
 LL |   #[cheri_compartment = "comp1"]
    |   ------------------------------ use of #[cheri_compartment] here
@@ -53,7 +53,7 @@ LL | | }
    = help: compartment calls can use either the `Rust`, `C`, `CHERIoTCompartmentCall` or `CHERIoTCompartmentCallee` ABI
 
 error: use of nested `#[cheri_compartment]` attribute with different compartment names
-  --> $DIR/compartment_attribute.rs:63:5
+  --> $DIR/compartment_attribute.rs:66:5
    |
 LL | #[cheri_compartment = "comp1"]
    | ------------------------------ parent foreign module with #[cheri_compartment] here
@@ -63,8 +63,35 @@ LL |     #[cheri_compartment = "comp2"]
    |
    = help: move the foreign function in a new foreign module
 
+error: invalid public item in compartment
+  --> $DIR/compartment_attribute.rs:20:1
+   |
+LL | pub static mut HELLO: i32 = 0;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: compartments cannot expose constants or static items
+   = help: make this item private or remove it
+
+error: invalid public item in compartment
+  --> $DIR/compartment_attribute.rs:22:1
+   |
+LL | pub static mut HELLO2: i32 = 0;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: compartments cannot expose constants or static items
+   = help: make this item private or remove it
+
+error: invalid public item in compartment
+  --> $DIR/compartment_attribute.rs:23:1
+   |
+LL | pub const  HELLO3: i32 = 0;
+   | ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: compartments cannot expose constants or static items
+   = help: make this item private or remove it
+
 error: incompatible ABI for compartment entry-point declaration
-  --> $DIR/compartment_attribute.rs:36:1
+  --> $DIR/compartment_attribute.rs:39:1
    |
 LL | #![cheri_compartment = "comp0"]
    | ------------------------------- use of #[cheri_compartment] here
@@ -75,7 +102,7 @@ LL | pub extern "cheriot-library-call" fn entry_point1() {}
    = help: compartment calls can use either the `Rust`, `C`, `CHERIoTCompartmentCall` or `CHERIoTCompartmentCallee` ABI
 
 error: incompatible ABI for compartment entry-point declaration
-  --> $DIR/compartment_attribute.rs:43:5
+  --> $DIR/compartment_attribute.rs:46:5
    |
 LL | #![cheri_compartment = "comp0"]
    | ------------------------------- use of #[cheri_compartment] here
@@ -86,7 +113,7 @@ LL |     pub extern "cheriot-library-call" fn prv_entry_point1() {}
    = help: compartment calls can use either the `Rust`, `C`, `CHERIoTCompartmentCall` or `CHERIoTCompartmentCallee` ABI
 
 error: use of generics in compartment entry-point
-  --> $DIR/compartment_attribute.rs:53:1
+  --> $DIR/compartment_attribute.rs:56:1
    |
 LL | pub fn entry_point2<T>(arg: T) -> T { arg }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -96,7 +123,7 @@ LL | pub fn entry_point2<T>(arg: T) -> T { arg }
    = help: make this function private, or use an ad-hoc crate to expose compartment entry-points
 
 error: use of generics in compartment entry-point
-  --> $DIR/compartment_attribute.rs:54:1
+  --> $DIR/compartment_attribute.rs:57:1
    |
 LL | pub fn entry_point3(_arg: impl Copy) -> usize { 0 }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -106,7 +133,7 @@ LL | pub fn entry_point3(_arg: impl Copy) -> usize { 0 }
    = help: make this function private, or use an ad-hoc crate to expose compartment entry-points
 
 error: use of generics in compartment entry-point
-  --> $DIR/compartment_attribute.rs:55:1
+  --> $DIR/compartment_attribute.rs:58:1
    |
 LL | pub fn entry_point4(_arg: impl Copy) -> impl Copy { 0 }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -115,5 +142,5 @@ LL | pub fn entry_point4(_arg: impl Copy) -> impl Copy { 0 }
    = note: compartment entrypoints cannot be monomorphised in calling compartments
    = help: make this function private, or use an ad-hoc crate to expose compartment entry-points
 
-error: aborting due to 12 previous errors
+error: aborting due to 15 previous errors
 

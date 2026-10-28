@@ -17,7 +17,10 @@ use minicore::*;
 pub struct Hello;
 
 #[cheri_compartment = "comp1"] //~ ERROR the `cheri_compartment` attribute cannot be used on statics
-pub static mut HELLO: i32 = 0;
+pub static mut HELLO: i32 = 0; //~ ERROR invalid public item in compartment
+
+pub static mut HELLO2: i32 = 0; //~ ERROR invalid public item in compartment
+pub const  HELLO3: i32 = 0; //~ ERROR invalid public item in compartment
 
 // We don't allow an empty compartment name.
 #[cheri_compartment = ""] //~ ERROR the compartment name in `#[cheri_compartment = "..."] cannot be empty

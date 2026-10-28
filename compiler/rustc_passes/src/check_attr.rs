@@ -1734,15 +1734,24 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
         if let Node::Crate(_) = self.tcx.hir_node(hir_id) {
             let visibilities = self.tcx.effective_visibilities(());
 
-            let functions = visibilities
+            let visible_items = visibilities
                 .iter()
-                .filter_map(|(&def_id, vis)| vis.public_at_level().is_some().then_some(def_id))
-                .filter(|&def_id| self.tcx.def_kind(def_id) == DefKind::Fn);
+                .filter_map(|(&def_id, vis)| vis.public_at_level().is_some().then_some(def_id));
 
-            for func in functions {
-                let sig = self.tcx.fn_sig(func).skip_binder();
-                check_abi(sig.abi(), self.tcx.def_span(func), attr_span);
-                check_sig(func, *compartment_name);
+            for item in visible_items {
+                let def_kind = self.tcx.def_kind(item);
+
+                if matches!(def_kind, DefKind::Const | DefKind::Static { .. }) {
+                    self.dcx().emit_err(diagnostics::CHERIoTCompartmentWithInvalidVisibleItem {
+                        span: self.tcx.def_span(item),
+                    });
+                }
+
+                if def_kind == DefKind::Fn {
+                    let sig = self.tcx.fn_sig(item).skip_binder();
+                    check_abi(sig.abi(), self.tcx.def_span(item), attr_span);
+                    check_sig(item, *compartment_name);
+                }
             }
         }
 

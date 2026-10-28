@@ -1168,6 +1168,15 @@ pub(crate) struct CHERIoTCompartmentEntrypointWithGenerics {
 }
 
 #[derive(Diagnostic)]
+#[diag("invalid public item in compartment")]
+#[note("compartments cannot expose constants or static items")]
+#[help("make this item private or remove it")]
+pub(crate) struct CHERIoTCompartmentWithInvalidVisibleItem {
+    #[primary_span]
+    pub span: Span,
+}
+
+#[derive(Diagnostic)]
 #[diag("use of nested `#[cheri_compartment]` attribute with different compartment names")]
 #[help("move the foreign function in a new foreign module")]
 pub(crate) struct CHERIoTCompartmentNestedForeignMod {
