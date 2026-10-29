@@ -237,6 +237,10 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 self.check_linkage(*span, hir_id, target, item)
             }
 
+            AttributeKind::CheriCompartment { attr_span, .. } => {
+                self.check_cheri_compartment(hir_id, attr, *attr_span)
+            }
+
             AttributeKind::CheriotCapImport(CheriotCapImportAttr {
                 import_kind: CheriotCapImportKind::MMIO,
                 attr_span,
@@ -1684,6 +1688,117 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
                 self.tcx.dcx().emit_err(diagnostics::ConstFnLinkage { span });
             }
             _ => {}
+        }
+    }
+
+    fn check_cheri_compartment(&self, hir_id: HirId, attr: &AttributeKind, attr_span: Span) {
+        let AttributeKind::CheriCompartment { compartment_name, .. } = attr else { unreachable!() };
+
+        if !self.tcx.sess.target.is_like_cheri {
+            self.dcx().emit_err(diagnostics::NotCHERIoTTarget {
+                span: attr_span,
+                attr: &sym::cheri_compartment.to_string(),
+            });
+        }
+
+        let check_abi = |abi: rustc_abi::ExternAbi, abi_span: Span, attr_span: Span| {
+            if !matches!(
+                abi,
+                ExternAbi::Rust
+                    | ExternAbi::CHERIoTCompartmentCall
+                    | ExternAbi::CHERIoTCompartmentCallee
+                    | ExternAbi::C { .. }
+            ) {
+                self.dcx().emit_err(
+                    diagnostics::CHERIoTCompartmentEntrypointDeclaredWithIncompatibleABI {
+                        invalid_abi_span: abi_span,
+                        attr_span,
+                    },
+                );
+            }
+        };
+
+        // HACK(xdoardo): This really belongs to the type checking phase.
+        // However, if we are to recompute all the info in the tyck pass, we will also have to recompute the effective visibilities,
+        // which may induce cycles in the query system and result in weird errors.
+        let check_sig = |fn_def_id, compartment: rustc_span::Symbol| {
+            // The signature of compartment entry-points cannot contain any generic parameters
+            if !self.tcx.generics_of(fn_def_id).is_empty() {
+                self.dcx().emit_err(diagnostics::CHERIoTCompartmentEntrypointWithGenerics {
+                    span: self.tcx.def_span(fn_def_id),
+                    compartment,
+                });
+            }
+        };
+
+        if let Node::Crate(_) = self.tcx.hir_node(hir_id) {
+            let visibilities = self.tcx.effective_visibilities(());
+
+            let visible_items = visibilities
+                .iter()
+                .filter_map(|(&def_id, vis)| vis.public_at_level().is_some().then_some(def_id));
+
+            for item in visible_items {
+                let def_kind = self.tcx.def_kind(item);
+
+                if matches!(def_kind, DefKind::Const | DefKind::Static { .. }) {
+                    self.dcx().emit_err(diagnostics::CHERIoTCompartmentWithInvalidVisibleItem {
+                        span: self.tcx.def_span(item),
+                    });
+                }
+
+                if def_kind == DefKind::Fn {
+                    let sig = self.tcx.fn_sig(item).skip_binder();
+                    check_abi(sig.abi(), self.tcx.def_span(item), attr_span);
+                    check_sig(item, *compartment_name);
+                }
+            }
+        }
+
+        // Check if there are items in this foreign mod that are not function declarations.
+        if let Node::Item(Item { kind: ItemKind::ForeignMod { items, abi }, .. }) =
+            self.tcx.hir_node(hir_id)
+        {
+            check_abi(*abi, self.tcx.hir_span(hir_id), attr_span);
+            for item in items.iter() {
+                let item_node = self.tcx.hir_node(item.hir_id());
+                let item_span = self.tcx.hir_span(item.hir_id());
+                if let Some(fn_sig) = item_node.fn_sig() {
+                    check_abi(fn_sig.header.abi, fn_sig.span, attr_span)
+                } else {
+                    self.dcx().emit_err(
+                        diagnostics::CHERIoTCompartmentOnExternWithNonFnDeclItems {
+                            attr_span,
+                            not_fn_decl_item_span: item_span,
+                        },
+                    );
+                    return;
+                }
+            }
+        }
+
+        // Check if this foreign function belongs to a foreign mod with a different cheri_compartment attribute.
+        if let Node::ForeignItem(ForeignItem { kind: rustc_hir::ForeignItemKind::Fn(..), .. }) =
+            self.tcx.hir_node(hir_id)
+        {
+            let AttributeKind::CheriCompartment { compartment_name, attr_span, .. } = attr else {
+                unreachable!()
+            };
+            for owner_id in self.tcx.hir_parent_id_iter(hir_id) {
+                let owner_node = self.tcx.hir_node(owner_id);
+                if let Node::Item(Item { kind: ItemKind::ForeignMod { .. }, .. }) = owner_node {
+                    if let Some((owner_compartment_attr, parent_foreign_module_span)) = find_attr!(self.tcx.hir_attrs(owner_id), CheriCompartment {compartment_name, attr_span, ..} => (*compartment_name, *attr_span))
+                    {
+                        if owner_compartment_attr != *compartment_name {
+                            self.dcx().emit_err(diagnostics::CHERIoTCompartmentNestedForeignMod {
+                                foreign_function_span: *attr_span,
+                                parent_foreign_module_span,
+                            });
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 }

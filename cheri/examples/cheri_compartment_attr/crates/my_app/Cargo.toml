@@ -1,0 +1,17 @@
+[workspace]
+
+[package]
+name = "my-app"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["staticlib"]
+#             ^^^^^^^^^^^
+# Very important! xmake will automatically look for a static library with the name of the crate.
+doctest = false
+test = false
+
+[dependencies]
+cheriot = { version = "0.1.0", path = "../cheriot" }
+log = { version = "0.1.0", path = "../log" }
