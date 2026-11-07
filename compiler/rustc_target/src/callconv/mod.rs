@@ -796,7 +796,13 @@ impl<'a, Ty> FnAbi<'a, Ty> {
             }
             Arch::Hexagon => hexagon::compute_abi_info(cx, self),
             Arch::Xtensa => xtensa::compute_abi_info(cx, self),
-            Arch::RiscV32 | Arch::RiscV64 => riscv::compute_abi_info(cx, self),
+            Arch::RiscV32 | Arch::RiscV64 => {
+                if spec.llvm_abiname == crate::spec::LlvmAbi::CHERIoT {
+                    riscv::cheriot::compute_purecap_abi_info(cx, self)
+                } else {
+                    riscv::compute_abi_info(cx, self)
+                }
+            }
             Arch::Wasm32 | Arch::Wasm64 => wasm::compute_abi_info(cx, self),
             Arch::Bpf => bpf::compute_abi_info(cx, self),
             arch @ (Arch::SpirV | Arch::Other(_)) => {
@@ -814,7 +820,13 @@ impl<'a, Ty> FnAbi<'a, Ty> {
         let spec = cx.target_spec();
         match &spec.arch {
             Arch::X86 => x86::compute_rust_abi_info(cx, self),
-            Arch::RiscV32 | Arch::RiscV64 => riscv::compute_rust_abi_info(cx, self),
+            Arch::RiscV32 | Arch::RiscV64 => {
+                if spec.llvm_abiname == crate::spec::LlvmAbi::CHERIoT {
+                    riscv::cheriot::compute_rust_purecap_abi_info(cx, self)
+                } else {
+                    riscv::compute_rust_abi_info(cx, self)
+                }
+            }
             Arch::LoongArch32 | Arch::LoongArch64 => loongarch::compute_rust_abi_info(cx, self),
             Arch::AArch64 => aarch64::compute_rust_abi_info(cx, self),
             Arch::Bpf => bpf::compute_rust_abi_info(self),
