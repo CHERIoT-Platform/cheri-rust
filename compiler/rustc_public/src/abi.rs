@@ -214,6 +214,9 @@ pub enum RegKind {
     Integer,
     Float,
     Vector,
+
+    /// Has a specific meaning for CHERI-like targets. Same as [`Self::Integer`] for every other target.
+    Capability,
 }
 
 /// The layout of a type, alongside the type itself.

@@ -14,13 +14,17 @@ pub enum RegKind {
         /// it can be safely ignored by always picking i8.
         hint_vector_elem: Primitive,
     },
+
+    /// Has a specific meaning for CHERI-like targets. Same as [`Self::Integer`] for every other target.
+    Capability,
 }
 
 impl RegKind {
     pub fn from_primitive(primitive: Primitive) -> Self {
         match primitive {
-            Primitive::Int(..) | Primitive::Pointer(_) => RegKind::Integer,
+            Primitive::Int(..) => RegKind::Integer,
             Primitive::Float(_) => RegKind::Float,
+            Primitive::Pointer(_) => RegKind::Capability,
         }
     }
 }
@@ -57,6 +61,10 @@ impl Reg {
         // Default to an i8 vector of the given size.
         Reg { kind: RegKind::Vector { hint_vector_elem: Primitive::Int(Integer::I8, true) }, size }
     }
+
+    pub fn ptr<C: HasDataLayout>(cx: &C) -> Reg {
+        Reg { kind: RegKind::Capability, size: cx.data_layout().pointer_size() }
+    }
 }
 
 impl Reg {
@@ -80,6 +88,7 @@ impl Reg {
                 _ => panic!("unsupported float: {self:?}"),
             },
             RegKind::Vector { .. } => dl.rust_vector_align(self.size),
+            RegKind::Capability => dl.pointer_align().abi,
         }
     }
 }
