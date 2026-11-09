@@ -932,9 +932,9 @@ impl<'a, Ty> FnAbi<'a, Ty> {
                     assert!(is_indirect_not_on_stack);
 
                     let size = arg.layout.size;
-                    if arg.layout.is_sized()
-                        && size <= Primitive::Pointer(dl.default_address_space).in_memory_size(cx)
-                    {
+                    let usize_size = cx.data_layout().address_size();
+
+                    if arg.layout.is_sized() && size <= usize_size {
                         // We want to pass small aggregates as immediates, but using
                         // an LLVM aggregate type for this leads to bad optimizations,
                         // so we pick an appropriately sized integer type instead.
