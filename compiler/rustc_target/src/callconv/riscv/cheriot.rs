@@ -175,19 +175,9 @@ where
         let num_regs = arg_size.bits() / ylen;
 
         match arg.layout.backend_repr {
-            rustc_abi::BackendRepr::Scalar { .. } | rustc_abi::BackendRepr::ScalarPair { .. } => {
-                if num_regs == 1 {
-                    arg.cast_to(cap_reg);
-                    *avail_gprs = avail_gprs.saturating_sub(1);
-                } else if *avail_gprs >= 2 {
-                    arg.cast_to(CastTarget::pair(cap_reg, cap_reg));
-                    *avail_gprs = avail_gprs.saturating_sub(2);
-                } else {
-                    arg.make_indirect();
-                }
-                return PureCapAbiResult::Done;
-            }
-            rustc_abi::BackendRepr::Memory { sized } if sized => {
+            rustc_abi::BackendRepr::Scalar { .. }
+            | rustc_abi::BackendRepr::ScalarPair { .. }
+            | rustc_abi::BackendRepr::Memory { .. } => {
                 if num_regs == 1 {
                     arg.cast_to(cap_reg);
                     *avail_gprs = avail_gprs.saturating_sub(1);
