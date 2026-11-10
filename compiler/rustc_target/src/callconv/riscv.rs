@@ -9,6 +9,8 @@ use rustc_abi::{
     TyAndLayout, Variants,
 };
 
+mod cheriot;
+
 use crate::callconv::{ArgAbi, ArgExtension, CastTarget, FnAbi, PassMode, Uniform};
 use crate::spec::{HasTargetSpec, LlvmAbi};
 
@@ -419,12 +421,17 @@ where
     Ty: TyAbiInterface<'a, C> + Copy,
     C: HasDataLayout + HasTargetSpec,
 {
+    if cx.target_spec().is_like_cheri {
+        cheriot::compute_purecap_abi_info(cx, fn_abi);
+        return;
+    }
+
     let flen = match &cx.target_spec().llvm_abiname {
         LlvmAbi::Ilp32f | LlvmAbi::Lp64f => 32,
         LlvmAbi::Ilp32d | LlvmAbi::Lp64d => 64,
         _ => 0,
     };
-    let xlen = cx.data_layout().pointer_size().bits();
+    let xlen = cx.data_layout().address_size().bits();
 
     let mut avail_gprs = 8;
     let mut avail_fprs = 8;
@@ -454,7 +461,12 @@ where
     Ty: TyAbiInterface<'a, C> + Copy,
     C: HasDataLayout + HasTargetSpec,
 {
-    let xlen = cx.data_layout().pointer_size().bits();
+    if cx.target_spec().is_like_cheri {
+        cheriot::compute_rust_purecap_abi_info(cx, fn_abi);
+        return;
+    }
+
+    let xlen = cx.data_layout().address_size().bits();
 
     for arg in fn_abi.args.iter_mut() {
         if arg.is_ignore() {

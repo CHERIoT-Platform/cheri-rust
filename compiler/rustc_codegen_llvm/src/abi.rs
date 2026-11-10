@@ -174,6 +174,7 @@ impl LlvmType for Reg {
                 let len = self.size.bytes() / hint_vector_elem.in_memory_size(cx).bytes();
                 cx.type_vector(ty, len)
             }
+            RegKind::Capability => cx.type_ptr(),
         }
     }
 }
