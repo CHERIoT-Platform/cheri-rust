@@ -248,7 +248,7 @@ impl<'tcx> Stable<'tcx> for rustc_abi::Reg {
         Reg {
             kind: match self.kind {
                 rustc_abi::RegKind::Integer => RegKind::Integer,
-                rustc_abi::RegKind::Pointer => RegKind::Pointer,
+                rustc_abi::RegKind::Capability => RegKind::Capability,
                 rustc_abi::RegKind::Float => RegKind::Float,
                 rustc_abi::RegKind::Vector { .. } => RegKind::Vector,
             },

@@ -216,7 +216,7 @@ pub enum RegKind {
     Vector,
 
     /// Has a specific meaning for CHERI-like targets. Same as [`Self::Integer`] for every other target.
-    Pointer,
+    Capability,
 }
 
 /// The layout of a type, alongside the type itself.

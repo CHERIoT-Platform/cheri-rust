@@ -481,7 +481,7 @@ fn wasm_type<'tcx>(signature: &mut String, arg_abi: &ArgAbi<'_, Ty<'tcx>>, ptr_t
             assert_eq!(cast.rest.total, arg_abi.layout.size, "single item");
 
             let wrapped_wasm_type = match cast.rest.unit.kind {
-                RegKind::Integer | RegKind::Pointer => match cast.rest.unit.size.bytes() {
+                RegKind::Integer | RegKind::Capability => match cast.rest.unit.size.bytes() {
                     ..=4 => "i32",
                     ..=8 => "i64",
                     _ => ptr_type,
