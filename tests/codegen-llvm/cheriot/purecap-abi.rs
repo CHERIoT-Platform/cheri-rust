@@ -109,7 +109,7 @@ struct PtrAndSmallerIntStruct {
 // CHECK: define dso_local { ptr addrspace(200), ptr addrspace(200) } @ptr_and_smaller_int_struct({ ptr addrspace(200), ptr addrspace(200) } %0)
 #[unsafe(no_mangle)]
 pub extern "C" fn ptr_and_smaller_int_struct(s: PtrAndSmallerIntStruct) -> TwoPtrStruct {
-    TwoPtrStruct { ptr1: ptr_helper(s.int as i64), ptr2: s.ptr }
+    TwoPtrStruct { ptr1: unsafe { core::mem::transmute(s.int as i64) }, ptr2: s.ptr }
 }
 
 // Should be spilled on the stack.
@@ -123,5 +123,5 @@ struct PtrAndTwoIntsStruct {
 // CHECK: define dso_local { ptr addrspace(200), ptr addrspace(200) } @ptr_and_two_ints_struct(ptr addrspace(200) noalias nofree noundef readonly align 8 captures(none) dead_on_return dereferenceable(24) %s)
 #[unsafe(no_mangle)]
 pub extern "C" fn ptr_and_two_ints_struct(s: PtrAndTwoIntsStruct) -> TwoPtrStruct {
-    TwoPtrStruct { ptr1: ptr_helper(s.int1 + s.int2), ptr2: s.ptr }
+    TwoPtrStruct { ptr1: unsafe { core::mem::transmute(s.int1 + s.int2) }, ptr2: s.ptr }
 }
