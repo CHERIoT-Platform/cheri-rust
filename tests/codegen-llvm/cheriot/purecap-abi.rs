@@ -67,14 +67,14 @@ pub extern "C" fn ptr_struct(s: PtrStruct) -> i64 {
 
 #[repr(C)]
 pub struct IntAndPtrStruct {
-    int1: i64,
+    int: i64,
     ptr: *const (),
 }
 
 // CHECK: define dso_local { ptr addrspace(200), ptr addrspace(200) } @int_and_ptr_struct({ ptr addrspace(200), ptr addrspace(200) } %0)
 #[unsafe(no_mangle)]
 pub extern "C" fn int_and_ptr_struct(s: IntAndPtrStruct) -> TwoPtrStruct {
-    TwoPtrStruct { ptr1: unsafe { core::mem::transmute(s.int1) }, ptr2: s.ptr }
+    TwoPtrStruct { ptr1: unsafe { core::mem::transmute(s.int) }, ptr2: s.ptr }
 }
 
 // CHECK: define dso_local noundef double @float(double noundef %s) unnamed_addr addrspace(200)
@@ -91,4 +91,37 @@ unsafe extern "C" fn variadic(count: u32, mut ap: ...) -> i32 {
         sum += unsafe { ap.next_arg::<i32>() };
     }
     sum
+}
+
+// CHECK: define dso_local noundef i32 @smaller_int(i32 noundef %s)
+#[unsafe(no_mangle)]
+unsafe extern "C" fn smaller_int(s: i32) -> i32 {
+    s + 1
+}
+
+// Should be passed in two registers.
+#[repr(C)]
+struct PtrAndSmallerIntStruct {
+    ptr: *const (),
+    int: i32,
+}
+
+// CHECK: define dso_local { ptr addrspace(200), ptr addrspace(200) } @ptr_and_smaller_int_struct({ ptr addrspace(200), ptr addrspace(200) } %0)
+#[unsafe(no_mangle)]
+pub extern "C" fn ptr_and_smaller_int_struct(s: PtrAndSmallerIntStruct) -> TwoPtrStruct {
+    TwoPtrStruct { ptr1: ptr_helper(s.int as i64), ptr2: s.ptr }
+}
+
+// Should be spilled on the stack.
+#[repr(C)]
+struct PtrAndTwoIntsStruct {
+    ptr: *const (),
+    int1: i64,
+    int2: i64,
+}
+
+// CHECK: define dso_local { ptr addrspace(200), ptr addrspace(200) } @ptr_and_two_ints_struct(ptr addrspace(200) noalias nofree noundef readonly align 8 captures(none) dead_on_return dereferenceable(24) %s)
+#[unsafe(no_mangle)]
+pub extern "C" fn ptr_and_two_ints_struct(s: PtrAndTwoIntsStruct) -> TwoPtrStruct {
+    TwoPtrStruct { ptr1: ptr_helper(s.int1 + s.int2), ptr2: s.ptr }
 }

@@ -204,3 +204,68 @@ unsafe extern "C" fn variadic(count: u32, mut ap: ...) -> i32 {
     }
     sum
 }
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn smaller_int(s: i32) -> i32 {
+    // Pretty simple: a0 contains the i32.
+
+    // CHECK: smaller_int:
+    // CHECK:    addi   a0, a0, 1
+    // CHECK:    ct.cret
+
+    s + 1
+}
+
+// Should be passed in two registers.
+#[repr(C)]
+pub struct PtrAndSmallerIntStruct {
+    ptr: *const (),
+    int: i32,
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn ptr_and_smaller_int_struct(s: PtrAndSmallerIntStruct) -> TwoPtrStruct {
+    // Register a0 should contain the pointer, a1 should contain the i32.
+
+    // CHECK: ptr_and_smaller_int_struct:
+    // CHECK:    ct.cincoffset   sp, sp, -16
+    // CHECK:    ct.csc   a1, 8(sp)
+    // CHECK:    ct.clw   a1, 8(sp)
+    // CHECK:    srai   a2, a1, 31
+    // CHECK:    ct.csethigh   a1, a1, a2
+    // CHECK:    ct.cmove   a2, a0
+    // CHECK:    ct.cmove   a0, a1
+    // CHECK:    ct.cmove   a1, a2
+    // CHECK:    ct.cincoffset   sp, sp, 16
+    // CHECK:    ct.cret
+
+    TwoPtrStruct { ptr1: ptr_helper(s.int as i64), ptr2: s.ptr }
+}
+
+// Should be spilled on the stack.
+#[repr(C)]
+pub struct PtrAndTwoIntsStruct {
+    ptr: *const (),
+    int1: i64,
+    int2: i64,
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn ptr_and_two_ints_struct(s: PtrAndTwoIntsStruct) -> TwoPtrStruct {
+    // All the values should be loaded indirectly from a0.
+
+    // CHECK: ptr_and_two_ints_struct:
+    // CHECK:    ct.clw   a1, 8(a0)
+    // CHECK:    ct.clw   a2, 12(a0)
+    // CHECK:    ct.clw   a3, 20(a0)
+    // CHECK:    ct.clw   a4, 16(a0)
+    // CHECK:    add   a2, a2, a3
+    // CHECK:    add   a3, a4, a1
+    // CHECK:    ct.clc   a1, 0(a0)
+    // CHECK:    sltu   a0, a3, a4
+    // CHECK:    add   a0, a0, a2
+    // CHECK:    ct.csethigh   a0, a3, a0
+    // CHECK:    ct.cret
+
+    TwoPtrStruct { ptr1: ptr_helper(s.int1 + s.int2), ptr2: s.ptr }
+}
