@@ -1130,6 +1130,69 @@ pub(crate) struct CHERIoTCapImportPermissionsCoherence<'a> {
 }
 
 #[derive(Diagnostic)]
+#[diag("invalid item in a extern block with the `#[cheri_compartment]` attribute")]
+#[note(
+    "only function declarations are valid in extern blocks with the `#[cheri_compartment] attribute`"
+)]
+#[help("remove the items in this block that are not function declarations")]
+pub(crate) struct CHERIoTCompartmentOnExternWithNonFnDeclItems {
+    #[primary_span]
+    pub not_fn_decl_item_span: Span,
+
+    #[label("use of #[cheri_compartment] here")]
+    pub attr_span: Span,
+}
+
+#[derive(Diagnostic)]
+#[diag("incompatible ABI for compartment entry-point declaration")]
+#[help(
+    "compartment calls can use either the `Rust`, `C`, `CHERIoTCompartmentCall` or `CHERIoTCompartmentCallee` ABI"
+)]
+pub(crate) struct CHERIoTCompartmentEntrypointDeclaredWithIncompatibleABI {
+    #[primary_span]
+    pub invalid_abi_span: Span,
+
+    #[label("use of #[cheri_compartment] here")]
+    pub attr_span: Span,
+}
+
+#[derive(Diagnostic)]
+#[diag("use of generics in compartment entry-point")]
+#[note("function declared in compartment `{$compartment}`")]
+#[note("compartment entrypoints cannot be monomorphised in calling compartments")]
+#[help(
+    "make this function private, or use wrapper functions to provide access to specific monomorphizations of it"
+)]
+#[help(
+    "if the public API of your crate needs polymorphism, perhaps another crate should import this crate?"
+)]
+pub(crate) struct CHERIoTCompartmentEntrypointWithGenerics {
+    #[primary_span]
+    pub span: Span,
+    pub compartment: rustc_span::Symbol,
+}
+
+#[derive(Diagnostic)]
+#[diag("invalid public item in compartment")]
+#[note("compartments cannot expose constants or static items")]
+#[help("make this item private or remove it")]
+pub(crate) struct CHERIoTCompartmentWithInvalidVisibleItem {
+    #[primary_span]
+    pub span: Span,
+}
+
+#[derive(Diagnostic)]
+#[diag("use of nested `#[cheri_compartment]` attribute with different compartment names")]
+#[help("move the foreign function in a new foreign module")]
+pub(crate) struct CHERIoTCompartmentNestedForeignMod {
+    #[primary_span]
+    pub foreign_function_span: Span,
+
+    #[label("parent foreign module with #[cheri_compartment] here")]
+    pub parent_foreign_module_span: Span,
+}
+
+#[derive(Diagnostic)]
 #[diag("attribute `{$attr}` can be used on CHERIoT targets only")]
 pub(crate) struct NotCHERIoTTarget<'a> {
     #[primary_span]
