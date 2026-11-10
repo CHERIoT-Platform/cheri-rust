@@ -20,11 +20,21 @@ pub enum RegKind {
 }
 
 impl RegKind {
-    pub fn from_primitive(primitive: Primitive) -> Self {
+    pub fn from_primitive<C: HasDataLayout>(cx: &C, primitive: Primitive) -> Self {
         match primitive {
             Primitive::Int(..) => RegKind::Integer,
             Primitive::Float(_) => RegKind::Float,
-            Primitive::Pointer(_) => RegKind::Pointer,
+            Primitive::Pointer(_) =>
+            // Only targets with non-integral pointers make a difference between registers
+            // of this kind. As of now, the check should be on the target being `like_cheri`,
+            // but we don't have `HasTargetSpec` in this crate.
+            {
+                if cx.data_layout().pointer_size() != cx.data_layout().address_size() {
+                    RegKind::Pointer
+                } else {
+                    RegKind::Integer
+                }
+            }
         }
     }
 }

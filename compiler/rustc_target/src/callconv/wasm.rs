@@ -15,7 +15,10 @@ where
         let BackendRepr::Scalar(scalar) = layout.backend_repr else {
             return None;
         };
-        return Some(Reg { kind: RegKind::from_primitive(scalar.primitive()), size: layout.size });
+        return Some(Reg {
+            kind: RegKind::from_primitive(cx, scalar.primitive()),
+            size: layout.size,
+        });
     }
 
     // Enums that are represented as scalars need special care:
@@ -29,7 +32,10 @@ where
         &layout.variants
     {
         if variants.iter().all(|x| x.field_offsets.is_empty()) {
-            return Some(Reg { kind: RegKind::from_primitive(tag.primitive()), size: layout.size });
+            return Some(Reg {
+                kind: RegKind::from_primitive(cx, tag.primitive()),
+                size: layout.size,
+            });
         }
         return None;
     }
