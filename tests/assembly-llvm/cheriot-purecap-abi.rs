@@ -168,3 +168,39 @@ pub extern "C" fn float(s: f64) -> f64 {
 
     s + 187238723.0
 }
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn variadic(count: u32, mut ap: ...) -> i32 {
+    // Almost correct: the variadic arguments are indeed passed on the stack,
+    // but the capability to them is not passed in register x5 as mandated by the ABI.
+    // It appears to be a choice of LLVM, though, not Rust.
+
+    // CHECK: variadic:
+    // CHECK:    ct.cincoffset   sp, sp, -16
+    // CHECK:    mv   a1, a0
+    // CHECK:    ct.cincoffset   a0, sp, 8
+    // CHECK:    ct.csetbounds   a0, a0, 8
+    // CHECK:    ct.cincoffset   a2, sp, 16
+    // CHECK:    ct.csc   a2, 0(a0)
+    // CHECK:    li   a0, 0
+    // CHECK:    beqz   a1, .LBB7_3
+    // CHECK:    ct.clc   a2, 8(sp)
+    // CHECK:    slli   a1, a1, 2
+    // CHECK:    ct.cincoffset   a1, a2, a1
+    // CHECK: .LBB7_2:
+    // CHECK:    ct.cmove   a3, a2
+    // CHECK:    ct.cincoffset   a2, a2, 4
+    // CHECK:    ct.csc   a2, 8(sp)
+    // CHECK:    ct.clw   a3, 0(a3)
+    // CHECK:    add   a0, a0, a3
+    // CHECK:    bne   a2, a1, .LBB7_2
+    // CHECK: .LBB7_3:
+    // CHECK:    ct.cincoffset   sp, sp, 16
+    // CHECK:    ct.cret
+
+    let mut sum = 0;
+    for _ in 0..count {
+        sum += unsafe { ap.next_arg::<i32>() };
+    }
+    sum
+}

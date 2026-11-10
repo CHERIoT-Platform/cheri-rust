@@ -82,3 +82,13 @@ pub extern "C" fn int_and_ptr_struct(s: IntAndPtrStruct) -> TwoPtrStruct {
 pub extern "C" fn float(s: f64) -> f64 {
     s + 187238723.0
 }
+
+// CHECK: define dso_local noundef i32 @variadic(i32 noundef %count, ...) unnamed_addr addrspace(200)
+#[unsafe(no_mangle)]
+unsafe extern "C" fn variadic(count: u32, mut ap: ...) -> i32 {
+    let mut sum = 0;
+    for _ in 0..count {
+        sum += unsafe { ap.next_arg::<i32>() };
+    }
+    sum
+}
