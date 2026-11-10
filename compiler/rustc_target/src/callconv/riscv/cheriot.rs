@@ -167,7 +167,7 @@ where
     if (arg.layout.is_aggregate()
         //`.is_aggregate()` says that things that are represented as a single scalar can't be aggregates.
         // This probably makes sense for other bits of the compiler, but here we want to pick up types like `{ i64 }`,
-        // which has the backend repr of a single scalar.
+        // which has the backend repr of a single scalar in non-repr(C) structs.
         || !matches!(arg.layout.fields, rustc_abi::FieldsShape::Primitive))
         && arg_size.bits() <= 2 * ylen
         && arg_alignment.bits() % ylen == 0
