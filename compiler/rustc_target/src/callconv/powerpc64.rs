@@ -70,7 +70,7 @@ where
         }
 
         let valid_unit = match unit.kind {
-            RegKind::Integer | RegKind::Capability => false,
+            RegKind::Integer | RegKind::Pointer => false,
             RegKind::Float => true,
             RegKind::Vector { .. } => unit.size.bits() == 128,
         };

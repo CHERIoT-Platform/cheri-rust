@@ -93,7 +93,7 @@ impl GccType for Reg {
             RegKind::Vector { hint_vector_elem: _ } => {
                 cx.type_vector(cx.type_i8(), self.size.bytes())
             }
-            RegKind::Capability => cx.type_ptr_to(cx.type_void()),
+            RegKind::Pointer => cx.type_ptr_to(cx.type_void()),
         }
     }
 }

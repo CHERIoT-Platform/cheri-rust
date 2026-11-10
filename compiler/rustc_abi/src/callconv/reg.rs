@@ -16,7 +16,7 @@ pub enum RegKind {
     },
 
     /// Has a specific meaning for CHERI-like targets. Same as [`Self::Integer`] for every other target.
-    Capability,
+    Pointer,
 }
 
 impl RegKind {
@@ -24,7 +24,7 @@ impl RegKind {
         match primitive {
             Primitive::Int(..) => RegKind::Integer,
             Primitive::Float(_) => RegKind::Float,
-            Primitive::Pointer(_) => RegKind::Capability,
+            Primitive::Pointer(_) => RegKind::Pointer,
         }
     }
 }
@@ -63,7 +63,7 @@ impl Reg {
     }
 
     pub fn ptr<C: HasDataLayout>(cx: &C) -> Reg {
-        Reg { kind: RegKind::Capability, size: cx.data_layout().pointer_size() }
+        Reg { kind: RegKind::Pointer, size: cx.data_layout().pointer_size() }
     }
 }
 
@@ -88,7 +88,7 @@ impl Reg {
                 _ => panic!("unsupported float: {self:?}"),
             },
             RegKind::Vector { .. } => dl.rust_vector_align(self.size),
-            RegKind::Capability => dl.pointer_align().abi,
+            RegKind::Pointer => dl.pointer_align().abi,
         }
     }
 }
