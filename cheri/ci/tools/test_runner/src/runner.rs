@@ -15,6 +15,7 @@ pub struct Runner<'a> {
     expected: Option<u32>,
     finished: Option<u32>,
     results: Results,
+    captured_stdout: String,
 }
 
 impl<'a> Runner<'a> {
@@ -26,6 +27,7 @@ impl<'a> Runner<'a> {
             expected: None,
             finished: None,
             results: Results::default(),
+            captured_stdout: String::new(),
         }
     }
 
@@ -69,10 +71,10 @@ impl<'a> Runner<'a> {
                     {
                         continue;
                     }
-                    // maybe we don't want to see this either? it is stdout from tests
-                    // which we currently do not capture. for ui tests we will need
-                    // to capture this.
-                    eprintln!("{line}");
+                    if !self.captured_stdout.is_empty() {
+                        self.captured_stdout.push('\n');
+                    }
+                    self.captured_stdout.push_str(&line);
                     continue;
                 }
             };
@@ -93,6 +95,7 @@ impl<'a> Runner<'a> {
             },
             Log::Test { test } => {
                 let known_issue = self.known_issues.get(&test.name);
+                let captured_stdout = std::mem::take(&mut self.captured_stdout);
 
                 match test.event {
                     TestEvent::Started => {
@@ -100,18 +103,21 @@ impl<'a> Runner<'a> {
                         // or measure their execution time, handle timeouts, etc.
                         println!("{} ... started", test.name);
                     }
-                    TestEvent::Failed { stdout } => match known_issue {
-                        Some(issue) => {
-                            println!("{} ... FAILED (expected: {})", test.name, issue);
-                            println!("\n{stdout}\n");
-                            self.results.fail();
+                    TestEvent::Failed { stdout } => {
+                        let combined = format!("{captured_stdout}\n{stdout}");
+                        match known_issue {
+                            Some(issue) => {
+                                println!("{} ... FAILED (expected: {})", test.name, issue);
+                                println!("\n{combined}\n");
+                                self.results.fail();
+                            }
+                            None => {
+                                println!("{} ... FAILED", test.name);
+                                println!("{combined}\n");
+                                self.results.fail_unexpected(test.name, combined);
+                            }
                         }
-                        None => {
-                            println!("{} ... FAILED", test.name);
-                            println!("{stdout}\n");
-                            self.results.fail_unexpected(test.name);
-                        }
-                    },
+                    }
                     TestEvent::Ignored => match known_issue {
                         Some(issue) => {
                             println!("{} ... ignored (unexpected: {})", test.name, issue);

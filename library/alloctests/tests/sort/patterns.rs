@@ -178,7 +178,8 @@ pub fn get_or_init_rand_seed() -> u64 {
 
 static SEED_VALUE: OnceLock<u64> = OnceLock::new();
 
-#[cfg(not(miri))]
+// FIXME(cheri/triage): Time
+#[cfg(all(not(miri), not(target_abi = "cheriot")))]
 fn rand_root_seed() -> u64 {
     // Other test code hashes `panic::Location::caller()` and constructs a seed from that, in these
     // tests we want to have a fuzzer like exploration of the test space, if we used the same caller
@@ -194,7 +195,7 @@ fn rand_root_seed() -> u64 {
     epoch_seconds / 10
 }
 
-#[cfg(miri)]
+#[cfg(any(miri, target_abi = "cheriot"))]
 fn rand_root_seed() -> u64 {
     // Miri is usually run with isolation with gives us repeatability but also permutations based on
     // other code that runs before.
