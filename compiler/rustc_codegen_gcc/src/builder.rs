@@ -12,13 +12,13 @@ use rustc_abi::{Align, HasDataLayout, Size, TargetDataLayout, WrappingRange};
 use rustc_apfloat::{Float, Round, Status, ieee};
 use rustc_codegen_ssa::MemFlags;
 use rustc_codegen_ssa::common::{
-    AtomicRmwBinOp, IntPredicate, PreserveCheriTags, RealPredicate, SynchronizationScope, TypeKind,
+    AtomicRmwBinOp, IntPredicate, PreserveCheriTags, RealPredicate, SynchronizationScope,
 };
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
 use rustc_codegen_ssa::mir::place::PlaceRef;
 use rustc_codegen_ssa::traits::{
-    BackendTypes, BaseTypeCodegenMethods, BuilderMethods, ConstCodegenMethods,
-    LayoutTypeCodegenMethods, OverflowOp, ReturnSlot, StaticBuilderMethods,
+    BackendTypes, BaseTypeCodegenMethods, BuilderMethods, ConstCodegenMethods, OverflowOp,
+    ReturnSlot, StaticBuilderMethods,
 };
 use rustc_data_structures::fx::FxHashSet;
 use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs;
@@ -98,6 +98,7 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         operation: ExtremumOperation,
         dst: RValue<'gcc>,
         src: RValue<'gcc>,
+        comparison_type: Type<'gcc>,
         order: AtomicOrdering,
     ) -> RValue<'gcc> {
         let size = get_maybe_pointer_size(src);
@@ -138,8 +139,8 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         let cond1 = self.context.new_comparison(
             self.location,
             comparison_operator,
-            previous_var.to_rvalue(),
-            self.context.new_cast(self.location, src, previous_value.get_type()),
+            self.context.new_cast(self.location, previous_var.to_rvalue(), comparison_type),
+            self.context.new_cast(self.location, src, comparison_type),
         );
         let compare_exchange =
             self.compare_exchange(dst, previous_var, src, order, load_ordering, false);
@@ -200,46 +201,6 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
 
     pub fn assign(&self, lvalue: LValue<'gcc>, value: RValue<'gcc>) {
         self.llbb().add_assignment(self.location, lvalue, value);
-    }
-
-    fn check_call<'b>(
-        &mut self,
-        _typ: &str,
-        func: Function<'gcc>,
-        args: &'b [RValue<'gcc>],
-    ) -> Cow<'b, [RValue<'gcc>]> {
-        let mut all_args_match = true;
-        let mut param_types = vec![];
-        let param_count = func.get_param_count();
-        for (index, arg) in args.iter().enumerate().take(param_count) {
-            let param = func.get_param(index as i32);
-            let param = param.to_rvalue().get_type();
-            if param != arg.get_type() {
-                all_args_match = false;
-            }
-            param_types.push(param);
-        }
-
-        if all_args_match {
-            return Cow::Borrowed(args);
-        }
-
-        let casted_args: Vec<_> = param_types
-            .into_iter()
-            .zip(args.iter())
-            .map(|(expected_ty, &actual_val)| {
-                let actual_ty = actual_val.get_type();
-                if expected_ty != actual_ty {
-                    self.bitcast(actual_val, expected_ty)
-                } else {
-                    actual_val
-                }
-            })
-            .collect();
-
-        debug_assert_eq!(casted_args.len(), args.len());
-
-        Cow::Owned(casted_args)
     }
 
     fn check_ptr_call<'b>(
@@ -358,68 +319,33 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         funclet: Option<&Funclet>,
         must_tail: bool,
     ) -> RValue<'gcc> {
-        // FIXME: change this in the `rustc_codegen_gcc` repo after the sync, to use the `libgccjit` indirect return suppport.
-        let args = match return_slot {
-            ReturnSlot::Direct => Cow::Borrowed(args),
+        // Without libgccjit's indirect return support, the return pointer is an explicit parameter.
+        #[cfg(not(feature = "master"))]
+        let (args, return_slot) = match return_slot {
+            ReturnSlot::Direct => (Cow::Borrowed(args), ReturnSlot::Direct),
             ReturnSlot::Indirect(sret_ptr) => {
                 let mut args = args.to_vec();
                 // Prepend the indirect return pointer
                 args.insert(0, sret_ptr);
-                Cow::Owned(args)
+                (Cow::Owned(args), ReturnSlot::Direct)
             }
         };
-        // FIXME(antoyo): remove when having a proper API.
-        let gcc_func = unsafe { std::mem::transmute::<RValue<'gcc>, Function<'gcc>>(func) };
-        let call = if self.functions.borrow().values().any(|value| *value == gcc_func) {
-            // FIXME(antoyo): remove when the API supports a different type for functions.
-            let func: Function<'gcc> = self.cx.rvalue_as_function(func);
-            self.function_call(func, &args, funclet, must_tail)
-        } else {
-            // If it's a not function that was defined, it's a function pointer.
-            self.function_ptr_call(typ, fn_abi, func, &args, funclet, must_tail)
-        };
+        #[cfg(not(feature = "master"))]
+        let args: &[RValue<'gcc>] = &args;
+        let call = self.function_ptr_call(typ, fn_abi, func, return_slot, args, funclet, must_tail);
         if let Some(_fn_abi) = fn_abi {
             // FIXME(bjorn3): Apply function attributes
         }
         call
     }
 
-    pub fn function_call(
-        &mut self,
-        func: Function<'gcc>,
-        args: &[RValue<'gcc>],
-        _funclet: Option<&Funclet>,
-        must_tail: bool,
-    ) -> RValue<'gcc> {
-        let args = self.check_call("call", func, args);
-
-        let call = self.cx.context.new_call(self.location, func, &args);
-        if must_tail {
-            // Return the bare tail call, don't assign or `add_eval` it yet.
-            return call;
-        }
-
-        // gccjit requires to use the result of functions, even when it's not used.
-        // That's why we assign the result to a local or call add_eval().
-        let return_type = func.get_return_type();
-        let void_type = self.context.new_type::<()>();
-        let current_func = self.block.get_function();
-        if return_type != void_type {
-            let result = self.new_temp(current_func, self.location, return_type);
-            self.block.add_assignment(self.location, result, call);
-            result.to_rvalue()
-        } else {
-            self.block.add_eval(self.location, call);
-            // Return dummy value when not having return value.
-            self.context.new_rvalue_zero(self.isize_type)
-        }
-    }
-
+    #[allow(clippy::too_many_arguments)]
     fn function_ptr_call(
         &mut self,
         typ: Type<'gcc>,
         fn_abi: Option<&FnAbi<'tcx, Ty<'tcx>>>,
         mut func_ptr: RValue<'gcc>,
+        return_slot: ReturnSlot<RValue<'gcc>>,
         args: &[RValue<'gcc>],
         _funclet: Option<&Funclet>,
         must_tail: bool,
@@ -434,6 +360,16 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
             }
         };
         let gcc_func = func_ptr_type.dyncast_function_ptr_type().expect("function ptr");
+        // A function pointer type built without `ptr_to_gcc_type` would lack the indirect-return
+        // flag: GCC would then expect the result in registers while the callee returns in memory.
+        #[cfg(feature = "master")]
+        if let Some(fn_abi) = fn_abi {
+            assert_eq!(
+                gcc_func.is_indirect_return(),
+                fn_abi.ret.is_indirect(),
+                "function pointer type with a wrong indirect-return flag: {func_ptr:?}",
+            );
+        }
         let on_stack_param_indices = fn_abi
             .map(|fn_abi| fn_abi.gcc_type(self.cx).on_stack_param_indices)
             .unwrap_or_default();
@@ -457,10 +393,10 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         // That's why we assign the result to a local or call add_eval().
         let return_type = gcc_func.get_return_type();
         let void_type = self.context.new_type::<()>();
-        let current_func = self.block.get_function();
 
         if return_type != void_type {
             let return_value = self.cx.context.new_call_through_ptr(self.location, func_ptr, &args);
+            set_return_slot_optimization(return_value, &return_slot);
             let return_value = llvm::adjust_intrinsic_return_value(
                 self,
                 return_value,
@@ -469,9 +405,15 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
                 args_adjusted,
                 orig_args,
             );
-            let result = self.new_temp(current_func, self.location, return_value.get_type());
-            self.block.add_assignment(self.location, result, return_value);
-            result.to_rvalue()
+            let return_value = self.store_call_result(return_slot, return_value);
+            match fn_abi {
+                // cg_ssa expects the struct of the pair layout, which is smaller than the padded
+                // struct: storing the padded struct to a place of that layout would overflow it.
+                Some(fn_abi) if self.cx.is_two_register_pair_type(return_type) => {
+                    self.copy_pair(return_value, fn_abi.ret.layout.immediate_gcc_type(self.cx))
+                }
+                _ => return_value,
+            }
         } else {
             #[cfg(not(feature = "master"))]
             if gcc_func.get_param_count() == 0 {
@@ -615,6 +557,14 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
     }
 
     fn ret_void(&mut self) {
+        if let Some(&return_value) =
+            self.functions_with_indirect_return.borrow().get(&self.current_func())
+        {
+            // cg_ssa returns nothing for an indirect return, but the GCC function returns the
+            // value itself: GCC copies it to the caller's slot and returns the hidden pointer.
+            self.llbb().end_with_return(self.location, return_value.to_rvalue());
+            return;
+        }
         self.llbb().end_with_void_return(self.location)
     }
 
@@ -623,7 +573,12 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         let value_type = value.get_type();
         if !expected_return_type.is_compatible_with(value_type) {
             // NOTE: due to opaque pointers now being used, we need to (bit)cast here.
-            if self.is_native_int_type(value_type) && self.is_native_int_type(expected_return_type)
+            if self.cx.is_two_register_pair_type(expected_return_type) {
+                // cg_ssa built `value` with the struct of the pair layout, but the function must
+                // return the padded struct for GCC to put each scalar in its own register.
+                value = self.copy_pair(value, expected_return_type);
+            } else if self.is_native_int_type(value_type)
+                && self.is_native_int_type(expected_return_type)
             {
                 value = self.context.new_cast(self.location, value, expected_return_type);
             } else {
@@ -768,7 +723,14 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         } else {
             let trap = self.context.get_builtin_function("__builtin_trap");
             self.block.add_eval(self.location, self.context.new_call(self.location, trap, &[]));
-            let return_value = self.new_temp(self.current_func(), self.location, return_type);
+            // Reuse the local of an indirect return: a new temporary per unreachable block would
+            // add the whole return value to the stack frame each time.
+            let indirect_return_value =
+                self.functions_with_indirect_return.borrow().get(&self.current_func()).copied();
+            let return_value = match indirect_return_value {
+                Some(return_value) => return_value,
+                None => self.new_temp(self.current_func(), self.location, return_type),
+            };
             self.block.end_with_return(self.location, return_value)
         }
     }
@@ -877,8 +839,8 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         }
 
         #[cfg(feature = "master")]
-        match self.cx.type_kind(a_type) {
-            TypeKind::Half => {
+        match self.cx.float_type(a_type) {
+            Some(abi::Float::F16) => {
                 let fmodf = self.context.get_builtin_function("fmodf");
                 let f32_type = self.type_f32();
                 let a = self.context.new_cast(self.location, a, f32_type);
@@ -886,15 +848,15 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
                 let result = self.context.new_call(self.location, fmodf, &[a, b]);
                 return self.context.new_cast(self.location, result, a_type);
             }
-            TypeKind::Float => {
+            Some(abi::Float::F32) => {
                 let fmodf = self.context.get_builtin_function("fmodf");
                 return self.context.new_call(self.location, fmodf, &[a, b]);
             }
-            TypeKind::Double => {
+            Some(abi::Float::F64) => {
                 let fmod = self.context.get_builtin_function("fmod");
                 return self.context.new_call(self.location, fmod, &[a, b]);
             }
-            TypeKind::FP128 => {
+            Some(abi::Float::F128) => {
                 // FIXME(antoyo): use get_simple_function_f128_2args.
                 let f128_type = self.type_f128();
                 let fmodf128 = self.context.new_function(
@@ -910,7 +872,10 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
                 );
                 return self.context.new_call(self.location, fmodf128, &[a, b]);
             }
-            _ => (),
+            Some(float @ (abi::Float::F16B | abi::Float::PpcF128)) => {
+                bug!("frem unsupported on {float:?}")
+            }
+            None => (),
         }
 
         if let Some(vector_type) = a_type_unqualified.dyncast_vector() {
@@ -943,9 +908,7 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
     }
 
     fn ashr(&mut self, a: RValue<'gcc>, b: RValue<'gcc>) -> RValue<'gcc> {
-        // FIXME(antoyo): check whether behavior is an arithmetic shift for >> .
-        // It seems to be if the value is signed.
-        self.gcc_lshr(a, b)
+        self.gcc_ashr(a, b)
     }
 
     fn and(&mut self, a: RValue<'gcc>, b: RValue<'gcc>) -> RValue<'gcc> {
@@ -1050,7 +1013,7 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
     }
 
     fn alloca_with_ty(&mut self, ty: TyAndLayout<'tcx>) -> RValue<'gcc> {
-        self.alloca(ty.layout.size, ty.layout.align.abi)
+        self.alloca(ty.layout.size, ty.layout.align)
     }
 
     fn load(&mut self, pointee_ty: Type<'gcc>, ptr: RValue<'gcc>, align: Align) -> RValue<'gcc> {
@@ -1104,12 +1067,16 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
 
     fn atomic_load(
         &mut self,
-        _ty: Type<'gcc>,
+        ty: Type<'gcc>,
         ptr: RValue<'gcc>,
         order: AtomicOrdering,
         _volatile: bool, // FIXME we are always making the load volatile
         size: Size,
     ) -> RValue<'gcc> {
+        if self.use_sync_atomics(size.bytes()) {
+            return self.sync_atomic_load(ty, ptr, size);
+        }
+
         // FIXME(antoyo): use ty.
         // FIXME(antoyo): handle alignment.
         let atomic_load =
@@ -1220,11 +1187,9 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         let align = dest.val.align.restrict_for_offset(dest.layout.field(self.cx(), 0).size);
         cg_elem.val.store(self, PlaceRef::new_sized_aligned(current_val, cg_elem.layout, align));
 
-        let next = self.inbounds_gep(
-            self.backend_type(cg_elem.layout),
-            current.to_rvalue(),
-            &[self.const_usize(1)],
-        );
+        let next = self
+            .inbounds_ptradd(current.to_rvalue(), self.const_usize(cg_elem.layout.size.bytes()));
+        let next = self.context.new_cast(self.location, next, ptr_type);
         self.llbb().add_assignment(self.location, current, next);
         self.br(header_bb);
 
@@ -1239,17 +1204,13 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         // FIXME(antoyo)
     }
 
-    fn store(&mut self, val: RValue<'gcc>, ptr: RValue<'gcc>, align: Align) -> RValue<'gcc> {
-        self.store_with_flags(val, ptr, align, MemFlags::empty())
-    }
-
     fn store_with_flags(
         &mut self,
         val: RValue<'gcc>,
         ptr: RValue<'gcc>,
         align: Align,
         flags: MemFlags,
-    ) -> RValue<'gcc> {
+    ) {
         let ptr = self.check_store(val, ptr);
         let destination = ptr.dereference(self.location);
         // NOTE: libgccjit does not support specifying the alignment on the assignment, so we cast
@@ -1266,10 +1227,8 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         let modified_destination = modified_ptr.dereference(self.location);
         self.llbb().add_assignment(self.location, modified_destination, val);
         // FIXME(antoyo): handle `MemFlags::NONTEMPORAL`.
-        // NOTE: dummy value here since it's never used. FIXME(antoyo): API should not return a value here?
         // When adding support for NONTEMPORAL, make sure to not just emit MOVNT on x86; see the
         // LLVM backend for details.
-        self.cx.context.new_rvalue_zero(self.type_i32())
     }
 
     fn atomic_store(
@@ -1280,6 +1239,10 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         _volatile: bool, // FIXME we are always making the store volatile
         size: Size,
     ) {
+        if self.use_sync_atomics(size.bytes()) {
+            return self.sync_atomic_store(value, ptr, size);
+        }
+
         // FIXME(antoyo): handle alignment.
         let atomic_store =
             self.context.get_builtin_function(format!("__atomic_store_{}", size.bytes()));
@@ -1299,52 +1262,29 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         );
     }
 
-    fn gep(
-        &mut self,
-        typ: Type<'gcc>,
-        ptr: RValue<'gcc>,
-        indices: &[RValue<'gcc>],
-    ) -> RValue<'gcc> {
-        // NOTE: due to opaque pointers now being used, we need to cast here.
-        let ptr = self.context.new_cast(self.location, ptr, typ.make_pointer());
+    fn gep(&mut self, stride: Size, ptr: RValue<'gcc>, index: RValue<'gcc>) -> RValue<'gcc> {
         let ptr_type = ptr.get_type();
-        let mut pointee_type = ptr.get_type();
         // NOTE: we cannot use array indexing here like in inbounds_gep because array indexing is
         // always considered in bounds in GCC (FIXME(antoyo): to be verified).
         // So, we have to cast to a number.
-        let mut result = self.context.new_bitcast(self.location, ptr, self.sizet_type);
-        // FIXME(antoyo): if there were more than 1 index, this code is probably wrong and would
-        // require dereferencing the pointer.
-        for index in indices {
-            pointee_type = pointee_type.get_pointee().expect("pointee type");
-            #[cfg(feature = "master")]
-            let pointee_size = {
-                let size = self.cx.context.new_sizeof(pointee_type);
-                self.context.new_cast(self.location, size, index.get_type())
-            };
-            #[cfg(not(feature = "master"))]
-            let pointee_size =
-                self.context.new_rvalue_from_int(index.get_type(), pointee_type.get_size() as i32);
-            result = result + self.gcc_int_cast(*index * pointee_size, self.sizet_type);
-        }
+        let ptr = self.context.new_bitcast(self.location, ptr, self.sizet_type);
+        let pointee_size =
+            self.context.new_rvalue_from_int(index.get_type(), stride.bytes() as i32);
+        let result = ptr + self.gcc_int_cast(index * pointee_size, self.sizet_type);
         self.context.new_bitcast(self.location, result, ptr_type)
     }
 
     fn inbounds_gep(
         &mut self,
-        typ: Type<'gcc>,
+        stride: Size,
         ptr: RValue<'gcc>,
-        indices: &[RValue<'gcc>],
+        index: RValue<'gcc>,
     ) -> RValue<'gcc> {
+        let typ = self.cx.type_array(self.cx.type_i8(), stride.bytes());
         // NOTE: due to opaque pointers now being used, we need to cast here.
         let ptr = self.context.new_cast(self.location, ptr, typ.make_pointer());
         // NOTE: array indexing is always considered in bounds in GCC (FIXME(antoyo): to be verified).
-        let mut indices = indices.iter();
-        let index = indices.next().expect("first index in inbounds_gep");
-        let mut result = self.context.new_array_access(self.location, ptr, *index);
-        for index in indices {
-            result = self.context.new_array_access(self.location, result, *index);
-        }
+        let result = self.context.new_array_access(self.location, ptr, index);
         result.get_address(self.location)
     }
 
@@ -1632,7 +1572,7 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         self.context.new_array_access(self.location, array, idx).to_rvalue()
     }
 
-    fn vector_splat(&mut self, _num_elts: usize, _elt: RValue<'gcc>) -> RValue<'gcc> {
+    fn vector_splat(&mut self, _num_elts: u64, _elt: RValue<'gcc>) -> RValue<'gcc> {
         unimplemented!();
     }
 
@@ -1778,6 +1718,10 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         failure_order: AtomicOrdering,
         weak: bool,
     ) -> (RValue<'gcc>, RValue<'gcc>) {
+        let size = get_maybe_pointer_size(src) as u64;
+        if self.use_sync_atomics(size) {
+            return self.sync_atomic_cmpxchg(dst, cmp, src, size);
+        }
         let expected = self.current_func().new_local(None, cmp.get_type(), "expected");
         self.llbb().add_assignment(None, expected, cmp);
         // NOTE: gcc doesn't support a failure memory model that is stronger than the success
@@ -1802,6 +1746,9 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
         ret_ptr: bool,
     ) -> RValue<'gcc> {
         let size = get_maybe_pointer_size(src);
+        if self.use_sync_atomics(size as u64) {
+            return self.sync_atomic_rmw(op, dst, src, Size::from_bytes(size));
+        }
         let name = match op {
             AtomicRmwBinOp::AtomicXchg => format!("__atomic_exchange_{}", size),
             AtomicRmwBinOp::AtomicAdd => format!("__atomic_fetch_add_{}", size),
@@ -1811,16 +1758,44 @@ impl<'a, 'gcc, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'gcc, 'tcx> {
             AtomicRmwBinOp::AtomicOr => format!("__atomic_fetch_or_{}", size),
             AtomicRmwBinOp::AtomicXor => format!("__atomic_fetch_xor_{}", size),
             AtomicRmwBinOp::AtomicMax => {
-                return self.atomic_extremum(ExtremumOperation::Max, dst, src, order);
+                let comparison_type = src.get_type().to_signed(self);
+                return self.atomic_extremum(
+                    ExtremumOperation::Max,
+                    dst,
+                    src,
+                    comparison_type,
+                    order,
+                );
             }
             AtomicRmwBinOp::AtomicMin => {
-                return self.atomic_extremum(ExtremumOperation::Min, dst, src, order);
+                let comparison_type = src.get_type().to_signed(self);
+                return self.atomic_extremum(
+                    ExtremumOperation::Min,
+                    dst,
+                    src,
+                    comparison_type,
+                    order,
+                );
             }
             AtomicRmwBinOp::AtomicUMax => {
-                return self.atomic_extremum(ExtremumOperation::Max, dst, src, order);
+                let comparison_type = src.get_type().to_unsigned(self);
+                return self.atomic_extremum(
+                    ExtremumOperation::Max,
+                    dst,
+                    src,
+                    comparison_type,
+                    order,
+                );
             }
             AtomicRmwBinOp::AtomicUMin => {
-                return self.atomic_extremum(ExtremumOperation::Min, dst, src, order);
+                let comparison_type = src.get_type().to_unsigned(self);
+                return self.atomic_extremum(
+                    ExtremumOperation::Min,
+                    dst,
+                    src,
+                    comparison_type,
+                    order,
+                );
             }
         };
 
@@ -1955,9 +1930,12 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         dest_ty: Type<'gcc>,
     ) -> RValue<'gcc> {
         let src_ty = self.cx.val_ty(val);
-        let (float_ty, int_ty) = if self.cx.type_kind(src_ty) == TypeKind::Vector {
-            assert_eq!(self.cx.vector_length(src_ty), self.cx.vector_length(dest_ty));
-            (self.cx.element_type(src_ty), self.cx.element_type(dest_ty))
+        let (float_ty, int_ty) = if let Some((src_elem, src_len)) =
+            self.cx.vector_element_type_and_length(src_ty)
+            && let Some((dest_elem, dest_len)) = self.cx.vector_element_type_and_length(dest_ty)
+        {
+            assert_eq!(src_len, dest_len);
+            (src_elem, dest_elem)
         } else {
             (src_ty, dest_ty)
         };
@@ -1967,8 +1945,8 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         // Now that LLVM always relies on its own, the code has been moved to GCC, but the comments are
         // still LLVM-specific. This should be updated, and use better GCC specifics if possible.
 
-        let int_width = self.cx.int_width(int_ty);
-        let float_width = self.cx.float_width(float_ty);
+        let int_width = self.cx.int_width(int_ty).expect("dest must be an integer");
+        let float_type = self.cx.float_type(float_ty).expect("src must be a float");
         // LLVM's fpto[su]i returns undef when the input val is infinite, NaN, or does not fit into the
         // destination integer type after rounding towards zero. This `undef` value can cause UB in
         // safe code (see issue #10184), so we implement a saturating conversion on top of it:
@@ -2041,21 +2019,25 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         // QED.
 
         let float_bits_to_llval = |bx: &mut Self, bits| {
-            let bits_llval = match float_width {
-                16 => bx.cx().const_u16(bits as u16),
-                32 => bx.cx().const_u32(bits as u32),
-                64 => bx.cx().const_u64(bits as u64),
-                128 => bx.cx().const_u128(bits),
-                n => bug!("unsupported float width {}", n),
+            let bits_llval = match float_type {
+                abi::Float::F16 => bx.cx().const_u16(bits as u16),
+                abi::Float::F32 => bx.cx().const_u32(bits as u32),
+                abi::Float::F64 => bx.cx().const_u64(bits as u64),
+                abi::Float::F128 => bx.cx().const_u128(bits),
+                abi::Float::F16B | abi::Float::PpcF128 => {
+                    bug!("unsupported float width {float_type:?}")
+                }
             };
             bx.bitcast(bits_llval, float_ty)
         };
-        let (f_min, f_max) = match float_width {
-            16 => compute_clamp_bounds_half(signed, int_width),
-            32 => compute_clamp_bounds::<ieee::Single>(signed, int_width),
-            64 => compute_clamp_bounds::<ieee::Double>(signed, int_width),
-            128 => compute_clamp_bounds::<ieee::Quad>(signed, int_width),
-            n => bug!("unsupported float width {}", n),
+        let (f_min, f_max) = match float_type {
+            abi::Float::F16 => compute_clamp_bounds_half(signed, int_width),
+            abi::Float::F32 => compute_clamp_bounds::<ieee::Single>(signed, int_width),
+            abi::Float::F64 => compute_clamp_bounds::<ieee::Double>(signed, int_width),
+            abi::Float::F128 => compute_clamp_bounds::<ieee::Quad>(signed, int_width),
+            abi::Float::F16B | abi::Float::PpcF128 => {
+                bug!("unsupported float width {float_type:?}")
+            }
         };
         let f_min = float_bits_to_llval(self, f_min);
         let f_max = float_bits_to_llval(self, f_max);
@@ -2067,8 +2049,8 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         // into each lane of the vector.  The algorithm stays the same, we are just using the
         // same constant across all lanes.
         let maybe_splat = |bx: &mut Self, val| {
-            if bx.cx().type_kind(dest_ty) == TypeKind::Vector {
-                bx.vector_splat(bx.vector_length(dest_ty), val)
+            if let Some(len) = bx.cx().vector_length(dest_ty) {
+                bx.vector_splat(len, val)
             } else {
                 val
             }
@@ -2518,6 +2500,63 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         self.llbb().add_assignment(self.location, var, value);
         var.to_rvalue()
     }
+
+    /// Converts a pair between the struct of its layout, used by cg_ssa, and the padded struct
+    /// that GCC returns in two registers. A bitcast cannot, since the padding changes the size.
+    fn copy_pair(&mut self, pair: RValue<'gcc>, typ: Type<'gcc>) -> RValue<'gcc> {
+        let source = pair.get_type().is_struct().expect("pair struct");
+        let destination = typ.is_struct().expect("pair struct");
+        let pair = self.assign_to_var(pair);
+        let result = self.new_temp(self.current_func(), self.location, typ);
+        for index in 0..2 {
+            let value = pair.access_field(self.location, source.get_field(index));
+            let field = result.access_field(self.location, destination.get_field(index));
+            let field_type = field.to_rvalue().get_type();
+            let value = if field_type.is_compatible_with(value.get_type()) {
+                value
+            } else {
+                self.context.new_cast(self.location, value, field_type)
+            };
+            self.llbb().add_assignment(self.location, field, value);
+        }
+        result.to_rvalue()
+    }
+
+    /// Anchor a call in a statement, since an rvalue is evaluated at each use. An indirect result
+    /// goes to the caller-provided return slot and a dummy value is returned to cg_ssa.
+    fn store_call_result(
+        &self,
+        return_slot: ReturnSlot<RValue<'gcc>>,
+        call: RValue<'gcc>,
+    ) -> RValue<'gcc> {
+        match return_slot {
+            ReturnSlot::Direct => self.assign_to_var(call),
+            ReturnSlot::Indirect(sret_ptr) => {
+                // Cast the opaque return slot to the exact return type, so that GCC stores the
+                // result there directly, without a conversion or an intermediate copy.
+                let return_type = call.get_type();
+                let sret_ptr =
+                    self.context.new_cast(self.location, sret_ptr, return_type.make_pointer());
+                self.llbb().add_assignment(
+                    self.location,
+                    sret_ptr.dereference(self.location),
+                    call,
+                );
+                self.context.new_rvalue_zero(self.cx.type_u32())
+            }
+        }
+    }
+}
+
+/// Let a call returning in memory build its result directly in cg_ssa's return slot: the return
+/// pointer is `noalias` in the Rust ABI, so the callee cannot observe the slot through another path.
+fn set_return_slot_optimization<'gcc>(call: RValue<'gcc>, return_slot: &ReturnSlot<RValue<'gcc>>) {
+    #[cfg(feature = "master")]
+    if let ReturnSlot::Indirect(_) = *return_slot {
+        call.set_return_slot_optimization(true);
+    }
+    #[cfg(not(feature = "master"))]
+    let _ = (call, return_slot);
 }
 
 fn difference_or_zero<'gcc>(

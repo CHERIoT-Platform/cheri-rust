@@ -19,7 +19,7 @@ pub unsafe fn offset_zst(p: *const (), d: usize) -> *const () {
 // CHECK-SAME: (ptr[[ADDRSPACE]] noundef %p, [[SIZE]] noundef{{( signext)?}} %d)
 #[no_mangle]
 pub unsafe fn offset_isize(p: *const u32, d: isize) -> *const u32 {
-    // CHECK: %[[R:.*]] = getelementptr inbounds i32, ptr[[ADDRSPACE]] %p, [[SIZE]] %d
+    // CHECK: %[[R:.*]] = getelementptr inbounds [4 x i8], ptr[[ADDRSPACE]] %p, [[SIZE]] %d
     // CHECK-NEXT: ret ptr[[ADDRSPACE]] %[[R]]
     offset(p, d)
 }
@@ -28,7 +28,7 @@ pub unsafe fn offset_isize(p: *const u32, d: isize) -> *const u32 {
 // CHECK-SAME: (ptr[[ADDRSPACE]] noundef %p, [[SIZE]] noundef{{( signext)?}} %d)
 #[no_mangle]
 pub unsafe fn offset_usize(p: *const u64, d: usize) -> *const u64 {
-    // CHECK: %[[R:.*]] = getelementptr inbounds{{( nuw)?}} i64, ptr[[ADDRSPACE]] %p, [[SIZE]] %d
+    // CHECK: %[[R:.*]] = getelementptr inbounds{{( nuw)?}} [8 x i8], ptr[[ADDRSPACE]] %p, [[SIZE]] %d
     // CHECK-NEXT: ret ptr[[ADDRSPACE]] %[[R]]
     offset(p, d)
 }

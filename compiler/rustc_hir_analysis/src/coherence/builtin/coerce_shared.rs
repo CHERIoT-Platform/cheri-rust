@@ -130,14 +130,14 @@ fn first_explicit_lifetime_span_in_ambig_ty(ty: &hir::Ty<'_, hir::AmbigArg>) -> 
 
 fn first_explicit_lifetime_span_in_ty(ty: &hir::Ty<'_>) -> Option<Span> {
     match ty.kind {
-        hir::TyKind::Ref(lifetime, mut_ty) => first_explicit_lifetime_span(lifetime)
-            .or_else(|| first_explicit_lifetime_span_in_ty(mut_ty.ty)),
+        hir::TyKind::Ref(lifetime, ty, _) => first_explicit_lifetime_span(lifetime)
+            .or_else(|| first_explicit_lifetime_span_in_ty(ty)),
         hir::TyKind::Slice(ty)
         | hir::TyKind::Array(ty, _)
         | hir::TyKind::Pat(ty, _)
         | hir::TyKind::FieldOf(ty, _)
         | hir::TyKind::View(ty, _) => first_explicit_lifetime_span_in_ty(ty),
-        hir::TyKind::Ptr(mut_ty) => first_explicit_lifetime_span_in_ty(mut_ty.ty),
+        hir::TyKind::Ptr(ty, _) => first_explicit_lifetime_span_in_ty(ty),
         hir::TyKind::Tup(tys) => tys.iter().find_map(first_explicit_lifetime_span_in_ty),
         hir::TyKind::Path(qpath) => first_explicit_lifetime_span_in_qpath(qpath),
         hir::TyKind::TraitObject(bounds, lifetime) => bounds
@@ -341,7 +341,7 @@ enum CoerceSharedFieldPairError<'tcx> {
     MissingSourceField { target: ReborrowDataField<'tcx> },
 }
 
-fn single_region_arg<'tcx>(args: ty::GenericArgsRef<'tcx>) -> Option<ty::Region<'tcx>> {
+fn single_region_arg<'tcx>(args: ty::GenericArgs<'tcx>) -> Option<ty::Region<'tcx>> {
     let mut lifetimes = args.iter().filter_map(|arg| arg.as_region());
     let lifetime = lifetimes.next()?;
     lifetimes.next().is_none().then_some(lifetime)
@@ -353,9 +353,9 @@ fn single_region_arg<'tcx>(args: ty::GenericArgsRef<'tcx>) -> Option<ty::Region<
 fn collect_coerce_shared_field_pairs<'tcx>(
     tcx: TyCtxt<'tcx>,
     source_def: ty::AdtDef<'tcx>,
-    source_args: ty::GenericArgsRef<'tcx>,
+    source_args: ty::GenericArgs<'tcx>,
     target_def: ty::AdtDef<'tcx>,
-    target_args: ty::GenericArgsRef<'tcx>,
+    target_args: ty::GenericArgs<'tcx>,
 ) -> Result<CoerceSharedFields<'tcx>, CoerceSharedFieldPairError<'tcx>> {
     let source_variant = source_def.non_enum_variant();
     let target_variant = target_def.non_enum_variant();
@@ -399,29 +399,20 @@ fn validate_reborrow_field_access(
 ) -> Result<(), ErrorGuaranteed> {
     let module = tcx.parent_module_from_def_id(impl_did);
     let variant = def.non_enum_variant();
-    if variant.field_list_has_applicable_non_exhaustive() {
-        return Err(tcx.dcx().emit_err(diagnostics::CoerceSharedInaccessibleField {
+
+    if variant.field_list_has_applicable_non_exhaustive()
+        || variant.fields.iter().any(|f| !f.vis.is_accessible_from(module, tcx))
+    {
+        Err(tcx.dcx().emit_err(diagnostics::CoerceSharedInaccessibleField {
             span: diagnostic_context.impl_span,
             type_span: role.type_span(diagnostic_context),
             trait_name,
             role: role.as_str(),
             type_name: tcx.item_name(def.did()),
-        }));
+        }))
+    } else {
+        Ok(())
     }
-
-    for field in &variant.fields {
-        if !field.vis.is_accessible_from(module, tcx) {
-            return Err(tcx.dcx().emit_err(diagnostics::CoerceSharedInaccessibleField {
-                span: diagnostic_context.impl_span,
-                type_span: role.type_span(diagnostic_context),
-                trait_name,
-                role: role.as_str(),
-                type_name: tcx.item_name(def.did()),
-            }));
-        }
-    }
-
-    Ok(())
 }
 
 fn validate_coerce_shared_fields<'tcx>(
@@ -433,9 +424,9 @@ fn validate_coerce_shared_fields<'tcx>(
     span: Span,
     diagnostic_context: CoerceSharedDiagnosticContext,
     source_def: ty::AdtDef<'tcx>,
-    source_args: ty::GenericArgsRef<'tcx>,
+    source_args: ty::GenericArgs<'tcx>,
     target_def: ty::AdtDef<'tcx>,
-    target_args: ty::GenericArgsRef<'tcx>,
+    target_args: ty::GenericArgs<'tcx>,
 ) -> Result<(), ErrorGuaranteed> {
     let tcx = infcx.tcx;
     let fields = match collect_coerce_shared_field_pairs(
@@ -518,9 +509,9 @@ fn validate_coerce_shared_fields_are_memcpy_compatible<'tcx>(
     span: Span,
     diagnostic_context: CoerceSharedDiagnosticContext,
     source_def: ty::AdtDef<'tcx>,
-    source_args: ty::GenericArgsRef<'tcx>,
+    source_args: ty::GenericArgs<'tcx>,
     target_def: ty::AdtDef<'tcx>,
-    target_args: ty::GenericArgsRef<'tcx>,
+    target_args: ty::GenericArgs<'tcx>,
 ) -> Result<(), ErrorGuaranteed> {
     let tcx = infcx.tcx;
     let source_non_zst_fields =
@@ -587,7 +578,7 @@ fn non_zst_reborrow_data_fields<'tcx>(
     infcx: &InferCtxt<'tcx>,
     param_env: ty::ParamEnv<'tcx>,
     def: ty::AdtDef<'tcx>,
-    args: ty::GenericArgsRef<'tcx>,
+    args: ty::GenericArgs<'tcx>,
 ) -> Vec<ReborrowDataField<'tcx>> {
     let tcx = infcx.tcx;
     collect_reborrow_data_fields(tcx, def, args)

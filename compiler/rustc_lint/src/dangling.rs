@@ -101,7 +101,7 @@ impl<'tcx> LateLintPass<'tcx> for DanglingPointers {
         DanglingPointerSearcher { cx, inside_call_args: false }.visit_body(body);
 
         if let FnRetTy::Return(ret_ty) = &fn_decl.output
-            && let TyKind::Ptr(_) = ret_ty.kind
+            && let TyKind::Ptr(..) = ret_ty.kind
         {
             // get the return type of the function or closure
             let ty = match cx.tcx.type_of(def_id).instantiate_identity().skip_norm_wip().kind() {
@@ -269,7 +269,7 @@ fn lint_expr(cx: &LateContext<'_>, expr: &Expr<'_>) {
         && let ty = cx.typeck_results().expr_ty(receiver)
         && owns_allocation(cx.tcx, ty)
         && let Some(fn_id) = cx.typeck_results().type_dependent_def_id(expr.hir_id)
-        && find_attr!(cx.tcx, fn_id, RustcAsPtr)
+        && find_attr!(cx.tcx, fn_id, LintAsPtr)
     {
         cx.tcx.emit_node_span_lint(
             DANGLING_POINTERS_FROM_TEMPORARIES,

@@ -115,7 +115,11 @@ fn visit_implementation_of_copy(checker: &Checker<'_>) -> Result<(), ErrorGuaran
         Err(CopyImplementationError::HasDestructor(did)) => {
             let span = tcx.hir_expect_item(impl_did).expect_impl().self_ty.span;
             let impl_ = tcx.def_span(did);
-            Err(tcx.dcx().emit_err(diagnostics::CopyImplOnTypeWithDtor { span, impl_ }))
+            Err(tcx.dcx().emit_err(diagnostics::TraitImplOnTypeWithDtor {
+                span,
+                impl_,
+                trait_name: sym::Copy,
+            }))
         }
         Err(CopyImplementationError::HasUnsafeFields) => {
             let span = tcx.hir_expect_item(impl_did).expect_impl().self_ty.span;
@@ -492,7 +496,7 @@ pub(crate) fn reborrow_info<'tcx>(
         }
     };
 
-    let lifetimes_count = generic_lifetime_params_count(args);
+    let lifetimes_count = generic_lifetime_params_count(args.as_slice());
     let data_fields = collect_reborrow_data_fields(tcx, def, args);
 
     if lifetimes_count != 1 {
@@ -537,6 +541,15 @@ pub(crate) fn reborrow_info<'tcx>(
         assert_field_type_is_copy(tcx, &infcx, impl_did, param_env, field.ty, field.span)?;
     }
 
+    if let Some(did) = def.destructor(tcx).map(|dtor| dtor.did) {
+        let impl_ = tcx.def_span(did);
+        return Err(tcx.dcx().emit_err(diagnostics::TraitImplOnTypeWithDtor {
+            span,
+            impl_,
+            trait_name: sym::Reborrow,
+        }));
+    }
+
     Ok(())
 }
 
@@ -563,7 +576,7 @@ struct ReborrowDataField<'tcx> {
 fn collect_reborrow_data_fields<'tcx>(
     tcx: TyCtxt<'tcx>,
     def: ty::AdtDef<'tcx>,
-    args: ty::GenericArgsRef<'tcx>,
+    args: ty::GenericArgs<'tcx>,
 ) -> Vec<ReborrowDataField<'tcx>> {
     def.non_enum_variant()
         .fields

@@ -378,10 +378,12 @@ impl HirEqInterExpr<'_, '_, '_> {
                 GenericParamKind::Const {
                     ty: l_ty,
                     default: l_default,
+                    arg_pos: _,
                 },
                 GenericParamKind::Const {
                     ty: r_ty,
                     default: r_default,
+                    arg_pos: _,
                 },
             ) => self.eq_ty(l_ty, r_ty) && both(*l_default, *r_default, |l, r| self.eq_const_arg(l, r)),
             _ => false,
@@ -423,26 +425,26 @@ impl HirEqInterExpr<'_, '_, '_> {
             let Some(rstmt_span) = walk_span_to_context(right.span, rspan.ctxt) else {
                 return false;
             };
-            let lstmt_span = lstmt_span.data();
-            let rstmt_span = rstmt_span.data();
+            let (lstmt_span_lo, lstmt_span_hi) = lstmt_span.lo_hi();
+            let (rstmt_span_lo, rstmt_span_hi) = rstmt_span.lo_hi();
 
-            if lstmt_span.lo < lstart && rstmt_span.lo < rstart {
+            if lstmt_span_lo < lstart && rstmt_span_lo < rstart {
                 // Can happen when macros expand to multiple statements, or rearrange statements.
                 // Nothing in between the statements to check in this case.
                 continue;
             }
-            if lstmt_span.lo < lstart || rstmt_span.lo < rstart {
+            if lstmt_span_lo < lstart || rstmt_span_lo < rstart {
                 // Only one of the blocks had a weird macro.
                 return false;
             }
-            if !eq_span_tokens(self.inner.cx, lstart..lstmt_span.lo, rstart..rstmt_span.lo, |t| {
+            if !eq_span_tokens(self.inner.cx, lstart..lstmt_span_lo, rstart..rstmt_span_lo, |t| {
                 !matches!(t, Whitespace | Semi)
             }) {
                 return false;
             }
 
-            lstart = lstmt_span.hi;
-            rstart = rstmt_span.hi;
+            lstart = lstmt_span_hi;
+            rstart = rstmt_span_hi;
         }
 
         let (lend, rend) = match (left.expr, right.expr) {
@@ -856,12 +858,11 @@ impl HirEqInterExpr<'_, '_, '_> {
     }
 
     fn eq_path_parameters(&mut self, left: &GenericArgs<'_>, right: &GenericArgs<'_>) -> bool {
-        if left.parenthesized == right.parenthesized {
-            over(left.args, right.args, |l, r| self.eq_generic_arg(l, r)) // FIXME(flip1995): may not work
-                && over(left.constraints, right.constraints, |l, r| self.eq_assoc_eq_constraint(l, r))
-        } else {
-            false
-        }
+        left.parenthesized == right.parenthesized
+            && over(left.args, right.args, |l, r| self.eq_generic_arg(l, r))  // FIXME(flip1995): may not work
+            && over(left.constraints, right.constraints, |l, r| {
+                self.eq_assoc_eq_constraint(l, r)
+            })
     }
 
     pub fn eq_path_segments<'tcx>(
@@ -903,9 +904,9 @@ impl HirEqInterExpr<'_, '_, '_> {
         match (&left.kind, &right.kind) {
             (TyKind::Slice(l_vec), TyKind::Slice(r_vec)) => self.eq_ty(l_vec, r_vec),
             (TyKind::Array(lt, ll), TyKind::Array(rt, rl)) => self.eq_ty(lt, rt) && self.eq_const_arg(ll, rl),
-            (TyKind::Ptr(l_mut), TyKind::Ptr(r_mut)) => l_mut.mutbl == r_mut.mutbl && self.eq_ty(l_mut.ty, r_mut.ty),
-            (TyKind::Ref(_, l_rmut), TyKind::Ref(_, r_rmut)) => {
-                l_rmut.mutbl == r_rmut.mutbl && self.eq_ty(l_rmut.ty, r_rmut.ty)
+            (TyKind::Ptr(l_ty, l_mutbl), TyKind::Ptr(r_ty, r_mutbl)) => l_mutbl == r_mutbl && self.eq_ty(l_ty, r_ty),
+            (TyKind::Ref(_, l_ty, l_mutbl), TyKind::Ref(_, r_ty, r_mutbl)) => {
+                l_mutbl == r_mutbl && self.eq_ty(l_ty, r_ty)
             },
             (TyKind::Path(l), TyKind::Path(r)) => self.eq_qpath(l, r),
             (TyKind::Tup(l), TyKind::Tup(r)) => over(l, r, |l, r| self.eq_ty(l, r)),
@@ -1617,14 +1618,14 @@ impl<'a, 'tcx> SpanlessHash<'a, 'tcx> {
                 }
                 self.hash_name(field.name);
             },
-            TyKind::Ptr(mut_ty) => {
-                self.hash_ty(mut_ty.ty);
-                mut_ty.mutbl.hash(&mut self.s);
+            TyKind::Ptr(ty, mutbl) => {
+                self.hash_ty(ty);
+                mutbl.hash(&mut self.s);
             },
-            TyKind::Ref(lifetime, mut_ty) => {
+            TyKind::Ref(lifetime, ty, mutbl) => {
                 self.hash_lifetime(lifetime);
-                self.hash_ty(mut_ty.ty);
-                mut_ty.mutbl.hash(&mut self.s);
+                self.hash_ty(ty);
+                mutbl.hash(&mut self.s);
             },
             TyKind::FnPtr(fn_ptr) => {
                 fn_ptr.safety.hash(&mut self.s);

@@ -415,12 +415,12 @@ impl<'tcx> BorrowExplanation<'tcx> {
                 let mut preds = path
                     .iter()
                     .filter_map(|constraint| match constraint.category {
-                        ConstraintCategory::Predicate(pred) if !pred.is_dummy() => Some(pred),
+                        ConstraintCategory::Predicate(pred, _) if !pred.is_dummy() => Some(pred),
                         _ => None,
                     })
                     .collect::<Vec<Span>>();
-                preds.sort();
-                preds.dedup();
+                preds.sort_by_key(|span| span.lo_hi());
+                preds.dedup_by_key(|span| span.lo_hi());
                 if !preds.is_empty() {
                     let s = if preds.len() == 1 { "" } else { "s" };
                     err.span_note(
@@ -610,7 +610,7 @@ impl<'tcx> MirBorrowckCtxt<'_, '_, 'tcx> {
             // loop iteration. In this case, try using the loop terminator location in
             // `find_sub_region_live_at`.
             if let Some(loop_terminator_location) =
-                regioncx.find_loop_terminator_location(borrow.region, body)
+                regioncx.find_loop_terminator_location(borrow.region, body, location)
             {
                 region_sub = self
                     .regioncx

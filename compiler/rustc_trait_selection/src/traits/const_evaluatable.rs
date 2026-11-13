@@ -12,7 +12,9 @@
 use rustc_infer::infer::InferCtxt;
 use rustc_middle::traits::ObligationCause;
 use rustc_middle::ty::abstract_const::NotConstEvaluatable;
-use rustc_middle::ty::{self, TyCtxt, TypeVisitable, TypeVisitableExt, TypeVisitor};
+use rustc_middle::ty::{
+    self, CallerBoundsIterator, TyCtxt, TypeVisitable, TypeVisitableExt, TypeVisitor,
+};
 use rustc_span::{DUMMY_SP, Span, bug};
 use tracing::{debug, instrument};
 
@@ -84,7 +86,7 @@ pub fn is_const_evaluatable<'tcx>(
             }
             _ => bug!("unexpected constkind in `is_const_evalautable: {unexpanded_ct:?}`"),
         }
-    } else if tcx.features().gca_min_const_items() {
+    } else if tcx.features().gca() {
         // This is a sanity check to make sure that non-generics consts are checked to
         // be evaluatable in case they aren't cchecked elsewhere. This will NOT error
         // if the const uses generics, as desired.
@@ -202,7 +204,7 @@ fn satisfied_from_param_env<'tcx>(
 
     let mut single_match: Option<Result<ty::Const<'tcx>, ()>> = None;
 
-    for clause in param_env.caller_bounds() {
+    for clause in param_env.caller_bounds().non_trait_clauses().iter() {
         match clause.kind().skip_binder() {
             ty::ClauseKind::ConstEvaluatable(ce) => {
                 let b_ct = tcx.expand_abstract_consts(ce);

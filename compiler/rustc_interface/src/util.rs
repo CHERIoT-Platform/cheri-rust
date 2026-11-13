@@ -1,6 +1,6 @@
 use std::any::Any;
+use std::collections::BTreeMap;
 use std::env::consts::{DLL_PREFIX, DLL_SUFFIX};
-use std::num::NonZero;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -21,8 +21,10 @@ use rustc_metadata::{DylibError, EncodedMetadata, load_symbol_from_dylib};
 use rustc_middle::dep_graph::WorkProductMap;
 use rustc_middle::ty::{CurrentGcx, TyCtxt};
 use rustc_query_impl::{CollectActiveJobsKind, collect_active_query_jobs};
+pub use rustc_session::config::DEFAULT_STACK_SIZE;
 use rustc_session::config::{
-    Cfg, Jobs, OutFileName, OutputFilenames, OutputTypes, Sysroot, host_tuple,
+    Cfg, Jobs, OptionsTargetModifiers, OutFileName, OutputFilenames, OutputTypes, Sysroot,
+    host_tuple,
 };
 use rustc_session::{EarlyDiagCtxt, EarlySession, IncrCompSession, Session, filesearch};
 use rustc_span::edition::Edition;
@@ -38,8 +40,7 @@ use crate::passes::parse_crate_name;
 /// Function pointer type that constructs a new CodegenBackend.
 type MakeBackendFn = fn() -> Box<dyn CodegenBackend>;
 
-/// Adds `target_feature = "..."` cfgs for a variety of platform
-/// specific features (SSE, NEON etc.).
+/// Adds `cfg` values based on the current target configuration (in particular for target features).
 ///
 /// This is performed by checking whether a set of permitted features
 /// is available on the target machine, by querying the `TargetConfig` from the codegen backend.
@@ -55,9 +56,9 @@ pub(crate) fn add_configuration(
         target
             .rust_target_features()
             .iter()
-            .filter_map(|(feature, gate, _)| {
-                if gate.in_cfg()
-                    && (is_nightly_build || gate.requires_nightly(/* in_cfg */ true).is_none())
+            .filter_map(|(feature, stab, _)| {
+                if stab.in_cfg()
+                    && (is_nightly_build || stab.requires_nightly(/* in_cfg */ true).is_none())
                 {
                     Some(Symbol::intern(feature))
                 } else {
@@ -89,6 +90,26 @@ pub(crate) fn add_configuration(
     }
 }
 
+/// Populates the target modifier database based on the current target.
+pub(crate) fn add_target_modifiers(
+    tmod: &mut BTreeMap<OptionsTargetModifiers, String>,
+    target_config: &TargetConfig,
+    target: &Target,
+) {
+    // Record relevant target features as target modifier.
+    // Join all target-modifier target features into a single comma-separated string,
+    // sorted by the order they appear in in `rust_target_features`.
+    let target_feature_modifier = target
+        .rust_target_features()
+        .iter()
+        .filter(|(_, stab, _)| stab.is_target_modifier())
+        .map(|(feature, ..)| *feature)
+        .filter(|feature| target_config.internal_target_features.contains(&Symbol::intern(feature)))
+        .collect::<Vec<_>>()
+        .join(",");
+    tmod.insert(OptionsTargetModifiers::TargetFeatures, target_feature_modifier);
+}
+
 /// Ensures that all target features required by the ABI are present.
 /// Must be called after `internal_target_features` has been populated!
 pub(crate) fn check_abi_required_features(sess: &Session) {
@@ -109,7 +130,7 @@ pub(crate) fn check_abi_required_features(sess: &Session) {
     // emit a (less friendly) hard error.
     // Also make it a hard error on x86, where we use SSE registers for the "Rust" ABI. The
     // post-mono ABI check only systematically checks "C" calls, so we better reject this here.
-    let hard_error = matches!(sess.target.arch, Arch::Arm | Arch::X86);
+    let hard_error = matches!(sess.target.arch, Arch::AArch64 | Arch::Arm | Arch::X86);
 
     for feature in abi_feature_constraints.required {
         if !sess.internal_target_features.contains(&Symbol::intern(feature)) {
@@ -142,7 +163,6 @@ pub(crate) fn check_abi_required_features(sess: &Session) {
 }
 
 pub static STACK_SIZE: OnceLock<usize> = OnceLock::new();
-pub const DEFAULT_STACK_SIZE: usize = 17 * 1024 * 1024;
 
 fn init_stack_size(early_dcx: &EarlyDiagCtxt) -> usize {
     // Obey the environment setting or default
@@ -227,7 +247,7 @@ pub(crate) fn run_in_thread_pool_with_globals<F: FnOnce(CurrentGcx) -> R + Send,
 
     let thread_stack_size = init_stack_size(thread_builder_diag);
 
-    let jobs_frontend = jobs.frontend.or(NonZero::new(1)).unwrap();
+    let jobs_frontend = jobs.frontend.limit();
     let registry = sync::Registry::new(jobs_frontend);
 
     let Some(proof) = sync::check_dyn_thread_safe() else {
