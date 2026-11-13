@@ -1,8 +1,11 @@
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+// cheriot: imported in lib.rs under `test_fmt_builders`
+#[cfg(not(target_abi = "cheriot"))]
 mod builders;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriott
+// cheriot: imported in lib.rs under `test_fmt_float`
+#[cfg(not(target_abi = "cheriot"))]
 mod float;
-#[cfg(not(target_abi = "cheriot"))] // imported separately on cheriot
+// cheriot: imported in lib.rs under `test_fmt_num`
+#[cfg(not(target_abi = "cheriot"))]
 mod num;
 
 #[test]
