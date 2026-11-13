@@ -109,7 +109,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let inject_use_span = post_attr_lo.data().with_hi(post_attr_lo.lo());
+        let inject_use_span = post_attr_lo.with_hi(post_attr_lo.lo());
         let mod_spans = ModSpans { inner_span: lo.to(self.prev_token.span), inject_use_span };
         Ok((attrs, items, mod_spans))
     }
@@ -126,8 +126,12 @@ impl<'a> Parser<'a> {
         force_collect: ForceCollect,
         allow_const_block_items: AllowConstBlockItems,
     ) -> PResult<'a, Option<Box<Item>>> {
-        let fn_parse_mode =
-            FnParseMode { req_name: |_, _| true, context: FnContext::Free, req_body: true };
+        let fn_parse_mode = FnParseMode {
+            req_name: |_, _| true,
+            context: FnContext::Free,
+            req_body: true,
+            allow_const_params: true,
+        };
         self.parse_item_(fn_parse_mode, force_collect, allow_const_block_items)
             .map(|i| i.map(Box::new))
     }
@@ -350,9 +354,6 @@ impl<'a> Parser<'a> {
             // UNION ITEM
             self.bump(); // `union`
             self.parse_item_union()?
-        } else if self.is_builtin() {
-            // BUILTIN# ITEM
-            return self.parse_item_builtin();
         } else if self.eat_keyword_case(exp!(Macro), case) {
             // MACROS 2.0 ITEM
             self.parse_item_decl_macro(lo)?
@@ -593,11 +594,6 @@ impl<'a> Parser<'a> {
         };
 
         if let Some(err) = err { Err(self.dcx().create_err(err)) } else { Ok(()) }
-    }
-
-    fn parse_item_builtin(&mut self) -> PResult<'a, Option<ItemKind>> {
-        // To be expanded
-        Ok(None)
     }
 
     /// Parses an item macro, e.g., `item!();`.
@@ -1235,8 +1231,12 @@ impl<'a> Parser<'a> {
         &mut self,
         force_collect: ForceCollect,
     ) -> PResult<'a, Option<Option<Box<AssocItem>>>> {
-        let fn_parse_mode =
-            FnParseMode { req_name: |_, _| true, context: FnContext::Impl, req_body: true };
+        let fn_parse_mode = FnParseMode {
+            req_name: |_, _| true,
+            context: FnContext::Impl,
+            req_body: true,
+            allow_const_params: true,
+        };
         self.parse_assoc_item(fn_parse_mode, force_collect)
     }
 
@@ -1248,6 +1248,7 @@ impl<'a> Parser<'a> {
             req_name: |edition, _| edition >= Edition::Edition2018,
             context: FnContext::Trait,
             req_body: false,
+            allow_const_params: true,
         };
         self.parse_assoc_item(fn_parse_mode, force_collect)
     }
@@ -1594,6 +1595,7 @@ impl<'a> Parser<'a> {
             req_name: |_, is_dot_dot_dot| is_dot_dot_dot == IsDotDotDot::No,
             context: FnContext::Free,
             req_body: false,
+            allow_const_params: false,
         };
         Ok(self
             .parse_item_(
@@ -1917,6 +1919,9 @@ impl<'a> Parser<'a> {
             (thin_vec![], Trailing::No)
         } else {
             self.parse_delim_comma_seq(exp!(OpenBrace), exp!(CloseBrace), |p| {
+                if p.recover_inner_attributes()? && p.check(exp![CloseBrace]) {
+                    return Ok(None);
+                }
                 p.parse_enum_variant(ident.span)
             })
             .map_err(|mut err| {
@@ -2155,6 +2160,9 @@ impl<'a> Parser<'a> {
         let mut recovered = Recovered::No;
         if self.eat(exp!(OpenBrace)) {
             while self.token != token::CloseBrace {
+                if self.recover_inner_attributes()? && self.check(exp![CloseBrace]) {
+                    break;
+                }
                 match self.parse_field_def(adt_ty, ident_span) {
                     Ok(field) => {
                         fields.push(field);
@@ -2507,16 +2515,19 @@ impl<'a> Parser<'a> {
     /// for better diagnostics and suggestions.
     fn parse_field_ident(&mut self, adt_ty: &str, lo: Span) -> PResult<'a, Ident> {
         let (ident, kind) = self.ident_or_err(true)?;
-        if kind == IdentKind::Normal
-            && ident.is_reserved()
+        if token::ident_of_kind_is_reserved(ident, kind)
             && !(ident.name == kw::Underscore && adt_ty == "enum")
         {
             let snapshot = self.create_snapshot_for_diagnostic();
             let err = if self.check_fn_front_matter(false, Case::Sensitive) {
                 let inherited_vis = Visibility { span: DUMMY_SP, kind: VisibilityKind::Inherited };
                 // We use `parse_fn` to get a span for the function
-                let fn_parse_mode =
-                    FnParseMode { req_name: |_, _| true, context: FnContext::Free, req_body: true };
+                let fn_parse_mode = FnParseMode {
+                    req_name: |_, _| true,
+                    context: FnContext::Free,
+                    req_body: true,
+                    allow_const_params: true,
+                };
                 match self.parse_fn(
                     &mut AttrVec::new(),
                     fn_parse_mode,
@@ -2714,28 +2725,45 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_test_binder_body(&mut self) -> PResult<'a, TestBinderBody> {
-        let mut foralls = ThinVec::new();
-        let mut exists = ThinVec::new();
-        let mut constraints = Vec::new();
-        let mut predicates = Vec::new();
+        let mut items: Vec<TestBinderItem> = Vec::new();
+        let mut span = self.token.span;
         self.parse_delim_comma_seq(exp!(OpenBrace), exp!(CloseBrace), |this| {
-            if this.check_keyword(exp!(Where)) {
-                predicates.push(this.parse_where_clause()?);
-                return Ok(());
-            }
             match this.token.ident() {
+                Some((Ident { name: sym::predicates, .. }, IdentKind::Normal)) => {
+                    let span = this.token.span;
+                    this.bump();
+                    items.extend(
+                        this.parse_where_clause_predicates(None, span)?
+                            .0
+                            .into_iter()
+                            .map(TestBinderItem::Predicate),
+                    );
+                }
                 Some((Ident { name: sym::forall, .. }, IdentKind::Normal)) => {
-                    foralls.push(this.parse_test_binder_forall()?)
+                    items.push(TestBinderItem::Forall(this.parse_test_binder_forall()?));
                 }
                 Some((Ident { name: sym::exists, .. }, IdentKind::Normal)) => {
-                    exists.push(this.parse_test_binder_exists()?)
+                    items.push(TestBinderItem::Exists(this.parse_test_binder_exists()?));
                 }
 
-                _ => constraints.push(this.parse_test_binder_constraint()?),
+                _ if this.token.is_lifetime() && this.look_ahead(1, |t| t.kind == token::Eq) => {
+                    let lhs = this.expect_lifetime();
+                    this.expect(exp!(Eq))?;
+                    if !this.check_lifetime() {
+                        this.unexpected()?;
+                    }
+                    let rhs = this.expect_lifetime();
+                    items.push(TestBinderItem::RegionEquality(TestBinderRegionEquality {
+                        lhs,
+                        rhs,
+                    }));
+                }
+                _ => items.push(TestBinderItem::Constraint(this.parse_test_binder_constraint()?)),
             }
             Ok(())
         })?;
-        Ok(TestBinderBody { foralls, exists, constraints, predicates })
+        span = span.to(self.prev_token.span);
+        Ok(TestBinderBody { items, span })
     }
 
     pub fn parse_test_binder_forall(&mut self) -> PResult<'a, TestBinderForall> {
@@ -2791,6 +2819,11 @@ impl<'a> Parser<'a> {
                     })?
                     .0;
                 Ok(TestBinderConstraint::Or { items })
+            }
+            Some((Ident { name: sym::ambiguity, .. }, IdentKind::Normal)) => {
+                let span = self.token.span;
+                self.bump();
+                Ok(TestBinderConstraint::Ambiguity { span })
             }
             _ if self.check_keyword(exp!(For)) => {
                 let bound_type_constraint = self.parse_test_binder_bound_type_constraint()?;

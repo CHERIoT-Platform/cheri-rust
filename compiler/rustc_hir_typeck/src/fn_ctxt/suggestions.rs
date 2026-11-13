@@ -5,9 +5,9 @@ use core::iter;
 use hir::def_id::LocalDefId;
 use itertools::Itertools;
 use rustc_ast::util::parser::ExprPrecedence;
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::packed::Pu128;
 use rustc_errors::{Applicability, Diag, MultiSpan, listify, msg};
-use rustc_hir::attrs::lang_items::LangItem;
 use rustc_hir::def::{CtorKind, CtorOf, DefKind, Res};
 use rustc_hir::intravisit::Visitor;
 use rustc_hir::{
@@ -18,7 +18,6 @@ use rustc_hir::{
 use rustc_hir_analysis::hir_ty_lowering::HirTyLowerer;
 use rustc_hir_analysis::suggest_impl_trait;
 use rustc_middle::middle::stability::EvalResult;
-use rustc_middle::ty::consts::ConstExt;
 use rustc_middle::ty::print::{with_no_trimmed_paths, with_types_for_suggestion};
 use rustc_middle::ty::{
     self, Article, Binder, IsSuggestable, Ty, TyCtxt, TypeVisitableExt, Unnormalized, Upcast,
@@ -81,9 +80,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         if let Some((fn_id, fn_decl)) = self.get_fn_decl(blk_id) {
             pointing_at_return_type =
                 self.suggest_missing_return_type(err, fn_decl, expected, found, fn_id);
-            self.suggest_missing_break_or_return_expr(
-                err, expr, fn_decl, expected, found, blk_id, fn_id,
-            );
         }
         pointing_at_return_type
     }
@@ -493,7 +489,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         {
             // Suggest removing any stray borrows (unless there's macro shenanigans involved).
             let inner_expr = expr.peel_borrows();
-            if !inner_expr.span.eq_ctxt(expr.span) {
+            if inner_expr.span.ctxt() != expr.span.ctxt() {
                 return false;
             }
             let borrow_removal_span = if inner_expr.hir_id == expr.hir_id {
@@ -1021,13 +1017,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             hir::FnRetTy::Return(hir_ty) => {
                 if let hir::TyKind::OpaqueDef(op_ty, ..) = hir_ty.kind
                     && let [hir::GenericBound::Trait(trait_ref)] = op_ty.bounds
-                    && !trait_ref
-                        .trait_ref
-                        .path
-                        .segments
-                        .last()
-                        .and_then(|seg| seg.args)
-                        .map_or(false, |args| !args.constraints.is_empty())
+                    && matches!(op_ty.origin, hir::OpaqueTyOrigin::FnReturn { .. })
                 {
                     // Use the path to get the trait name string
                     let trait_name = trait_ref
@@ -1054,16 +1044,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
                     let trait_def_id = trait_ref.trait_ref.path.res.def_id();
                     if self.tcx.is_dyn_compatible(trait_def_id) {
-                        err.subdiagnostic(SuggestBoxingForReturnImplTrait::ChangeReturnType {
-                            start_sp: hir_ty.span.with_hi(hir_ty.span.lo() + BytePos(4)),
-                            end_sp: hir_ty.span.shrink_to_hi(),
-                        });
-
                         let body = self.tcx.hir_body_owned_by(fn_id);
                         let mut visitor = ReturnsVisitor::default();
                         visitor.visit_body(&body);
 
-                        if !visitor.returns.is_empty() {
+                        // Suggest boxing the return type only if there are multiple non-unit return types
+                        if visitor.returns.len() > 1 {
+                            err.subdiagnostic(SuggestBoxingForReturnImplTrait::ChangeReturnType {
+                                start_sp: hir_ty.span.with_hi(hir_ty.span.lo() + BytePos(4)),
+                                end_sp: hir_ty.span.shrink_to_hi(),
+                            });
+
                             let starts: Vec<Span> = visitor
                                 .returns
                                 .iter()
@@ -1391,7 +1382,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     ty::Asyncness::No => ty,
                 };
                 let ty = self.normalize(expr.span, Unnormalized::new_wip(ty));
-                self.may_coerce(found, ty)
+                let can_coerce_to_prior_ret = self.ret_coercion_span.get().is_none_or(|_| {
+                    self.ret_coercion.as_ref().is_some_and(|ret| {
+                        let ret_ty = ret.borrow().expected_ty();
+                        self.may_coerce(found, ret_ty)
+                    })
+                });
+                self.may_coerce(found, ty) && can_coerce_to_prior_ret
             }
             hir::FnRetTy::DefaultReturn(_) if in_closure => {
                 self.ret_coercion.as_ref().is_some_and(|ret| {
@@ -1467,7 +1464,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expr: &hir::Expr<'_>,
     ) -> bool {
         let sp = self.tcx.sess.source_map().start_point(expr.span).with_parent(None);
-        if let Some(sp) = self.tcx.sess.psess.ambiguous_block_expr_parse.borrow().get(&sp) {
+        if let Some(sp) =
+            self.tcx.sess.psess.complete_stmt_exprs_before_bin_op_lookalike.borrow().get(&sp)
+        {
             // `{ 42 } &&x` (#61475) or `{ 42 } && if x { 1 } else { 0 }`
             err.subdiagnostic(ExprParenthesesNeeded::surrounding(*sp));
             true
@@ -2303,7 +2302,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // If the field is from an external crate it must not be `doc(hidden)`.
             && (field.did.is_local() || !self.tcx.is_doc_hidden(field.did))
             // If the field is hygienic it must come from the same syntax context.
-            && self.tcx.def_ident_span(field.did).unwrap().normalize_to_macros_2_0().eq_ctxt(span)
+            && self.tcx.def_ident_span(field.did).unwrap().normalize_to_macros_2_0().ctxt() == span.ctxt()
     }
 
     pub(crate) fn suggest_missing_unwrap_expect(
@@ -2718,7 +2717,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     // suggestions would be often wrong. So suppress the suggestion. See #145294.
                     if let (ty::Adt(exp_adt, _), ty::Adt(act_adt, _)) = (expected.kind(), expr_ty.kind())
                         && exp_adt.did() == act_adt.did()
-                        && sole_field.ty(self.tcx, args).skip_norm_wip().is_ty_var() {
+                        && sole_field.ty(self.tcx, *args).skip_norm_wip().is_ty_var() {
                             return None;
                     }
 
@@ -2735,7 +2734,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     let note_about_variant_field_privacy = (field_is_local && !field_is_accessible)
                         .then(|| " (its field is private, but it's local to this crate and its privacy can be changed)".to_string());
 
-                    let sole_field_ty = sole_field.ty(self.tcx, args).skip_norm_wip();
+                    let sole_field_ty = sole_field.ty(self.tcx, *args).skip_norm_wip();
                     if self.may_coerce(expr_ty, sole_field_ty) {
                         let variant_path = with_types_for_suggestion!(with_no_trimmed_paths!(
                             self.tcx.def_path_str(variant.def_id)
@@ -2772,7 +2771,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 let mut expr = expr;
                 while let hir::ExprKind::Block(block, _) = &expr.kind
                     && let Some(expr_) = &block.expr
-                    && expr_.span.eq_ctxt(expr.span)
+                    && expr_.span.ctxt() == expr.span.ctxt()
                 {
                     expr = expr_
                 }

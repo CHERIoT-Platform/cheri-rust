@@ -33,7 +33,8 @@ impl RustdocGuiTestProps {
 
         let props = TestProps::from_file(test_file_path, None, &config);
 
-        let TestProps { compile_flags, run_flags, .. } = props;
+        // FIXME: Why do we need to ignore the edition?
+        let TestProps { edition: _, compile_flags, run_flags, .. } = props;
         Self { compile_flags, run_flags }
     }
 }

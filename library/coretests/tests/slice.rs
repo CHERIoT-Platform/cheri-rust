@@ -1679,9 +1679,9 @@ fn brute_force_rotate_test_1() {
 }
 
 #[test]
-#[cfg(not(target_arch = "wasm32"))]
 // FIXME(cheri/ignored/too_slow): passing, last checked 2026-09-10
 #[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
+#[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
 fn select_nth_unstable() {
     use core::cmp::Ordering::{Equal, Greater, Less};
 

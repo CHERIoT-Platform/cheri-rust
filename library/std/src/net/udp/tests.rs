@@ -354,6 +354,17 @@ fn ttl() {
 }
 
 #[test]
+#[cfg(any(target_family = "unix", target_os = "windows"))]
+fn hop_limit() {
+    let hlim = 100;
+
+    let stream = t!(UdpSocket::bind(LOCALHOST_IP6));
+
+    t!(stream.set_hop_limit_v6(hlim));
+    assert_eq!(hlim, t!(stream.hop_limit_v6()));
+}
+
+#[test]
 fn set_nonblocking() {
     each_ip(&mut |socket, _| {
         let addr = t!(socket.local_addr());

@@ -1,8 +1,8 @@
 //! The main parser interface.
 
 // tidy-alphabetical-start
+#![cfg_attr(bootstrap, feature(debug_closure_helpers))]
 #![cfg_attr(test, feature(iter_order_by))]
-#![feature(debug_closure_helpers)]
 #![feature(default_field_values)]
 #![feature(deref_patterns)]
 #![feature(iter_intersperse)]
@@ -325,7 +325,7 @@ fn fake_token_stream_for_file_mod(
 
     let mut wrapper_tts = Vec::new();
     for attr in item.attrs.iter().filter(|attr| attr.style == ast::AttrStyle::Outer) {
-        wrapper_tts.extend(attr.token_trees());
+        attr.append_token_trees_to(&mut wrapper_tts);
     }
     wrapper_tts.extend(lex_token_trees_for_span(psess, item.span)?);
     let Some(TokenTree::Token(semi, _)) = wrapper_tts.pop() else {

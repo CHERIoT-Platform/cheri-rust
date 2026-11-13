@@ -1,7 +1,4 @@
 //@ compile-flags: -Copt-level=3
-//@ revisions: new old
-//@ [old] max-llvm-major-version: 21
-//@ [new] min-llvm-version: 22
 
 #![crate_type = "lib"]
 #![no_std]
@@ -13,7 +10,6 @@ use alloc::collections::VecDeque;
 // CHECK-LABEL: @noop_back(
 pub fn noop_back(v: &mut VecDeque<u8>) {
     // CHECK-NOT: grow
-    // old: tail call[[ADDRSPACE]] void @llvm.assume
     // CHECK-NOT: grow
     // CHECK: ret
     if let Some(x) = v.pop_back() {

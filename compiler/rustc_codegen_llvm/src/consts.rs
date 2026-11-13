@@ -1,11 +1,12 @@
 use std::ops::Range;
 
 use rustc_abi::{Align, ExternAbi, HasDataLayout, Primitive, Scalar, Size, WrappingRange};
+use rustc_attr_ir::lang_items::LangItem;
+use rustc_attr_ir::{
+    Attribute, AttributeKind, CheriotCapImportAttr, CheriotPermissionsAttr, Linkage,
+};
 use rustc_codegen_ssa::common;
 use rustc_codegen_ssa::traits::*;
-use rustc_hir::Attribute;
-use rustc_hir::attrs::lang_items::LangItem;
-use rustc_hir::attrs::{AttributeKind, CheriotCapImportAttr, CheriotPermissionsAttr, Linkage};
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
 use rustc_middle::middle::codegen_fn_attrs::{CodegenFnAttrFlags, CodegenFnAttrs};
@@ -23,7 +24,6 @@ use tracing::{debug, instrument, trace};
 use crate::common::CodegenCx;
 use crate::diagnostics::SymbolAlreadyDefined;
 use crate::llvm::{self, Type, Value, const_ptr_auth};
-use crate::type_of::LayoutLlvmExt;
 use crate::{base, debuginfo};
 
 /// Indicates whether a value originates from a `static`.
@@ -203,7 +203,7 @@ fn check_and_apply_linkage<'ll, 'tcx>(
         let mut should_sign = false;
         // Declare a symbol `foo`. If `foo` is an extern_weak symbol, we declare
         // an extern_weak function, otherwise a global with the desired linkage.
-        let g1 = if matches!(attrs.import_linkage, Some(Linkage::ExternalWeak)) {
+        let actual_global = if matches!(attrs.import_linkage, Some(Linkage::ExternalWeak)) {
             // An `extern_weak` function is represented as an `Option<unsafe extern ...>`,
             // we extract the function signature and declare it as an extern_weak function
             // instead of an extern_weak i8.
@@ -215,7 +215,7 @@ fn check_and_apply_linkage<'ll, 'tcx>(
                 let fn_sig = sig.with(*header);
                 let fn_abi = cx.fn_abi_of_fn_ptr(fn_sig, ty::List::empty());
                 // Decide if the initializer needs to be signed
-                if cx.sess().pointer_authentication()
+                if cx.sess().pointer_authentication_functions().is_some()
                     && matches!(fn_sig.abi(), ExternAbi::C { .. } | ExternAbi::System { .. })
                 {
                     should_sign = true;
@@ -227,11 +227,29 @@ fn check_and_apply_linkage<'ll, 'tcx>(
         } else {
             cx.declare_global(sym, cx.type_i8())
         };
-        llvm::set_linkage(g1, base::linkage_to_llvm(linkage));
+        llvm::set_linkage(actual_global, base::linkage_to_llvm(linkage));
 
         // Normally this is done in `get_static_inner`, but when as we generate an internal global,
         // it will apply the dso_local to the internal global instead, so do it here, too.
-        cx.assume_dso_local(g1, true);
+        cx.assume_dso_local(actual_global, true);
+
+        // Sign the function pointer that is used to initialize the global
+        let initializer = if should_sign {
+            let schema = cx
+                .tcx
+                .sess
+                .pointer_authentication_functions()
+                .expect("pointer authentication functions must be available when signing");
+
+            const_ptr_auth(
+                actual_global,
+                schema.key as u32,
+                schema.constant_discriminator as u64,
+                None, /* address_diversity */
+            )
+        } else {
+            actual_global
+        };
 
         // Declare an internal global `extern_with_linkage_foo` which
         // is initialized with the address of `foo`. If `foo` is
@@ -241,33 +259,19 @@ fn check_and_apply_linkage<'ll, 'tcx>(
         // zero.
         let real_name =
             format!("_rust_extern_with_linkage_{:016x}_{sym}", cx.tcx.stable_crate_id(LOCAL_CRATE));
-        let g2 = cx.define_global(&real_name, llty).unwrap_or_else(|| {
-            cx.sess().dcx().emit_fatal(SymbolAlreadyDefined {
-                span: cx.tcx.def_span(def_id),
-                symbol_name: sym,
-            })
-        });
-        llvm::set_linkage(g2, llvm::Linkage::InternalLinkage);
-        llvm::set_unnamed_address(g2, llvm::UnnamedAddr::Global);
+        let pointer_global =
+            cx.define_global(&real_name, cx.val_ty(initializer)).unwrap_or_else(|| {
+                cx.sess().dcx().emit_fatal(SymbolAlreadyDefined {
+                    span: cx.tcx.def_span(def_id),
+                    symbol_name: sym,
+                })
+            });
+        llvm::set_linkage(pointer_global, llvm::Linkage::InternalLinkage);
+        llvm::set_unnamed_address(pointer_global, llvm::UnnamedAddr::Global);
 
-        // Sign the function pointer that is used to initialize the global
-        let initializer = if should_sign {
-            let key: u32 = 0;
-            let discriminator: u64 = 0;
+        llvm::set_initializer(pointer_global, initializer);
 
-            const_ptr_auth(
-                cx.const_bitcast(g1, llty),
-                key,
-                discriminator,
-                None, /* address_diversity */
-            )
-        } else {
-            g1
-        };
-
-        llvm::set_initializer(g2, initializer);
-
-        g2
+        pointer_global
     } else if cx.tcx.sess.target.arch == Arch::X86
         && common::is_using_dlltool(&cx.tcx.sess.target)
         && let Some(dllimport) = crate::common::get_dllimport(cx.tcx, def_id, sym)
@@ -358,7 +362,7 @@ impl<'ll> CodegenCx<'ll, '_> {
         } else {
             let ty = instance.ty(self.tcx, self.typing_env());
             trace!(?ty);
-            self.layout_of(ty).llvm_type(self)
+            self.type_array(self.type_i8(), self.layout_of(ty).size.bytes())
         };
         self.get_static_inner(def_id, llty)
     }
@@ -426,14 +430,14 @@ impl<'ll> CodegenCx<'ll, '_> {
                     };
 
                     let cap_import_kind = match import_kind {
-                        rustc_hir::attrs::CheriotCapImportKind::MMIO => "mem",
-                        rustc_hir::attrs::CheriotCapImportKind::SharedObject => {
+                        rustc_attr_ir::CheriotCapImportKind::MMIO => "mem",
+                        rustc_attr_ir::CheriotCapImportKind::SharedObject => {
                             "cheriot_shared_object"
                         }
                     };
 
                     let llattr = llvm::CreateAttrStringValue(
-                        &self.llcx,
+                        self.llcx,
                         "cheriot_global_cap_import",
                         &CheriotPermissionsAttr::make_cap_import_attribute(
                             cap_import_kind,
@@ -799,7 +803,7 @@ impl<'ll> CodegenCx<'ll, '_> {
                 let g = self.define_global(&sym, llty).unwrap_or_else(|| {
                     bug!("symbol `{}` is already defined", sym);
                 });
-                set_global_alignment(self, g, self.tcx.data_layout.pointer_align().abi);
+                set_global_alignment(self, g, self.tcx.data_layout.pointer_align());
                 llvm::set_initializer(g, llval);
                 llvm::set_linkage(g, llvm::Linkage::PrivateLinkage);
                 llvm::set_section(g, c"__OBJC,__cls_refs,literal_pointers,no_dead_strip");
@@ -819,7 +823,7 @@ impl<'ll> CodegenCx<'ll, '_> {
                 let g = self.define_global(&sym, llty).unwrap_or_else(|| {
                     bug!("symbol `{}` is already defined", sym);
                 });
-                set_global_alignment(self, g, self.tcx.data_layout.pointer_align().abi);
+                set_global_alignment(self, g, self.tcx.data_layout.pointer_align());
                 llvm::set_initializer(g, llval);
                 llvm::set_linkage(g, llvm::Linkage::InternalLinkage);
                 llvm::set_section(g, c"__DATA,__objc_classrefs,regular,no_dead_strip");
@@ -882,7 +886,7 @@ impl<'ll> CodegenCx<'ll, '_> {
         let selref_g = self.define_global(&selref_sym, selref_llty).unwrap_or_else(|| {
             bug!("symbol `{}` is already defined", selref_sym);
         });
-        set_global_alignment(self, selref_g, self.tcx.data_layout.pointer_align().abi);
+        set_global_alignment(self, selref_g, self.tcx.data_layout.pointer_align());
         llvm::set_initializer(selref_g, selref_llval);
         llvm::set_externally_initialized(selref_g, true);
         llvm::set_linkage(
@@ -938,7 +942,7 @@ impl<'ll> CodegenCx<'ll, '_> {
         let g = self.define_global(&sym, llty).unwrap_or_else(|| {
             bug!("symbol `{}` is already defined", sym);
         });
-        set_global_alignment(self, g, self.tcx.data_layout.pointer_align().abi);
+        set_global_alignment(self, g, self.tcx.data_layout.pointer_align());
         llvm::set_initializer(g, llval);
         llvm::set_linkage(g, llvm::Linkage::PrivateLinkage);
         llvm::set_section(g, c"__OBJC,__module_info,regular,no_dead_strip");

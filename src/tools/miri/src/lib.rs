@@ -8,13 +8,13 @@
     ),
     feature(abort_unwind)
 )]
+#![feature(array_try_from_fn)]
 #![feature(rustc_private)]
 #![feature(dirfd)]
 #![feature(f16)]
 #![feature(float_gamma)]
 #![feature(float_erf)]
 #![feature(map_try_insert)]
-#![cfg_attr(bootstrap, feature(never_type))]
 #![feature(try_blocks)]
 #![feature(io_error_more)]
 #![feature(io_error_inprogress)]
@@ -46,6 +46,8 @@
     clippy::needless_lifetimes,
     clippy::too_long_first_doc_paragraph,
     clippy::len_zero,
+    clippy::while_let_loop,
+    clippy::new_instead_of_clear,
     // We are not implementing queries here so it's fine
     rustc::potential_query_instability,
 )]
@@ -62,6 +64,7 @@
 extern crate rustc_abi;
 extern crate rustc_apfloat;
 extern crate rustc_ast;
+extern crate rustc_attr_ir;
 extern crate rustc_codegen_ssa;
 extern crate rustc_const_eval;
 extern crate rustc_data_structures;
@@ -93,6 +96,7 @@ mod helpers;
 mod intrinsics;
 mod machine;
 mod math;
+mod meta_obj;
 mod operator;
 mod provenance_gc;
 mod shims;
@@ -104,10 +108,10 @@ pub mod sym;
 pub use rustc_const_eval::interpret::*;
 // Resolve ambiguity.
 #[doc(no_inline)]
-pub use rustc_const_eval::interpret::{self, AllocMap, Provenance as _};
-pub use rustc_data_structures::either::Either;
-pub use rustc_log::tracing::{self, info, trace, warn};
-pub use rustc_span::{bug, span_bug};
+pub use rustc_const_eval::interpret::{self, Provenance as _};
+use rustc_data_structures::either::Either;
+use rustc_log::tracing::{self, info, trace, warn};
+use rustc_span::{bug, span_bug};
 
 #[cfg(all(feature = "native-lib", unix))]
 pub mod native_lib {
@@ -142,10 +146,12 @@ pub use crate::concurrency::data_race::{
 };
 pub use crate::concurrency::init_once::{EvalContextExt as _, InitOnceRef};
 pub use crate::concurrency::scheduler::EvalContextExt as _;
-pub use crate::concurrency::sync::{CondvarRef, EvalContextExt as _, MutexRef, RwLockRef};
+pub use crate::concurrency::sync::{
+    CondvarRef, EvalContextExt as _, MutexRef, RwLockRef, SemaphoreRef,
+};
 pub use crate::concurrency::thread::{
     BlockReason, DynUnblockCallback, EvalContextExt as _, StackEmptyCallback, ThreadId,
-    ThreadManager, TlsAllocAction, UnblockKind,
+    ThreadManager, UnblockKind,
 };
 pub use crate::concurrency::{GenmcConfig, GenmcCtx, run_genmc_mode};
 pub use crate::data_structures::dedup_range_map::DedupRangeMap;
@@ -162,6 +168,7 @@ pub use crate::machine::{
     MiriMachine, MiriMemoryKind, PrimitiveLayouts, Provenance, ProvenanceExtra, RejectOpWith,
     ValidationMode,
 };
+pub use crate::meta_obj::{EvalContextExt as _, MetaObj};
 pub use crate::operator::EvalContextExt as _;
 pub use crate::provenance_gc::{EvalContextExt as _, LiveAllocs, VisitProvenance, VisitWith};
 pub use crate::shims::EmulateItemResult;
@@ -194,9 +201,10 @@ pub const MIRI_DEFAULT_ARGS: &[&str] = &[
     // we let Miri do these checks.
     "-Zmir-enable-passes=-CheckAlignment,-CheckNull,-CheckEnums",
     // FIXME: Disable some passes to make higher opt levels also work.
-    // - ReferencePropagation is incompatible with SB's ref-to-raw castb behavior.
+    // - ReferencePropagation is incompatible with SB's ref-to-raw cast behavior.
     //   The fix here is to ditch SB and use TB instead but we're not yet ready for that.
     // - GVN is not yet adjusted for implicit retags during assignments.
+    //   <https://github.com/rust-lang/rust/issues/165327>
     "-Zmir-enable-passes=-ReferencePropagation,-GVN",
     // Deduplicating diagnostics means we miss events when tracking what happens during an
     // execution. Let's not do that.

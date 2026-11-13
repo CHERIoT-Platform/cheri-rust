@@ -91,9 +91,7 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
                                 self.project_downcast_named(&field_dest, sym::Slice)?;
                             variant
                         }
-                        ty::Adt(adt_def, generics) => {
-                            self.write_adt_type_info(&field_dest, (ty, *adt_def), generics)?
-                        }
+                        ty::Adt(adt_def, _) => self.write_adt_type_info(&field_dest, *adt_def)?,
                         ty::Bool => {
                             let (variant, _variant_place) =
                                 self.project_downcast_named(&field_dest, sym::Bool)?;
@@ -235,7 +233,7 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
         place: &impl Writeable<'tcx, CtfeProvenance>,
         ty: Ty<'tcx>,
     ) -> InterpResult<'tcx> {
-        let generics: ty::Binder<'_, ty::GenericArgsRef<'_>> = match *ty.kind() {
+        let generics: ty::Binder<'_, ty::GenericArgs<'_>> = match *ty.kind() {
             ty::Bool
             | ty::Char
             | ty::Int(..)
@@ -258,10 +256,10 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
             | ty::Placeholder(..)
             | ty::Infer(..)
             | ty::Error(..)
-            | ty::Slice(..) => ty::Binder::dummy(ty::GenericArgsRef::default()),
+            | ty::Slice(..) => ty::Binder::dummy(ty::GenericArgs::default()),
             ty::Adt(_, args) => ty::Binder::dummy(args),
             ty::FnDef(_, binder) => binder,
-            ty::UnsafeBinder(binder) => binder.rebind(ty::GenericArgsRef::default()),
+            ty::UnsafeBinder(binder) => binder.rebind(ty::GenericArgs::default()),
             ty::Closure(_, args) => ty::Binder::dummy(args),
             ty::CoroutineClosure(_, args) => ty::Binder::dummy(args),
             ty::Coroutine(_, args) => ty::Binder::dummy(args),

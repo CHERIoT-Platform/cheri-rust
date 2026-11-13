@@ -39,6 +39,7 @@ use std::ops::ControlFlow;
 
 use hir_def::{
     CallableDefId, TraitId, attrs::AttrFlags, hir::ExprId, signatures::FunctionSignature,
+    upvars::upvars_mentioned,
 };
 use rustc_ast_ir::Mutability;
 use rustc_type_ir::{
@@ -70,7 +71,6 @@ use crate::{
         inspect::{InspectGoal, ProofTreeVisitor},
         obligation_ctxt::ObligationCtxt,
     },
-    upvars::upvars_mentioned,
     utils::TargetFeatureIsSafeInTarget,
 };
 
@@ -1024,7 +1024,14 @@ impl<'db> InferenceContext<'db> {
                 }
             }
         };
-        if let (Some(a_sig), Some(b_sig)) = (a_sig, b_sig) {
+        if let (Some(mut a_sig), Some(mut b_sig)) = (a_sig, b_sig) {
+            // Allow coercing safe sigs to unsafe sigs
+            if a_sig.safety().is_safe() && !b_sig.safety().is_safe() {
+                a_sig = a_sig.map_bound(|sig| sig.set_safety(Safety::Unsafe));
+            } else if b_sig.safety().is_safe() && !a_sig.safety().is_safe() {
+                b_sig = b_sig.map_bound(|sig| sig.set_safety(Safety::Unsafe));
+            }
+
             // The signature must match.
             let sig = self
                 .table
@@ -1392,6 +1399,7 @@ impl<'db, 'exprs> CoerceMany<'db, 'exprs> {
 
                 self.final_ty = Some(icx.types.types.error);
 
+                let expression = icx.innermost_tail_expr(expression);
                 if label_expression_as_expected {
                     icx.emit_type_mismatch(expression.into(), found, expected);
                 } else {
@@ -1600,7 +1608,8 @@ fn coerce<'db>(
 fn is_capturing_closure(db: &dyn HirDatabase, closure: InternedClosureId<'_>) -> bool {
     let InternedClosure { owner, expr, .. } = closure.loc(db);
     upvars_mentioned(db, owner.expression_store_owner(db))
-        .is_some_and(|upvars| upvars.get(&expr).is_some_and(|upvars| !upvars.is_empty()))
+        .get(&expr)
+        .is_some_and(|upvars| !upvars.is_empty())
 }
 
 /// Recursively visit goals to decide whether an unsizing is possible.

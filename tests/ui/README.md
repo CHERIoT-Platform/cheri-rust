@@ -215,7 +215,7 @@ Tests for the `--check-cfg` compiler mechanism  for checking cfg configurations,
 
 See [Checking conditional configurations | The rustc book](https://doc.rust-lang.org/rustc/check-cfg.html).
 
-## `tests/ui/checked-type-alias/`
+## `tests/ui/checked-type-aliases/`
 
 Tests for `#![feature(checked_type_aliases)]`. See [Tracking issue for checked type aliases](https://github.com/rust-lang/rust/issues/112792).
 
@@ -851,6 +851,10 @@ See:
 
 - [Lints | The rustc book](https://doc.rust-lang.org/rustc/lints/index.html)
 - [Lint reasons | Reference](https://doc.rust-lang.org/reference/attributes/diagnostics.html#lint-reasons)
+
+## `tests/ui/lint_helper_namespace/`
+
+Tests for lint helper attributes such as `#[lint::as_ptr]`.
 
 ## `tests/ui/liveness/`
 

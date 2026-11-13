@@ -9,12 +9,13 @@
 // errors that only occur once we get past the AST.
 
 #![feature(auto_traits)]
-#![feature(builtin_syntax)]
+#![feature(internal_syntax)]
 #![feature(const_trait_impl)]
 #![feature(coroutines)]
 #![feature(decl_macro)]
 #![feature(deref_patterns)]
 #![feature(explicit_tail_calls)]
+#![feature(forced_keywords)]
 #![feature(gen_blocks)]
 #![feature(more_qualified_paths)]
 #![feature(never_patterns)]
@@ -27,7 +28,7 @@
 #![feature(try_blocks)]
 #![feature(try_blocks_heterogeneous)]
 #![feature(yeet_expr)]
-#![allow(incomplete_features)]
+#![allow(incomplete_features, unused_attributes)]
 
 mod prelude {
     pub use std::prelude::rust_2024::*;
@@ -144,7 +145,7 @@ mod expressions {
     /// ExprKind::Type
     fn expr_type() {
         let expr;
-        builtin # type_ascribe(expr, T);
+        k#type_ascribe(expr, T);
     }
 
     /// ExprKind::Let

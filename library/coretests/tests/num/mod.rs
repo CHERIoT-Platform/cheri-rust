@@ -48,7 +48,10 @@ mod carryless_mul;
     )
 ))]
 mod cast;
-#[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
+
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): not checked
+mod clamp_magnitude;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): not checked
 mod complex;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod const_from;
@@ -95,6 +98,8 @@ mod midpoint;
 mod nan;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod niche_types;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): not checked
+mod nonzero;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
 mod ops;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_num_rest"))]
@@ -496,17 +501,14 @@ macro_rules! test_impl_try_from_integer_to_bool {
             let zero: $source = 0;
             let one: $source = 1;
             let two: $source = 2;
-            assert_eq!(bool::try_from(max).unwrap_err().kind(), &IntErrorKind::PosOverflow);
+            assert_eq!(bool::try_from(max).unwrap_err().kind(), IntErrorKind::PosOverflow);
             if min != 0 {
-                assert_eq!(bool::try_from(min).unwrap_err().kind(), &IntErrorKind::NegOverflow);
-                assert_eq!(
-                    bool::try_from(zero - 1).unwrap_err().kind(),
-                    &IntErrorKind::NegOverflow
-                );
+                assert_eq!(bool::try_from(min).unwrap_err().kind(), IntErrorKind::NegOverflow);
+                assert_eq!(bool::try_from(zero - 1).unwrap_err().kind(), IntErrorKind::NegOverflow);
             }
             assert_eq!(bool::try_from(zero).unwrap(), false);
             assert_eq!(bool::try_from(one).unwrap(), true);
-            assert_eq!(bool::try_from(two).unwrap_err().kind(), &IntErrorKind::PosOverflow);
+            assert_eq!(bool::try_from(two).unwrap_err().kind(), IntErrorKind::PosOverflow);
         }
     };
 }
@@ -650,12 +652,12 @@ macro_rules! test_impl_try_from_signed_to_unsigned_upper_ok {
             assert_eq!(<$target as TryFrom<$source>>::try_from(max).unwrap(), max as $target);
             assert_eq!(
                 <$target as TryFrom<$source>>::try_from(min).unwrap_err().kind(),
-                &IntErrorKind::NegOverflow
+                IntErrorKind::NegOverflow
             );
             assert_eq!(<$target as TryFrom<$source>>::try_from(zero).unwrap(), zero as $target);
             assert_eq!(
                 <$target as TryFrom<$source>>::try_from(neg_one).unwrap_err().kind(),
-                &IntErrorKind::NegOverflow
+                IntErrorKind::NegOverflow
             );
         }
     };
@@ -720,7 +722,7 @@ macro_rules! test_impl_try_from_unsigned_to_signed_upper_err {
             let zero: $source = 0;
             assert_eq!(
                 <$target as TryFrom<$source>>::try_from(max).unwrap_err().kind(),
-                &IntErrorKind::PosOverflow
+                IntErrorKind::PosOverflow
             );
             assert_eq!(<$target as TryFrom<$source>>::try_from(min).unwrap(), min as $target);
             assert_eq!(<$target as TryFrom<$source>>::try_from(zero).unwrap(), zero as $target);
@@ -787,12 +789,12 @@ macro_rules! test_impl_try_from_same_sign_err {
             let t_min = <$target>::MIN;
             assert_eq!(
                 <$target as TryFrom<$source>>::try_from(max).unwrap_err().kind(),
-                &IntErrorKind::PosOverflow
+                IntErrorKind::PosOverflow
             );
             if min != 0 {
                 assert_eq!(
                     <$target as TryFrom<$source>>::try_from(min).unwrap_err().kind(),
-                    &IntErrorKind::NegOverflow
+                    IntErrorKind::NegOverflow
                 );
             }
             assert_eq!(<$target as TryFrom<$source>>::try_from(zero).unwrap(), zero as $target);
@@ -883,11 +885,11 @@ macro_rules! test_impl_try_from_signed_to_unsigned_err {
             let t_min = <$target>::MIN;
             assert_eq!(
                 <$target as TryFrom<$source>>::try_from(max).unwrap_err().kind(),
-                &IntErrorKind::PosOverflow
+                IntErrorKind::PosOverflow
             );
             assert_eq!(
                 <$target as TryFrom<$source>>::try_from(min).unwrap_err().kind(),
-                &IntErrorKind::NegOverflow
+                IntErrorKind::NegOverflow
             );
             assert_eq!(<$target as TryFrom<$source>>::try_from(zero).unwrap(), zero as $target);
             assert_eq!(

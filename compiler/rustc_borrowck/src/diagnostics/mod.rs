@@ -3,10 +3,10 @@
 use std::collections::BTreeMap;
 
 use rustc_abi::{FieldIdx, VariantIdx};
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_errors::formatting::DiagMessageAddArg;
 use rustc_errors::{Applicability, Diag, DiagMessage, MultiSpan, listify, msg};
-use rustc_hir::attrs::lang_items::LangItem;
 use rustc_hir::def::{CtorKind, Namespace};
 use rustc_hir::{
     self as hir, CoroutineKind, GenericBound, WhereBoundPredicate, WherePredicateKind,
@@ -123,7 +123,7 @@ impl<'diag, 'tcx> BorrowckDiagnosticsBuffer<'diag, 'tcx> {
         }
 
         if !self.buffered_diags.is_empty() {
-            self.buffered_diags.sort_by_key(|(sort_span, _)| *sort_span);
+            self.buffered_diags.sort_by_key(|(sort_span, _)| sort_span.lo_hi());
             for (_, diag) in self.buffered_diags.drain(..) {
                 diag.emit();
             }
@@ -1361,18 +1361,21 @@ impl<'tcx> MirBorrowckCtxt<'_, '_, 'tcx> {
                         );
 
                         let func = with_no_trimmed_paths!(tcx.def_path_str(method_did));
+                        let mut span: MultiSpan = self_arg.span.into();
+                        span.push_span_context(tcx.def_span(method_did).shrink_to_lo());
+                        span.push_span_context(tcx.def_span(tcx.parent(method_did)).shrink_to_lo());
                         if let Some((kind, _)) = desugaring {
                             err.subdiagnostic(CaptureReasonNote::DesugaringFuncTakeSelf {
                                 func,
                                 desugar_name: kind.name(),
                                 place_name: place_name.clone(),
-                                span: self_arg.span,
+                                span,
                             });
                         } else {
                             err.subdiagnostic(CaptureReasonNote::FuncTakeSelf {
                                 func,
                                 place_name: place_name.clone(),
-                                span: self_arg.span,
+                                span,
                             });
                         }
                     }

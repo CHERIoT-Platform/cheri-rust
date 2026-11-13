@@ -56,13 +56,12 @@ This API is completely unstable and subject to change.
 */
 
 // tidy-alphabetical-start
-#![cfg_attr(bootstrap, feature(never_type))]
+#![cfg_attr(bootstrap, feature(unwrap_infallible))]
 #![feature(default_field_values)]
 #![feature(gen_blocks)]
 #![feature(iter_intersperse)]
 #![feature(slice_partition_dedup)]
 #![feature(try_blocks)]
-#![feature(unwrap_infallible)]
 // tidy-alphabetical-end
 
 // These are used by Clippy.
@@ -170,10 +169,7 @@ pub fn check_crate(tcx: TyCtxt<'_>) {
                 tcx.ensure_ok().eval_static_initializer(item_def_id);
                 check::maybe_check_static_with_link_section(tcx, item_def_id);
             }
-            DefKind::Const
-                if !tcx.generics_of(item_def_id).own_requires_monomorphization()
-                    && tcx.const_of_item(item_def_id).is_none() =>
-            {
+            DefKind::Const if !tcx.generics_of(item_def_id).own_requires_monomorphization() => {
                 // FIXME(generic_const_items): Passing empty instead of identity args is fishy but
                 //                             seems to be fine for now. Revisit this!
                 let instance = ty::Instance::new_raw(item_def_id.into(), ty::GenericArgs::empty());
@@ -201,10 +197,7 @@ pub fn check_crate(tcx: TyCtxt<'_>) {
     // while the enclosing body is type-checked. Doing this in the pass above lets the parallel
     // front end reach the nested body owner first, computing (and caching) an error type for
     // the anon const that then conflicts with the type fed later on.
-    //
-    // This must not be parallelized since `coroutine_by_move_body_def_id` creates new `DefId`-s
-    // inside, which must be done in deterministic order to have reproducible binaries.
-    tcx.hir_body_owners().for_each(|item_def_id| {
+    tcx.par_hir_body_owners(|item_def_id| {
         // Ensure we generate the new `DefId` before finishing `check_crate`.
         // Afterwards we freeze the list of `DefId`s.
         if tcx.needs_coroutine_by_move_body_def_id(item_def_id.to_def_id()) {

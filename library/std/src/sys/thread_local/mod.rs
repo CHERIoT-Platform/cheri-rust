@@ -36,7 +36,7 @@
 cfg_select! {
     any(
         target_os = "cheriotrtos",
-        all(target_family = "wasm", not(target_feature = "atomics"), not(target_env = "p3")),
+        all(target_family = "wasm", not(target_feature = "atomics"), not(target_os = "wasi")),
         target_os = "uefi",
         target_os = "zkvm",
         target_os = "trusty",
@@ -67,7 +67,7 @@ cfg_select! {
 /// single callback that runs all of the destructors in the list.
 #[cfg(all(
     target_thread_local,
-    not(all(target_family = "wasm", not(target_feature = "atomics"), not(target_env = "p3")))
+    not(all(target_family = "wasm", not(target_feature = "atomics"), not(target_os = "wasi")))
 ))]
 pub(crate) mod destructors {
     cfg_select! {
@@ -102,13 +102,21 @@ pub(crate) mod guard {
             mod apple;
             pub(crate) use apple::enable;
         }
+        all(target_thread_local, target_os = "aix") => {
+            mod aix;
+            pub(crate) use aix::enable;
+        }
         target_os = "windows" => {
             mod windows;
             pub(crate) use windows::enable;
+            #[cfg(not(target_thread_local))]
+            mod retained;
+            #[cfg(not(target_thread_local))]
+            pub(crate) use retained::{LOCAL_POINTER_NEEDS_DTOR, cleanup_pending};
         }
         any(
             target_os = "cheriotrtos",
-            all(target_family = "wasm", not(target_env = "p3")),
+            all(target_family = "wasm", not(target_os = "wasi")),
             target_os = "uefi",
             target_os = "zkvm",
             target_os = "trusty",
@@ -132,6 +140,10 @@ pub(crate) mod guard {
             // `std` is the only runtime, so it just calls the destructor functions
             // itself when the time comes.
             pub(crate) fn enable() {}
+            #[cfg(not(target_thread_local))]
+            mod retained;
+            #[cfg(not(target_thread_local))]
+            pub(crate) use retained::{LOCAL_POINTER_NEEDS_DTOR, cleanup_pending};
         }
         target_os = "solid_asp3" => {
             mod solid;
@@ -140,6 +152,8 @@ pub(crate) mod guard {
         _ => {
             mod key;
             pub(crate) use key::enable;
+            #[cfg(not(target_thread_local))]
+            pub(crate) use key::{LOCAL_POINTER_NEEDS_DTOR, cleanup_pending};
         }
     }
 }
@@ -156,7 +170,7 @@ pub(crate) mod key {
             all(not(target_vendor = "apple"), not(target_family = "wasm"), target_family = "unix"),
             all(not(target_thread_local), target_vendor = "apple"),
             target_os = "teeos",
-            all(target_os = "wasi", target_env = "p3"),
+            target_os = "wasi",
         ) => {
             mod racy;
             mod unix;
