@@ -246,7 +246,7 @@ macro_rules! make_mir_visitor {
 
             fn visit_args(
                 &mut self,
-                args: & $($mutability)? GenericArgsRef<'tcx>,
+                args: & $($mutability)? GenericArgs<'tcx>,
                 _: Location,
             ) {
                 self.super_args(args);
@@ -518,7 +518,7 @@ macro_rules! make_mir_visitor {
                 terminator: &$($mutability)? Terminator<'tcx>,
                 location: Location
             ) {
-                let Terminator { source_info, kind, attributes: _ } = terminator;
+                let Terminator { source_info, kind } = terminator;
 
                 self.visit_source_info(source_info);
                 match kind {
@@ -986,7 +986,7 @@ macro_rules! make_mir_visitor {
 
             fn super_region(&mut self, _region: $(& $mutability)? ty::Region<'tcx>) {}
 
-            fn super_args(&mut self, _args: & $($mutability)? GenericArgsRef<'tcx>) {}
+            fn super_args(&mut self, _args: & $($mutability)? GenericArgs<'tcx>) {}
 
             // Convenience methods
 

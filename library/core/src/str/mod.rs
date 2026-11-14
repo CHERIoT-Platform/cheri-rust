@@ -323,6 +323,8 @@ impl str {
     /// Converts a slice of bytes to a string slice without checking
     /// that the string contains valid UTF-8; mutable version.
     ///
+    /// # Safety
+    ///
     /// See the immutable version, [`from_utf8_unchecked()`] for documentation and safety requirements.
     ///
     /// # Examples
@@ -582,10 +584,10 @@ impl str {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[rustc_const_stable(feature = "rustc_str_as_ptr", since = "1.32.0")]
-    #[rustc_never_returns_null_ptr]
-    #[rustc_as_ptr]
     #[must_use]
     #[inline(always)]
+    #[lint::as_ptr]
+    #[lint::never_returns_null_ptr]
     pub const fn as_ptr(&self) -> *const u8 {
         self as *const str as *const u8
     }
@@ -600,11 +602,11 @@ impl str {
     /// modified in a way that it remains valid UTF-8.
     #[stable(feature = "str_as_mut_ptr", since = "1.36.0")]
     #[rustc_const_stable(feature = "const_str_as_mut", since = "1.83.0")]
-    #[rustc_never_returns_null_ptr]
-    #[rustc_as_ptr]
     #[must_use]
     #[inline(always)]
     #[rustc_no_writable]
+    #[lint::as_ptr]
+    #[lint::never_returns_null_ptr]
     pub const fn as_mut_ptr(&mut self) -> *mut u8 {
         self as *mut str as *mut u8
     }
@@ -2556,7 +2558,7 @@ impl str {
     /// ```
     #[must_use = "this returns the remaining substring as a new slice, \
                   without modifying the original"]
-    #[stable(feature = "trim_prefix_suffix", since = "CURRENT_RUSTC_VERSION")]
+    #[stable(feature = "trim_prefix_suffix", since = "1.100.0")]
     pub fn trim_prefix<P: Pattern>(&self, prefix: P) -> &str {
         prefix.strip_prefix_of(self).unwrap_or(self)
     }
@@ -2591,7 +2593,7 @@ impl str {
     /// ```
     #[must_use = "this returns the remaining substring as a new slice, \
                   without modifying the original"]
-    #[stable(feature = "trim_prefix_suffix", since = "CURRENT_RUSTC_VERSION")]
+    #[stable(feature = "trim_prefix_suffix", since = "1.100.0")]
     pub fn trim_suffix<P: Pattern>(&self, suffix: P) -> &str
     where
         for<'a> P::Searcher<'a>: ReverseSearcher<'a>,

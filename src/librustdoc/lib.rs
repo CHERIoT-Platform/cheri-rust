@@ -1,13 +1,13 @@
 // tidy-alphabetical-start
-#![cfg_attr(bootstrap, feature(trim_prefix_suffix))]
-#![cfg_attr(not(bootstrap), feature(exitcode_exit_method))]
 #![doc(
     html_root_url = "https://doc.rust-lang.org/nightly/",
     html_playground_url = "https://play.rust-lang.org/"
 )]
 #![feature(ascii_char)]
 #![feature(ascii_char_variants)]
+#![feature(default_field_values)]
 #![feature(deref_patterns)]
+#![feature(exitcode_exit_method)]
 #![feature(file_buffered)]
 #![feature(formatting_options)]
 #![feature(iter_intersperse)]
@@ -32,6 +32,7 @@
 extern crate rustc_abi;
 extern crate rustc_ast;
 extern crate rustc_ast_pretty;
+extern crate rustc_attr_ir;
 extern crate rustc_attr_parsing;
 extern crate rustc_data_structures;
 extern crate rustc_driver;
@@ -363,6 +364,14 @@ fn opts() -> Vec<RustcOptGroup> {
             "sort-modules-by-appearance",
             "sort modules by where they appear in the program, rather than alphabetically",
             "",
+        ),
+        opt(
+            Unstable,
+            Opt,
+            "",
+            "crate-list-heading",
+            "heading under which to list this crate in the sidebar crate list",
+            "TEXT",
         ),
         opt(
             Stable,
@@ -1021,8 +1030,6 @@ fn main_args(early_dcx: &mut EarlyDiagCtxt, at_args: &[String]) {
             }
 
             cache.crate_version = crate_version;
-
-            rustc_interface::passes::emit_delayed_lints(tcx);
 
             if render_opts.dep_info().is_some() {
                 rustc_interface::passes::write_dep_info(tcx);

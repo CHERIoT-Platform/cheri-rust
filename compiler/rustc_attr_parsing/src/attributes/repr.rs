@@ -4,6 +4,7 @@ use rustc_attr_ir::IntType::{SignedInt, UnsignedInt};
 use rustc_attr_ir::ReprAttr;
 use rustc_feature::AttributeStability;
 use rustc_session::diagnostics::feature_err;
+use rustc_span::OrdSpan;
 
 use super::prelude::*;
 use crate::diagnostics;
@@ -278,7 +279,7 @@ fn parse_alignment(node: &LitKind, cx: &AcceptContext<'_, '_>) -> Result<Align, 
 
 /// Parse #[align(N)].
 #[derive(Default)]
-pub(crate) struct RustcAlignParser(Option<(Align, Span)>);
+pub(crate) struct RustcAlignParser(Option<(Align, OrdSpan)>);
 
 impl RustcAlignParser {
     const PATH: &[Symbol] = &[sym::rustc_align];
@@ -299,7 +300,7 @@ impl RustcAlignParser {
         };
 
         match parse_alignment(&lit.kind, cx) {
-            Ok(literal) => self.0 = Ord::max(self.0, Some((literal, cx.attr_span))),
+            Ok(literal) => self.0 = Ord::max(self.0, Some((literal, OrdSpan(cx.attr_span)))),
             Err(message) => {
                 cx.emit_err(diagnostics::InvalidAlignmentValue {
                     span: lit.span,
@@ -324,7 +325,7 @@ impl AttributeParser for RustcAlignParser {
 
     fn finalize(self, _cx: &FinalizeContext<'_, '_>) -> Option<AttributeKind> {
         let (align, span) = self.0?;
-        Some(AttributeKind::RustcAlign { align, span })
+        Some(AttributeKind::RustcAlign { align, span: span.0 })
     }
 }
 
@@ -348,6 +349,6 @@ impl AttributeParser for RustcAlignStaticParser {
 
     fn finalize(self, _cx: &FinalizeContext<'_, '_>) -> Option<AttributeKind> {
         let (align, span) = self.0.0?;
-        Some(AttributeKind::RustcAlign { align, span })
+        Some(AttributeKind::RustcAlign { align, span: span.0 })
     }
 }

@@ -94,9 +94,11 @@ impl<I: Interner> AliasConst<I> {
     }
 }
 
-/// AliasConstKind is extremely similar to AliasTyKind, and likely should be reasoned about
-/// and handled in very similar ways. The documentation for AliasTyKind/etc. may be helpful when
-/// learning about AliasConstKind.
+/// `AliasConstKind` is extremely similar to [`AliasTyKind`], and likely should be reasoned about
+/// and handled in very similar ways. The documentation for [`AliasTyKind`]/etc. may be helpful when
+/// learning about `AliasConstKind`.
+///
+/// [`AliasTyKind`]: crate::AliasTyKind
 #[derive_where(Clone, Copy, Hash, PartialEq, Debug; I: Interner)]
 #[derive(TypeVisitable_Generic, GenericTypeVisitable, TypeFoldable_Generic, Lift_Generic)]
 #[cfg_attr(
@@ -202,6 +204,19 @@ impl StableHash for InferConst {
     }
 }
 
+pub type ConstEvalResult<I> = Result<<I as Interner>::ValTree, ConstEvalErr<I>>;
+
+/// Errors from CTFE we care about in next-solver.
+#[derive_where(Clone, Copy, Debug; I: Interner)]
+pub enum ConstEvalErr<I: Interner> {
+    /// Unsupported type encountered while constructing valtree after evaluation.
+    NonValtreeable(I::Ty),
+    /// Already reported error.
+    Reported(I::ErrorGuaranteed),
+    /// Too generic or otherwise failed CTFE.
+    TooGeneric,
+}
+
 /// This datastructure is used to represent the value of constants used in the type system.
 ///
 /// We explicitly choose a different datastructure from the way values are processed within
@@ -280,9 +295,6 @@ pub enum AnonConstKind {
     /// `feature(generic_const_exprs)` anon consts are allowed to use arbitrary generic parameters in scope
     GCE,
     /// stable `min_const_generics` anon consts are not allowed to use any generic parameters
-    ///
-    /// under `feature(gca_min_const_items)`, these may be inline consts as well, and should be
-    /// treated the same as anon consts.
     MCG,
     /// anon consts used as the length of a repeat expr are syntactically allowed to use generic parameters
     /// but must not depend on the actual instantiation. See #76200 for more information

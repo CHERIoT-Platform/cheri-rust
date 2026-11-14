@@ -1,12 +1,11 @@
 use std::range::{RangeFrom, RangeToInclusive};
 
-use rustc_abi as abi;
 use rustc_abi::Integer::{I8, I32};
 use rustc_abi::Primitive::{self, Float, Int, Pointer};
 use rustc_abi::{
-    BackendRepr, FIRST_VARIANT, FieldIdx, FieldsShape, HasDataLayout, Layout,
-    LayoutCalculatorError, LayoutData, Niche, ReprOptions, Scalar, Size, StructKind, TagEncoding,
-    VariantIdx, Variants, WrappingRange,
+    self as abi, BackendRepr, FIRST_VARIANT, FieldIdx, FieldsShape, HasDataLayout, Layout,
+    LayoutCalculatorError, LayoutData, Niche, NicheOptimizations, ReprOptions, Scalar, Size,
+    StructKind, TagEncoding, VariantIdx, Variants, WrappingRange,
 };
 use rustc_attr_ir::find_attr;
 use rustc_attr_ir::lang_items::LangItem;
@@ -41,20 +40,18 @@ fn layout_of<'tcx>(
     tcx: TyCtxt<'tcx>,
     query: ty::PseudoCanonicalInput<'tcx, Ty<'tcx>>,
 ) -> Result<TyAndLayout<'tcx>, &'tcx LayoutError<'tcx>> {
-    let PseudoCanonicalInput { typing_env: original_typing_env, value: original_ty } = query;
+    let PseudoCanonicalInput { typing_env, value: original_ty } = query;
     debug!(?original_ty);
 
     // Optimization: We convert to TypingMode::PostAnalysis and convert opaque types in
     // the where bounds to their hidden types. This reduces overall uncached invocations
     // of `layout_of` and is thus a small performance improvement.
-    let typing_env = original_typing_env.with_post_analysis_normalized(tcx);
+    //
     // Switching to `PostAnalysis` typing mode will reveal opaque types that's marked
     // as rigid in the original typing env.
-    let unnormalized_ty = if typing_env != original_typing_env {
-        ty::set_aliases_to_non_rigid(tcx, original_ty)
-    } else {
-        ty::Unnormalized::new_wip(original_ty)
-    };
+    let PseudoCanonicalInput { typing_env, value: unnormalized_ty } =
+        typing_env.with_post_analysis_normalized_invalidating_rigid_aliases(tcx, original_ty);
+    let unnormalized_ty = ty::Unnormalized::new_wip(unnormalized_ty);
 
     // FIXME: We might want to have two different versions of `layout_of`:
     // One that can be called after typecheck has completed and can use
@@ -87,7 +84,7 @@ fn layout_of<'tcx>(
         }
         ty::TypingMode::Coherence
         | ty::TypingMode::Typeck { .. }
-        | ty::TypingMode::PostTypeckUntilBorrowck { .. }
+        | ty::TypingMode::PostTypeckThroughBorrowck { .. }
         | ty::TypingMode::PostBorrowck { .. }
         | ty::TypingMode::Reflection
         | ty::TypingMode::ErasedNotCoherence(_)
@@ -235,7 +232,7 @@ fn layout_of_uncached<'tcx>(
     let univariant = |tys: &[Ty<'tcx>], kind| {
         let fields = tys.iter().map(|ty| cx.layout_of(*ty)).try_collect::<IndexVec<_, _>>()?;
         let repr = ReprOptions::default();
-        map_layout(cx.calc.univariant(&fields, &repr, kind))
+        map_layout(cx.calc.layout_of_univariant(&fields, &repr, kind))
     };
     debug_assert!(!ty.has_non_region_infer());
 
@@ -523,11 +520,11 @@ fn layout_of_uncached<'tcx>(
                 .ok_or_else(|| error(cx, LayoutError::Unknown(ty)))?;
 
             let element = cx.layout_of(element)?;
-            map_layout(cx.calc.array_like(&element, Some(count)))?
+            map_layout(cx.calc.layout_of_array_like(&element, Some(count)))?
         }
         ty::Slice(element) => {
             let element = cx.layout_of(element)?;
-            map_layout(cx.calc.array_like(&element, None).map(|mut layout| {
+            map_layout(cx.calc.layout_of_array_like(&element, None).map(|mut layout| {
                 // a randomly chosen value to distinguish slices
                 layout.randomization_seed = Hash64::new(0x2dcba99c39784102);
                 layout
@@ -535,7 +532,7 @@ fn layout_of_uncached<'tcx>(
         }
         ty::Str => {
             let element = scalar(Int(I8, false));
-            map_layout(cx.calc.array_like(&element, None).map(|mut layout| {
+            map_layout(cx.calc.layout_of_array_like(&element, None).map(|mut layout| {
                 // another random value
                 layout.randomization_seed = Hash64::new(0xc1325f37d127be22);
                 layout
@@ -553,7 +550,7 @@ fn layout_of_uncached<'tcx>(
                 ty::TypingMode::Codegen => {}
                 ty::TypingMode::Coherence
                 | ty::TypingMode::Typeck { .. }
-                | ty::TypingMode::PostTypeckUntilBorrowck { .. }
+                | ty::TypingMode::PostTypeckThroughBorrowck { .. }
                 | ty::TypingMode::PostBorrowck { .. }
                 | ty::TypingMode::Reflection
                 | ty::TypingMode::ErasedNotCoherence(_)
@@ -586,7 +583,7 @@ fn layout_of_uncached<'tcx>(
 
             let layout = cx
                 .calc
-                .coroutine(
+                .layout_of_coroutine(
                     &local_layouts,
                     prefix_layouts,
                     &info.variant_fields,
@@ -638,7 +635,7 @@ fn layout_of_uncached<'tcx>(
             };
 
             let element_layout = cx.layout_of(element_ty)?;
-            map_layout(cx.calc.scalable_vector_type(
+            map_layout(cx.calc.layout_of_scalable_vector_type(
                 element_layout,
                 element_count as u64,
                 number_of_vectors,
@@ -683,7 +680,7 @@ fn layout_of_uncached<'tcx>(
                 }
             }
 
-            map_layout(cx.calc.simd_type(e_ly, e_len, def.repr().packed()))?
+            map_layout(cx.calc.layout_of_simd_type(e_ly, e_len, def.repr().packed()))?
         }
 
         // ADTs.
@@ -713,7 +710,10 @@ fn layout_of_uncached<'tcx>(
             }
 
             // UnsafeCell and UnsafePinned both disable niche optimizations
-            let is_special_no_niche = def.is_unsafe_cell() || def.is_unsafe_pinned();
+            let niche_optimizations = match def.is_unsafe_cell() || def.is_unsafe_pinned() {
+                true => NicheOptimizations::Disabled,
+                false => NicheOptimizations::Enabled,
+            };
 
             let discr_range_of_repr = |min: RangeFrom<i128>, max: RangeToInclusive<u128>| {
                 abi::Integer::discr_range_of_repr(tcx, ty, &def.repr(), min.start, max.last)
@@ -755,7 +755,7 @@ fn layout_of_uncached<'tcx>(
                     &def.repr(),
                     &variants,
                     def.is_enum(),
-                    is_special_no_niche,
+                    niche_optimizations,
                     discr_range_of_repr,
                     discriminants_iter(),
                     !maybe_unsized,
@@ -784,7 +784,7 @@ fn layout_of_uncached<'tcx>(
                     &def.repr(),
                     &variants,
                     def.is_enum(),
-                    is_special_no_niche,
+                    niche_optimizations,
                     discr_range_of_repr,
                     discriminants_iter(),
                     !maybe_unsized,
@@ -821,6 +821,13 @@ fn layout_of_uncached<'tcx>(
                 assert_eq!(layout.size, abi::Float::F16B.size());
                 layout.align = abi::Float::F16B.align(cx);
                 layout.backend_repr = BackendRepr::Scalar(bfloat);
+            }
+
+            if tcx.is_lang_item(def.did(), LangItem::PpcF128) {
+                let ppcf128 = scalar_unit(Primitive::Float(abi::Float::PpcF128));
+                assert_eq!(layout.size, abi::Float::PpcF128.size());
+                layout.align = abi::Float::PpcF128.align(cx);
+                layout.backend_repr = BackendRepr::Scalar(ppcf128);
             }
 
             tcx.mk_layout(layout)
@@ -878,7 +885,7 @@ fn record_layout_for_printing<'tcx>(cx: &LayoutCx<'tcx>, layout: TyAndLayout<'tc
         cx.tcx().sess.code_stats.record_type_size(
             kind,
             type_desc,
-            layout.align.abi,
+            layout.align,
             layout.size,
             packed,
             opt_discr_size,
@@ -988,7 +995,7 @@ fn variant_info_for_coroutine<'tcx>(
     cx: &LayoutCx<'tcx>,
     layout: TyAndLayout<'tcx>,
     def_id: DefId,
-    args: ty::GenericArgsRef<'tcx>,
+    args: ty::GenericArgs<'tcx>,
 ) -> (Vec<VariantInfo>, Option<Size>) {
     use itertools::Itertools;
 

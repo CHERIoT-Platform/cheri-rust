@@ -3,6 +3,7 @@ error: the `cheriot_mmio` attribute cannot be used on statics
    |
 LL | #[cheriot_mmio(name = "uart", permissions = "R")]
    |   ^^^^^^^^^^^^
+LL | pub static UART_NOEXT: i8 = 0;
    |
    = help: the `cheriot_mmio` attribute can only be applied to foreign statics
 
@@ -11,6 +12,7 @@ error: the `cheriot_shared_object` attribute cannot be used on statics
    |
 LL | #[cheriot_shared_object(name = "my_so", permissions = "R")]
    |   ^^^^^^^^^^^^^^^^^^^^^
+LL | pub static SHARED_OBJECT_NOEXT: i8 = 0;
    |
    = help: the `cheriot_shared_object` attribute can only be applied to foreign statics
 
@@ -19,6 +21,8 @@ error: the `cheriot_shared_object` attribute cannot be used on statics
    |
 LL | #[cheriot_shared_object(name = "my_so", permissions = "R")]
    |   ^^^^^^^^^^^^^^^^^^^^^
+...
+LL | pub static TWO_ATTRS: i8 = 0;
    |
    = help: the `cheriot_shared_object` attribute can only be applied to foreign statics
 
@@ -27,6 +31,8 @@ error: the `cheriot_mmio` attribute cannot be used on statics
    |
 LL | #[cheriot_mmio(name = "my_so", permissions = "R")]
    |   ^^^^^^^^^^^^
+LL |
+LL | pub static TWO_ATTRS: i8 = 0;
    |
    = help: the `cheriot_mmio` attribute can only be applied to foreign statics
 

@@ -15,11 +15,13 @@
 #![feature(async_iterator)]
 #![feature(atomic_volatile)]
 #![feature(borrowed_buf_init)]
-#![feature(bstr)]
+#![feature(byte_str)]
 #![feature(casefold)]
 #![feature(cfg_overflow_checks)]
 #![feature(cfg_target_has_reliable_f16_f128)]
 #![feature(char_internals)]
+#![feature(char_is_xid)]
+#![feature(clamp_magnitude)]
 #![feature(clamp_to)]
 #![feature(clone_to_uninit)]
 #![feature(cmp_minmax)]
@@ -38,6 +40,7 @@
 #![feature(const_eval_select)]
 #![feature(const_index)]
 #![feature(const_iter)]
+#![feature(const_nonzero_strict_ops)]
 #![feature(const_ops)]
 #![feature(const_option_ops)]
 #![feature(const_ref_cell)]
@@ -51,11 +54,10 @@
 #![feature(core_io_borrowed_buf)]
 #![feature(core_private_bignum)]
 #![feature(core_private_diy_float)]
-#![feature(cstr_display)]
-#![feature(debug_closure_helpers)]
 #![feature(dec2flt)]
 #![feature(duration_constants)]
 #![feature(duration_constructors)]
+#![feature(duration_display_seconds)]
 #![feature(exact_div)]
 #![feature(exact_size_is_empty)]
 #![feature(extend_one)]
@@ -70,7 +72,6 @@
 #![feature(fmt_internals)]
 #![feature(formatting_options)]
 #![feature(freeze)]
-#![feature(funnel_shifts)]
 #![feature(future_join)]
 #![feature(generic_assert_internals)]
 #![feature(hasher_prefixfree_extras)]
@@ -98,6 +99,7 @@
 #![feature(min_specialization)]
 #![feature(next_index)]
 #![feature(non_exhaustive_omitted_patterns_lint)]
+#![feature(nonzero_strict_ops)]
 #![feature(num_internals)]
 #![feature(numfmt)]
 #![feature(one_sided_range)]
@@ -114,8 +116,8 @@
 #![feature(slice_internals)]
 #![feature(slice_partition_dedup)]
 #![feature(slice_shift)]
-#![feature(slice_split_once)]
 #![feature(sliceindex_wrappers)]
+#![feature(splat)]
 #![feature(split_array)]
 #![feature(split_as_slice)]
 #![feature(std_internals)]
@@ -135,8 +137,8 @@
 #![feature(uint_gather_scatter_bits)]
 #![feature(unicode_internals)]
 #![feature(unsize)]
-#![feature(unwrap_infallible)]
 // tidy-alphabetical-end
+#![allow(incomplete_features)]
 #![allow(internal_features)]
 #![deny(implicit_provenance_casts)]
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -196,8 +198,8 @@ mod async_iter;
 mod atomic;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_bool"))]
 mod bool;
-#[cfg(any(not(target_abi = "cheriot"), feature = "test_bstr"))]
-mod bstr;
+#[cfg(not(target_abi = "cheriot"))] // FIXME(cheri/triage): not checked
+mod byte_str;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_cell"))]
 mod cell;
 #[cfg(any(not(target_abi = "cheriot"), feature = "test_char"))]
@@ -257,8 +259,6 @@ mod mem;
     )
 ))]
 mod net;
-#[cfg(any(not(target_abi = "cheriot"), feature = "test_nonzero"))]
-mod nonzero;
 #[cfg(any(
     not(target_abi = "cheriot"),
     any(

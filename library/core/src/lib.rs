@@ -87,9 +87,8 @@
 // Library features:
 // tidy-alphabetical-start
 #![feature(asm_experimental_arch)]
-#![feature(bstr_internals)]
+#![feature(byte_str_internals)]
 #![feature(cfg_target_has_reliable_f16_f128)]
-#![feature(const_carrying_mul_add)]
 #![feature(const_cmp)]
 #![feature(const_destruct)]
 #![feature(const_eval_select)]
@@ -130,9 +129,9 @@
 #![feature(f128)]
 #![feature(field_projections)]
 #![feature(final_associated_functions)]
+#![feature(forced_keywords)]
 #![feature(freeze_impls)]
 #![feature(fundamental)]
-#![feature(funnel_shifts)]
 #![feature(impl_restriction)]
 #![feature(intra_doc_pointers)]
 #![feature(intrinsics)]
@@ -147,10 +146,10 @@
 #![feature(must_not_suspend)]
 #![feature(negative_impls)]
 #![feature(no_core)]
-#![feature(optimize_attribute)]
 #![feature(pattern_types)]
 #![feature(pin_macro_internals)]
 #![feature(prelude_import)]
+#![feature(register_tool)]
 #![feature(repr_simd)]
 #![feature(rustc_attrs)]
 #![feature(rustdoc_internals)]
@@ -187,6 +186,10 @@
 #![feature(x86_amx_intrinsics)]
 // tidy-alphabetical-end
 #![cfg_attr(target_family = "cheri", feature(stdarch_cheri))]
+// tidy-alphabetical-start
+#![register_tool(lint)]
+// tidy-alphabetical-end
+
 // tidy-alphabetical-start
 #![expect(clippy::partialeq_ne_impl, reason = "we need to implement ne for a lot of core types")]
 // tidy-alphabetical-end
@@ -253,6 +256,9 @@ pub use legacy_int_modules::{i8, i16, i32, i64, isize, u8, u16, u32, u64, usize}
 #[allow(deprecated, clippy::legacy_numeric_constants)]
 pub use legacy_int_modules::{i128, u128};
 
+#[macro_use]
+pub mod num;
+
 #[path = "num/f128.rs"]
 pub mod f128;
 #[path = "num/f16.rs"]
@@ -261,9 +267,6 @@ pub mod f16;
 pub mod f32;
 #[path = "num/f64.rs"]
 pub mod f64;
-
-#[macro_use]
-pub mod num;
 
 /* Core modules for ownership management */
 
@@ -298,8 +301,8 @@ pub mod ascii;
 pub mod asserting;
 #[unstable(feature = "async_iterator", issue = "79024")]
 pub mod async_iter;
-#[unstable(feature = "bstr", issue = "134915")]
-pub mod bstr;
+#[unstable(feature = "byte_str", issue = "134915")]
+pub mod byte_str;
 pub mod cell;
 pub mod char;
 pub mod ffi;

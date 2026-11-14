@@ -17,6 +17,7 @@ use rustc_session::parse::ParseSess;
 use rustc_span::edition::Edition;
 use rustc_span::{BytePos, Pos, Span, Symbol, sym};
 use tracing::debug;
+use unicode_properties::emoji::UnicodeEmoji;
 
 use crate::lexer::diagnostics::TokenTreeDiagInfo;
 use crate::lexer::unicode_chars::UNICODE_ARRAY;
@@ -240,6 +241,33 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
                     self.psess.raw_identifier_spans.push(span);
                     token::Ident(sym, IdentKind::Raw)
                 }
+                rustc_lexer::TokenKind::ForcedKeywordIdent => {
+                    let span = self.mk_sp(start, self.pos);
+
+                    if span.edition().at_least_rust_2021() {
+                        let sym = nfc_normalize(self.str_from(start + BytePos(2)));
+                        self.psess.symbol_gallery.insert(sym, span);
+                        self.psess.gated_spans.gate(sym::forced_keywords, span);
+                        token::Ident(sym, IdentKind::ForcedKeyword)
+                    } else {
+                        // Reset the state so that only the `k` was consumed.
+                        self.pos = start + BytePos(1);
+                        self.cursor = Cursor::new(&str_before[1..], FrontmatterAllowed::No);
+
+                        self.psess.buffer_lint(
+                            RUST_2021_PREFIXES_INCOMPATIBLE_SYNTAX,
+                            span,
+                            ast::CRATE_NODE_ID,
+                            crate::diagnostics::ReservedPrefixLint {
+                                subject: "this".into(),
+                                kind: "forced keyword",
+                                edition: Edition::Edition2021,
+                                sugg: self.mk_sp(start, self.pos).shrink_to_hi(),
+                            }
+                        );
+                        self.ident(start)
+                    }
+                }
                 rustc_lexer::TokenKind::UnknownPrefix => {
                     self.report_unknown_prefix(start);
                     self.ident(start)
@@ -330,12 +358,36 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
                     // this is necessary.
                     let lifetime_name = nfc_normalize(self.str_from(start));
                     self.last_lifetime = Some(self.mk_sp(start, start + BytePos(1)));
+                    let span = self.mk_sp(start, self.pos);
                     if starts_with_number {
-                        let span = self.mk_sp(start, self.pos);
-                        self.dcx()
-                            .struct_err("lifetimes cannot start with a number")
-                            .with_span(span)
-                            .stash(span, StashKey::LifetimeIsChar);
+                        let name = lifetime_name.as_str();
+                        // skip(1) to skip the `'`
+                        let starts_with_number = matches!(
+                            name.chars().skip(1).next(),
+                            Some(c) if c.is_ascii_digit()
+                        );
+                        if name.chars().any(|c| !c.is_ascii() && c.is_emoji_char()) {
+                            self.psess
+                                .bad_unicode_identifiers
+                                .borrow_mut()
+                                .entry(lifetime_name)
+                                .or_default()
+                                .push(span);
+                        }
+                        if starts_with_number {
+                            let mut err = self.dcx()
+                                .struct_err(format!(
+                                    "lifetimes cannot start with a number: `{name}`"
+                                ))
+                                .with_span(span);
+                            if name.len() > 2 {
+                                // Point at the first lifetime name character.
+                                let start_span = self.mk_sp(start + BytePos(1), start + BytePos(2));
+                                err.span(start_span);
+                                err.span_label(span, "");
+                            }
+                            err.stash(span, StashKey::LifetimeIsChar);
+                        }
                     }
                     token::Lifetime(lifetime_name, IdentKind::Normal)
                 }

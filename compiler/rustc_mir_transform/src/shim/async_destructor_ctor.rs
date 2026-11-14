@@ -1,4 +1,4 @@
-use rustc_hir::attrs::lang_items::LangItem;
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_hir::def_id::DefId;
 use rustc_hir::{CoroutineDesugaring, CoroutineKind, CoroutineSource};
 use rustc_index::{Idx, IndexVec};
@@ -68,7 +68,7 @@ pub(super) fn build_async_drop_shim<'tcx>(
     let needs_sync_drop = !needs_async_drop && drop_ty.needs_drop(tcx, typing_env);
 
     let resume_adt = tcx.adt_def(tcx.require_lang_item(LangItem::ResumeTy, DUMMY_SP));
-    let resume_ty = Ty::new_adt(tcx, resume_adt, ty::List::empty());
+    let resume_ty = Ty::new_adt(tcx, resume_adt, ty::GenericArgs::empty());
 
     let fn_sig = ty::Binder::dummy(tcx.mk_fn_sig_safe_rust_abi([ty, resume_ty], tcx.types.unit));
     let sig = tcx.instantiate_bound_regions_with_erased(fn_sig);
@@ -84,11 +84,8 @@ pub(super) fn build_async_drop_shim<'tcx>(
 
     let return_block = BasicBlock::new(1);
     let mut blocks = IndexVec::with_capacity(2);
-    let block = |blocks: &mut IndexVec<_, _>, kind| {
-        blocks.push(BasicBlockData::new(
-            Some(Terminator { source_info, kind, attributes: ThinVec::new() }),
-            false,
-        ))
+    let block = |blocks: &mut IndexVec<_, _>, kind| -> BasicBlock {
+        blocks.push(BasicBlockData::new(Some(Terminator { source_info, kind }), false))
     };
     block(
         &mut blocks,
@@ -101,10 +98,17 @@ pub(super) fn build_async_drop_shim<'tcx>(
                 drop: None,
             }
         } else {
-            TerminatorKind::Goto { target: return_block }
+            TerminatorKind::goto(return_block)
         },
     );
-    block(&mut blocks, TerminatorKind::Return);
+    let ret = block(&mut blocks, TerminatorKind::Return);
+    blocks[ret].statements.push(Statement::new(
+        source_info,
+        StatementKind::Assign(Box::new((
+            Place::return_place(),
+            Rvalue::Use(Operand::zero_sized_constant(tcx.types.unit, span), WithRetag::Yes),
+        ))),
+    ));
 
     let source = MirSource::from_shim(ty::ShimKind::AsyncDropGlue(def_id, ty));
     let mut body =
@@ -393,8 +397,6 @@ fn build_adrop_for_adrop_shim<'tcx>(
                 call_source: CallSource::Misc,
                 fn_span: span,
             },
-
-            attributes: ThinVec::new(),
         }),
         false,
     ));
@@ -418,13 +420,11 @@ fn build_adrop_for_adrop_shim<'tcx>(
                 call_source: CallSource::Misc,
                 fn_span: span,
             },
-
-            attributes: ThinVec::new(),
         }),
         false,
     ));
     blocks.push(BasicBlockData::new(
-        Some(Terminator { source_info, kind: TerminatorKind::Return, attributes: ThinVec::new() }),
+        Some(Terminator { source_info, kind: TerminatorKind::Return }),
         false,
     ));
 

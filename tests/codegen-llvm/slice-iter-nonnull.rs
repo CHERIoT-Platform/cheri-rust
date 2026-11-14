@@ -56,7 +56,7 @@ pub fn slice_iter_next_back<'a>(it: &mut core::slice::Iter<'a, u32>) -> Option<&
 #[no_mangle]
 pub fn slice_iter_new(slice: &[u32]) -> core::slice::Iter<'_, u32> {
     // CHECK-NOT: slice
-    // CHECK: %[[END:.+]] = getelementptr inbounds{{( nuw)?}} {{i32|\[4 x i8\]}}{{.+}} %slice.0{{.+}} %slice.1
+    // CHECK: %[[END:.+]] = getelementptr inbounds{{( nuw)?}} [4 x i8]{{.+}} %slice.0{{.+}} %slice.1
     // CHECK-NOT: slice
     // CHECK: insertvalue {{.+}} ptr[[ADDRSPACE]] %slice.0, 0
     // CHECK-NOT: slice
@@ -71,7 +71,7 @@ pub fn slice_iter_new(slice: &[u32]) -> core::slice::Iter<'_, u32> {
 #[no_mangle]
 pub fn slice_iter_mut_new(slice: &mut [u32]) -> core::slice::IterMut<'_, u32> {
     // CHECK-NOT: slice
-    // CHECK: %[[END:.+]] = getelementptr inbounds{{( nuw)?}} {{i32|\[4 x i8\]}}{{.+}} %slice.0{{.+}} %slice.1
+    // CHECK: %[[END:.+]] = getelementptr inbounds{{( nuw)?}} [4 x i8]{{.+}} %slice.0{{.+}} %slice.1
     // CHECK-NOT: slice
     // CHECK: insertvalue {{.+}} ptr[[ADDRSPACE]] %slice.0, 0
     // CHECK-NOT: slice

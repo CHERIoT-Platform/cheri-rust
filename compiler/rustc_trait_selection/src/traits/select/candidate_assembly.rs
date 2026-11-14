@@ -15,8 +15,8 @@ use rustc_hir::{self as hir, CoroutineDesugaring, CoroutineKind};
 use rustc_infer::traits::{Obligation, PolyTraitObligation, PredicateObligation, SelectionError};
 use rustc_middle::ty::fast_reject::DeepRejectCtxt;
 use rustc_middle::ty::{
-    self, ExistentialPredicate, FieldInfo, SizedTraitKind, TraitRef, Ty, TypeVisitableExt,
-    elaborate,
+    self, CallerBoundsIterator, ExistentialPredicate, FieldInfo, IncludeSizedImplicitBounds,
+    SizedTraitKind, TraitRef, Ty, TypeVisitableExt, elaborate,
 };
 use rustc_span::{DUMMY_SP, bug, span_bug};
 use tracing::{debug, instrument, trace};
@@ -280,9 +280,10 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             .obligation
             .param_env
             .caller_bounds()
-            .filter_map(|c| c.as_trait_clause())
+            .trait_clauses(self.tcx())
             // Micro-optimization: filter out predicates with different polarities.
-            .filter(|p| p.polarity() == stack.obligation.predicate.polarity());
+            .with_polarity(stack.obligation.predicate.polarity())
+            .iter();
 
         let drcx = DeepRejectCtxt::relate_rigid_rigid(self.tcx());
         let obligation_args = stack.obligation.predicate.skip_binder().trait_ref.args;
@@ -782,7 +783,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
                     // Backward compatibility for default auto traits.
                     // Test: ui/traits/default_auto_traits/extern-types.rs
-                    if self.tcx().is_default_trait(def_id) {
+                    if self.tcx().is_implicit_trait(def_id, IncludeSizedImplicitBounds::No) {
                         check_impls()
                     }
                 }
@@ -845,6 +846,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }
 
                 ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id }, .. }) => {
+                    debug_assert!(!self.typing_mode().is_coherence(), "old solver coherence");
+
                     if candidates.vec.iter().any(|c| matches!(c, ProjectionCandidate { .. })) {
                         // We do not generate an auto impl candidate for `impl Trait`s which already
                         // reference our auto trait.
@@ -855,10 +858,6 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                         //
                         // Note that this is only sound as projection candidates of opaque types
                         // are always applicable for auto traits.
-                    } else if self.typing_mode().is_coherence() {
-                        // We do not emit auto trait candidates for opaque types in coherence.
-                        // Doing so can result in weird dependency cycles.
-                        candidates.ambiguous = true;
                     } else if self.infcx.can_define_opaque_ty(def_id) {
                         // We do not emit auto trait candidates for opaque types in their defining scope, as
                         // we need to know the hidden type first, which we can't reliably know within the defining
@@ -1499,7 +1498,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         // encountering query cycles instead.
         if let ty::Adt(def, args) = obligation.predicate.self_ty().skip_binder().kind()
             && let Some(FieldInfo { base, ty, .. }) =
-                def.field_representing_type_info(self.tcx(), args)
+                def.field_representing_type_info(self.tcx(), *args)
             // NOTE: these bounds have to be kept in sync with the definition of the `Field` trait
             // in `library/core/src/field.rs` as well as the new trait solver `fn
             // consider_builtin_field_candidate` in

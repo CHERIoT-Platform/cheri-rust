@@ -1,7 +1,8 @@
+use rustc_attr_ir::find_attr;
 use rustc_errors::{Applicability, Diag, MultiSpan, listify, pluralize};
+use rustc_hir as hir;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::intravisit::Visitor;
-use rustc_hir::{self as hir, find_attr};
 use rustc_infer::infer::DefineOpaqueTypes;
 use rustc_middle::ty::adjustment::AllowTwoPhase;
 use rustc_middle::ty::error::{ExpectedFound, TypeError};
@@ -117,7 +118,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             return;
         };
 
-        if !found_expr.span.eq_ctxt(expected_expr.span) {
+        if found_expr.span.ctxt() != expected_expr.span.ctxt() {
             return;
         }
 
@@ -189,8 +190,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expected: Ty<'tcx>,
         actual: Ty<'tcx>,
     ) -> Result<(), Diag<'a>> {
-        self.at(cause, self.param_env)
-            .sup(DefineOpaqueTypes::Yes, expected, actual)
+        self.sup_raw(cause, self.param_env, DefineOpaqueTypes::Yes, expected, actual)
             .map(|infer_ok| self.register_infer_ok_obligations(infer_ok))
             .map_err(|e| {
                 self.err_ctxt().report_mismatched_types(cause, self.param_env, expected, actual, e)
@@ -734,7 +734,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         match (parent, error) {
             (hir::Node::LetStmt(hir::LetStmt { ty: Some(ty), init: Some(init), .. }), _)
-                if init.hir_id == current_hir_id && !ty.span.source_equal(init.span) =>
+                if init.hir_id == current_hir_id && ty.span.lo_hi() != init.span.lo_hi() =>
             {
                 // Point at `let` assignment type.
                 err.span_label(ty.span, "expected due to this");
@@ -893,18 +893,18 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 .inputs
                 .iter()
                 .filter_map(|ty| match ty.kind {
-                    hir::TyKind::Ref(lt, mut_ty) if ty.span == *ty_span => Some((lt, mut_ty)),
+                    hir::TyKind::Ref(lt, inner_ty, mutbl) if ty.span == *ty_span => Some((lt, inner_ty, mutbl)),
                     _ => None,
                 })
                 .next()
         {
-            let mut sugg = if ty_ref.1.mutbl.is_mut() {
+            let mut sugg = if ty_ref.2.is_mut() {
                 // Leave `&'name mut Ty` and `&mut Ty` as they are (#136028).
                 vec![]
             } else {
                 // `&'name Ty` -> `&'name mut Ty` or `&Ty` -> `&mut Ty`
                 vec![(
-                    ty_ref.1.ty.span.shrink_to_lo(),
+                    ty_ref.1.span.shrink_to_lo(),
                     format!("{}mut ", if ty_ref.0.ident.span.is_empty() { "" } else { " " },),
                 )]
             };
@@ -1237,7 +1237,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     err.span_suggestion_verbose(
                         *span,
                         "use the type name directly",
-                        self.tcx.value_path_str_with_args(e_def.did(), e_args),
+                        self.tcx.value_path_str_with_args(e_def.did(), *e_args),
                         Applicability::MaybeIncorrect,
                     );
                 }

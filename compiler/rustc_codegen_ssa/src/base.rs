@@ -9,14 +9,15 @@ use rustc_ast::expand::allocator::{
     ALLOC_ERROR_HANDLER, ALLOCATOR_METHODS, AllocatorKind, AllocatorMethod, AllocatorMethodInput,
     AllocatorTy,
 };
+use rustc_attr_ir::lang_items::LangItem;
+use rustc_attr_ir::target::Target;
+use rustc_attr_ir::{DebuggerVisualizerType, EiiDecl, EiiImpl, OptimizeAttr, find_attr};
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap, FxIndexSet};
 use rustc_data_structures::profiling::{get_resident_set_size, print_time_passes_entry};
 use rustc_data_structures::sync::{IntoDynSyncSend, par_map};
 use rustc_data_structures::unord::UnordMap;
-use rustc_hir::attrs::lang_items::LangItem;
-use rustc_hir::attrs::{DebuggerVisualizerType, EiiDecl, EiiImpl, OptimizeAttr};
+use rustc_hir as hir;
 use rustc_hir::def_id::{CrateNum, DefId, LOCAL_CRATE};
-use rustc_hir::{ItemId, Target, find_attr};
 use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs;
 use rustc_middle::middle::debugger_visualizer::DebuggerVisualizerFile;
 use rustc_middle::middle::dependency_format::{Dependencies, Linkage};
@@ -26,10 +27,9 @@ use rustc_middle::mir::interpret::{CTFE_ALLOC_SALT, ErrorHandled, Scalar};
 use rustc_middle::mir::{BinOp, ConstValue};
 use rustc_middle::mono::{CodegenUnit, CodegenUnitNameBuilder, MonoItem, MonoItemPartitions};
 use rustc_middle::query::Providers;
-use rustc_middle::ty::consts::ConstExt;
 use rustc_middle::ty::layout::{HasTyCtxt, HasTypingEnv, LayoutOf, TyAndLayout};
 use rustc_middle::ty::{self, Instance, PatternKind, Ty, TyCtxt, UintTy, Unnormalized};
-use rustc_session::config::{self, EntryFnType};
+use rustc_session::config::{self, EntryFnType, JobsMode};
 use rustc_span::{DUMMY_SP, Symbol, bug, span_bug};
 use rustc_structures::CrateType;
 use rustc_symbol_mangling::mangle_internal_symbol;
@@ -44,8 +44,8 @@ use crate::back::write::{
     ComputedLtoType, ModuleConfig, OngoingCodegen, compute_per_cgu_lto_type, start_async_codegen,
     submit_codegened_module_to_llvm, submit_post_lto_module_to_llvm, submit_pre_lto_module_to_llvm,
 };
-use crate::common::{self, IntPredicate, RealPredicate, TypeKind};
-use crate::meth::load_vtable;
+use crate::common::{self, IntPredicate, RealPredicate};
+use crate::meth::VirtualIndex;
 use crate::mir::operand::OperandValue;
 use crate::mir::place::PlaceRef;
 use crate::traits::*;
@@ -202,10 +202,8 @@ fn unsized_info<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
 
             let vptr_entry_idx = cx.tcx().supertrait_vtable_slot((source, target));
 
-            if let Some(entry_idx) = vptr_entry_idx {
-                let ptr_size = bx.data_layout().pointer_size();
-                let vtable_byte_offset = u64::try_from(entry_idx).unwrap() * ptr_size.bytes();
-                load_vtable(bx, old_info, bx.type_ptr(), vtable_byte_offset, source, true)
+            if let Some(entry_idx) = vptr_entry_idx.map(VirtualIndex::from_index) {
+                entry_idx.get_data_ptr(bx, old_info, true)
             } else {
                 old_info
             }
@@ -345,14 +343,14 @@ pub(crate) fn build_shift_expr_rhs<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
         rhs = bx.and(rhs, mask);
     }
 
-    if bx.cx().type_kind(rhs_llty) == TypeKind::Vector {
-        rhs_llty = bx.cx().element_type(rhs_llty)
+    if let Some(element) = bx.cx().vector_element_type(rhs_llty) {
+        rhs_llty = element;
     }
-    if bx.cx().type_kind(lhs_llty) == TypeKind::Vector {
-        lhs_llty = bx.cx().element_type(lhs_llty)
+    if let Some(element) = bx.cx().vector_element_type(lhs_llty) {
+        lhs_llty = element;
     }
-    let rhs_sz = bx.cx().int_width(rhs_llty);
-    let lhs_sz = bx.cx().int_width(lhs_llty);
+    let rhs_sz = bx.cx().int_width(rhs_llty).expect("rhs is not an integer");
+    let lhs_sz = bx.cx().int_width(lhs_llty).expect("lhs is not an integer");
     if lhs_sz < rhs_sz {
         if is_unchecked { bx.unchecked_utrunc(rhs, lhs_llty) } else { bx.trunc(rhs, lhs_llty) }
     } else if lhs_sz > rhs_sz {
@@ -404,7 +402,7 @@ pub(crate) fn codegen_instance<'a, 'tcx: 'a, Bx: BuilderMethods<'a, 'tcx>>(
     mir::codegen_mir::<Bx>(cx, instance);
 }
 
-pub fn codegen_global_asm<'tcx, Cx>(cx: &mut Cx, item_id: ItemId)
+pub fn codegen_global_asm<'tcx, Cx>(cx: &mut Cx, item_id: hir::ItemId)
 where
     Cx: LayoutOf<'tcx, LayoutOfResult = TyAndLayout<'tcx>> + AsmCodegenMethods<'tcx>,
 {
@@ -450,7 +448,7 @@ where
                     let instance = match ty.kind() {
                         &ty::FnDef(def_id, args) => Instance::expect_resolve(
                             cx.tcx(),
-                            ty::TypingEnv::fully_monomorphized(),
+                            cx.typing_env(),
                             def_id,
                             args.no_bound_vars().unwrap(),
                             expr.span,
@@ -613,7 +611,7 @@ fn get_argc_argv<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(bx: &mut Bx) -> (Bx::Va
         let param_handle = bx.get_param(0);
         let param_system_table = bx.get_param(1);
         let ptr_size = bx.tcx().data_layout.pointer_size();
-        let ptr_align = bx.tcx().data_layout.pointer_align().abi;
+        let ptr_align = bx.tcx().data_layout.pointer_align();
         let arg_argc = bx.const_int(bx.cx().type_isize(), 2);
         let arg_argv = bx.alloca(2 * ptr_size, ptr_align);
         bx.store(param_handle, arg_argv, ptr_align);
@@ -819,7 +817,7 @@ pub fn codegen_crate<
     // This likely is a temporary measure. Once we don't have to support the
     // non-parallel compiler anymore, we can compile CGUs end-to-end in
     // parallel and get rid of the complicated scheduling logic.
-    let mut pre_compiled_cgus = if let Some(threads) = tcx.sess.opts.jobs.frontend {
+    let mut pre_compiled_cgus = if let JobsMode::Parallel(threads) = tcx.sess.opts.jobs.frontend {
         tcx.sess.time("compile_first_CGU_batch", || {
             // Try to find one CGU to compile per thread.
             let cgus: Vec<_> = cgu_reuse

@@ -15,7 +15,7 @@ use rustc_middle::ty::{self, CoroutineArgsExt, Ty, TypeVisitableExt};
 use rustc_span::bug;
 use rustc_target::callconv::{CastTarget, FnAbi};
 
-use crate::abi::{FnAbiGcc, FnAbiGccExt, GccType};
+use crate::abi::{FnAbiGccExt, GccType};
 use crate::context::CodegenCx;
 use crate::type_::{struct_attributes, struct_fields};
 
@@ -81,7 +81,7 @@ fn uncached_gcc_type<'gcc, 'tcx>(
                     layout.scalar_pair_element_gcc_type(cx, 0),
                     layout.scalar_pair_element_gcc_type(cx, 1),
                 ],
-                &struct_attributes(false, Some(layout.align.abi)),
+                &struct_attributes(false, Some(layout.align)),
             );
         }
         BackendRepr::Memory { .. } => {}
@@ -127,9 +127,9 @@ fn uncached_gcc_type<'gcc, 'tcx>(
 
     match layout.fields {
         FieldsShape::Primitive | FieldsShape::Union(_) => {
-            let fill = cx.type_padding_filler(layout.size, layout.align.abi);
+            let fill = cx.type_padding_filler(layout.size, layout.align);
             let packed = false;
-            let attributes = struct_attributes(packed, Some(layout.align.abi));
+            let attributes = struct_attributes(packed, Some(layout.align));
             match name {
                 None => cx.type_struct(&[fill], &attributes),
                 Some(ref name) => {
@@ -143,7 +143,7 @@ fn uncached_gcc_type<'gcc, 'tcx>(
         FieldsShape::Arbitrary { .. } => match name {
             None => {
                 let (gcc_fields, packed) = struct_fields(cx, layout);
-                cx.type_struct(&gcc_fields, &struct_attributes(packed, Some(layout.align.abi)))
+                cx.type_struct(&gcc_fields, &struct_attributes(packed, Some(layout.align)))
             }
             Some(ref name) => {
                 let gcc_type = cx.type_named_struct(name);
@@ -244,7 +244,7 @@ impl<'tcx> LayoutGccExt<'tcx> for TyAndLayout<'tcx> {
             cx.set_struct_body(
                 deferred_ty,
                 &fields,
-                &struct_attributes(packed, Some(layout.align.abi)),
+                &struct_attributes(packed, Some(layout.align)),
             );
         }
 
@@ -356,9 +356,8 @@ impl<'gcc, 'tcx> LayoutTypeCodegenMethods<'tcx> for CodegenCx<'gcc, 'tcx> {
     }
 
     fn fn_decl_backend_type(&self, fn_abi: &FnAbi<'tcx, Ty<'tcx>>) -> Type<'gcc> {
-        // FIXME(antoyo): Should we do something with `FnAbiGcc::fn_attributes`?
-        let FnAbiGcc { return_type, arguments_type, is_c_variadic, .. } = fn_abi.gcc_type(self);
-        self.context.new_function_pointer_type(None, return_type, &arguments_type, is_c_variadic)
+        // Call sites cast the callee to this type, so it must carry the indirect-return flag too.
+        fn_abi.ptr_to_gcc_type(self)
     }
 
     fn type_ptr(&self) -> Type<'gcc> {

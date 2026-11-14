@@ -6,11 +6,10 @@ use askama::Template;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def::CtorKind;
 use rustc_hir::def_id::{DefIdMap, DefIdSet};
-use rustc_middle::ty::TyCtxt;
 use tracing::debug;
 
 use super::{Context, ItemSection, impl_trait_key, item_ty_to_section};
-use crate::clean;
+use crate::clean::{self, ItemKind};
 use crate::formats::Impl;
 use crate::formats::item_type::ItemType;
 use crate::html::format::{print_path, print_type};
@@ -148,16 +147,16 @@ pub(super) fn print_sidebar(
     let mut blocks: Vec<LinkBlock<'_>> = docblock_toc(cx, it, &mut ids).into_iter().collect();
     let deref_id_map = cx.deref_id_map.borrow();
     match it.kind {
-        clean::StructItem(ref s) => sidebar_struct(cx, it, s, &mut blocks, &deref_id_map),
-        clean::TraitItem(ref t) => sidebar_trait(cx, it, t, &mut blocks, &deref_id_map),
-        clean::PrimitiveItem(_) => sidebar_primitive(cx, it, &mut blocks, &deref_id_map),
-        clean::UnionItem(ref u) => sidebar_union(cx, it, u, &mut blocks, &deref_id_map),
-        clean::EnumItem(ref e) => sidebar_enum(cx, it, e, &mut blocks, &deref_id_map),
-        clean::TypeAliasItem(ref t) => sidebar_type_alias(cx, it, t, &mut blocks, &deref_id_map),
-        clean::ModuleItem(ref m) => {
+        ItemKind::Struct(ref s) => sidebar_struct(cx, it, s, &mut blocks, &deref_id_map),
+        ItemKind::Trait(ref t) => sidebar_trait(cx, it, t, &mut blocks, &deref_id_map),
+        ItemKind::PrimitiveType(_) => sidebar_primitive(cx, it, &mut blocks, &deref_id_map),
+        ItemKind::Union(ref u) => sidebar_union(cx, it, u, &mut blocks, &deref_id_map),
+        ItemKind::Enum(ref e) => sidebar_enum(cx, it, e, &mut blocks, &deref_id_map),
+        ItemKind::TypeAlias(ref t) => sidebar_type_alias(cx, it, t, &mut blocks, &deref_id_map),
+        ItemKind::Module(ref m) => {
             blocks.push(sidebar_module(&m.items, &mut ids, ModuleLike::from(it)))
         }
-        clean::ForeignTypeItem => sidebar_foreign_type(cx, it, &mut blocks, &deref_id_map),
+        ItemKind::ForeignType => sidebar_foreign_type(cx, it, &mut blocks, &deref_id_map),
         _ => {}
     }
     // The sidebar is designed to display sibling functions, modules and
@@ -172,7 +171,7 @@ pub(super) fn print_sidebar(
     let (title_prefix, title) = if !blocks.is_empty() && !it.is_crate() {
         (
             match it.kind {
-                clean::ModuleItem(..) => "Module ",
+                ItemKind::Module(..) => "Module ",
                 _ => "",
             },
             it.name.as_ref().unwrap().as_str(),
@@ -210,7 +209,7 @@ pub(super) fn print_sidebar(
 fn get_struct_fields_name<'a>(fields: &'a [clean::Item]) -> Vec<Link<'a>> {
     let mut fields = fields
         .iter()
-        .filter(|f| matches!(f.kind, clean::StructFieldItem(..)))
+        .filter(|f| matches!(f.kind, ItemKind::StructField(..)))
         .filter_map(|f| {
             f.name.as_ref().map(|name| Link::new(format!("structfield.{name}"), name.as_str()))
         })
@@ -311,14 +310,15 @@ fn sidebar_trait<'a>(
         res
     }
 
-    let req_assoc = filter_items(&t.items, |m| m.is_required_associated_type(), "associatedtype");
-    let prov_assoc = filter_items(&t.items, |m| m.is_associated_type(), "associatedtype");
-    let req_assoc_const =
-        filter_items(&t.items, |m| m.is_required_associated_const(), "associatedconstant");
-    let prov_assoc_const =
-        filter_items(&t.items, |m| m.is_associated_const(), "associatedconstant");
-    let req_method = filter_items(&t.items, |m| m.is_ty_method(), "tymethod");
-    let prov_method = filter_items(&t.items, |m| m.is_method(), "method");
+    let req_assoc_tys = filter_items(&t.items, |m| m.is_assoc_ty_without_body(), "associatedtype");
+    let prov_assoc_tys = filter_items(&t.items, |m| m.is_assoc_ty_with_body(), "associatedtype");
+    let req_assoc_consts =
+        filter_items(&t.items, |m| m.is_assoc_const_without_body(), "associatedconstant");
+    let prov_assoc_consts =
+        filter_items(&t.items, |m| m.is_assoc_const_with_body(), "associatedconstant");
+    let req_assoc_fns = filter_items(&t.items, |m| m.is_assoc_fn_without_body(), "tymethod");
+    let prov_assoc_fns = filter_items(&t.items, |m| m.is_assoc_fn_with_body(), "method");
+
     let mut foreign_impls = vec![];
     if let Some(implementors) = cx.cache().implementors.get(&it.item_id.expect_def_id()) {
         foreign_impls.extend(
@@ -333,34 +333,45 @@ fn sidebar_trait<'a>(
 
     blocks.extend(
         [
-            ("required-associated-consts", "Required Associated Constants", req_assoc_const),
-            ("provided-associated-consts", "Provided Associated Constants", prov_assoc_const),
-            ("required-associated-types", "Required Associated Types", req_assoc),
-            ("provided-associated-types", "Provided Associated Types", prov_assoc),
-            ("required-methods", "Required Methods", req_method),
-            ("provided-methods", "Provided Methods", prov_method),
-            ("foreign-impls", "Implementations on Foreign Types", foreign_impls),
+            ("required-associated-consts", "Required Associated Constants", req_assoc_consts),
+            ("provided-associated-consts", "Provided Associated Constants", prov_assoc_consts),
+            ("required-associated-types", "Required Associated Types", req_assoc_tys),
+            ("provided-associated-types", "Provided Associated Types", prov_assoc_tys),
         ]
         .into_iter()
         .map(|(id, title, items)| LinkBlock::new(Link::new(id, title), "", items)),
     );
+
+    let tcx = cx.tcx();
+    // Because of `rustc_must_implement_one_of`, we might have a trait with no "required" assoc fns
+    // but still want the link in the sidebar, so we handle it on its own.
+    let mut req_assoc_fns_link =
+        LinkBlock::new(Link::new("required-methods", "Required Methods"), "", req_assoc_fns);
+    let rustc_middle::ty::TraitDef { must_implement_one_of, .. } = tcx.trait_def(t.def_id);
+    req_assoc_fns_link.force_render = must_implement_one_of.is_some();
+    blocks.push(req_assoc_fns_link);
+
+    blocks.push(LinkBlock::new(
+        Link::new("provided-methods", "Provided Methods"),
+        "",
+        prov_assoc_fns,
+    ));
+
     sidebar_assoc_items(cx, it, blocks, deref_id_map);
 
-    // Move the foreign impls block after dyn compatibility note to match the order of the headings
-    // in the main content.
-    let foreign_impls_block = blocks.pop_if(|b| b.heading.href == "foreign-impls");
-    if !t.is_dyn_compatible(cx.tcx()) {
-        blocks.push(LinkBlock::forced(
-            Link::new("dyn-compatibility", "Dyn Compatibility"),
-            "dyn-compatibility-note",
-        ));
-    }
-    if let Some(foreign_impls_block) = foreign_impls_block {
-        blocks.push(foreign_impls_block);
-    }
+    blocks.push(LinkBlock::forced(
+        Link::new("dyn-compatibility", "Dyn Compatibility"),
+        "dyn-compatibility-note",
+    ));
+
+    blocks.push(LinkBlock::new(
+        Link::new("foreign-impls", "Implementations on Foreign Types"),
+        "",
+        foreign_impls,
+    ));
 
     blocks.push(LinkBlock::forced(Link::new("implementors", "Implementors"), "impl"));
-    if t.is_auto(cx.tcx()) {
+    if t.is_auto(tcx) {
         blocks.push(LinkBlock::forced(
             Link::new("synthetic-implementors", "Auto Implementors"),
             "impl-auto",
@@ -454,13 +465,14 @@ fn sidebar_assoc_items<'a>(
                     impl_,
                     GetMethodsMode::AlsoCollectAssocFns { assoc_fns: &mut assoc_fns },
                     used_links_bor,
-                    cx.tcx(),
+                    cx,
                 ));
             }
             // We want links' order to be reproducible so we don't use unstable sort.
             assoc_consts.sort();
             assoc_types.sort();
-            methods.sort();
+            postprocess_method_list(&mut assoc_fns);
+            postprocess_method_list(&mut methods);
         }
 
         let mut blocks = vec![
@@ -531,11 +543,10 @@ fn sidebar_deref_methods<'a>(
 
     debug!("found Deref: {impl_:?}");
     if let Some((target, real_target)) =
-        impl_.inner_impl().items.iter().find_map(|item| match item.kind {
-            clean::AssocTypeItem(ref t, _) => Some(match *t {
-                clean::TypeAlias { item_type: Some(ref type_), .. } => (type_, &t.type_),
-                _ => (&t.type_, &t.type_),
-            }),
+        impl_.inner_impl().items.iter().find_map(|item| match &item.kind {
+            ItemKind::AssocType(clean::AssocType { type_: Some(type_), .. }) => {
+                Some((type_.middle_type.as_ref().unwrap_or(&type_.type_), &type_.type_))
+            }
             _ => None,
         })
     {
@@ -548,7 +559,8 @@ fn sidebar_deref_methods<'a>(
             // Avoid infinite cycles
             return;
         }
-        let deref_mut = v.iter().any(|i| i.trait_did() == cx.tcx().lang_items().deref_mut_trait());
+        let tcx = cx.tcx();
+        let deref_mut = v.iter().any(|i| i.trait_did() == tcx.lang_items().deref_mut_trait());
         let inner_impl = target
             .def_id(c)
             .or_else(|| {
@@ -557,6 +569,8 @@ fn sidebar_deref_methods<'a>(
             .and_then(|did| c.impls.get(&did));
         if let Some(impls) = inner_impl {
             debug!("found inner_impl: {impls:?}");
+            let is_deref_target_copy =
+                super::compute_if_deref_target_implements_copy(tcx, impl_.def_id());
             let mut ret = impls
                 .iter()
                 .filter(|i| {
@@ -566,9 +580,9 @@ fn sidebar_deref_methods<'a>(
                 .flat_map(|i| {
                     get_methods(
                         i.inner_impl(),
-                        GetMethodsMode::Deref { deref_mut },
+                        GetMethodsMode::Deref { deref_mut, is_deref_target_copy },
                         used_links,
-                        cx.tcx(),
+                        cx,
                     )
                     .collect::<Vec<_>>()
                 })
@@ -589,8 +603,8 @@ fn sidebar_deref_methods<'a>(
                     print_path(impl_.inner_impl().trait_.as_ref().unwrap(), cx),
                     print_type(real_target, cx),
                 );
-                // We want links' order to be reproducible so we don't use unstable sort.
-                ret.sort();
+
+                postprocess_method_list(&mut ret);
                 out.push(LinkBlock::new(Link::new(id, title), "deref-methods", ret));
             }
         }
@@ -602,7 +616,7 @@ fn sidebar_deref_methods<'a>(
                 i.inner_impl()
                     .trait_
                     .as_ref()
-                    .map(|t| Some(t.def_id()) == cx.tcx().lang_items().deref_trait())
+                    .map(|t| Some(t.def_id()) == tcx.lang_items().deref_trait())
                     .unwrap_or(false)
                     && !i.is_negative_trait_impl()
             })
@@ -672,7 +686,7 @@ fn sidebar_module(
             && it
                 .name
                 .or_else(|| {
-                    if let clean::ImportItem(ref i) = it.kind
+                    if let ItemKind::Import(ref i) = it.kind
                         && let clean::ImportKind::Simple(s) = i.kind
                     {
                         Some(s)
@@ -756,7 +770,7 @@ fn get_next_url(used_links: &mut UsedLinks, url: String) -> String {
 }
 
 enum GetMethodsMode<'r, 'l> {
-    Deref { deref_mut: bool },
+    Deref { deref_mut: bool, is_deref_target_copy: bool },
     AlsoCollectAssocFns { assoc_fns: &'r mut Vec<Link<'l>> },
 }
 
@@ -764,21 +778,29 @@ fn get_methods<'a>(
     i: &'a clean::Impl,
     mut mode: GetMethodsMode<'_, 'a>,
     used_links: &mut UsedLinks,
-    tcx: TyCtxt<'_>,
+    cx: &Context<'_>,
 ) -> impl Iterator<Item = Link<'a>> {
     i.items.iter().filter_map(move |item| {
         if let Some(ref name) = item.name
-            && item.is_method()
+            && item.is_assoc_fn_with_body()
         {
             let mut build_link = || {
                 Link::new(
-                    get_next_url(used_links, format!("{typ}.{name}", typ = ItemType::Method)),
-                    name.as_str(),
+                    get_next_url(
+                        used_links,
+                        format!("{typ}.{name}", typ = ItemType::AssocFnWithBody),
+                    ),
+                    format!("{} ({:#})", name.as_str(), print_type(&i.for_, cx)),
                 )
             };
             match &mut mode {
-                &mut GetMethodsMode::Deref { deref_mut } => {
-                    if super::should_render_item(item, deref_mut, tcx) {
+                &mut GetMethodsMode::Deref { deref_mut, is_deref_target_copy } => {
+                    if super::should_render_item_for_deref(
+                        item,
+                        deref_mut,
+                        cx.tcx(),
+                        is_deref_target_copy,
+                    ) {
                         Some(build_link())
                     } else {
                         None
@@ -799,13 +821,34 @@ fn get_methods<'a>(
     })
 }
 
+fn postprocess_method_list(methods: &mut [Link<'_>]) {
+    // We want links' order to be reproducible so we don't use unstable sort.
+    methods.sort();
+    let trunc_to = |dst: &mut Cow<'_, str>, len: usize| match dst {
+        Cow::Borrowed(s) => *s = &s[..len],
+        Cow::Owned(s) => s.truncate(len),
+    };
+    fn get_short_name<'a>(itm: Option<&'a Link<'a>>) -> Option<&'a str> {
+        Some(itm?.name.split_once(' ')?.0)
+    }
+    for i in 0..methods.len() {
+        let short_name = get_short_name(methods.get(i));
+        if get_short_name(methods.get(i.wrapping_sub(1))) != short_name
+            && short_name != get_short_name(methods.get(i + 1))
+        {
+            let shortened_len = short_name.unwrap().len();
+            trunc_to(&mut methods[i].name, shortened_len);
+        }
+    }
+}
+
 fn get_associated_constants<'a>(
     i: &'a clean::Impl,
     used_links: &mut UsedLinks,
 ) -> impl Iterator<Item = Link<'a>> {
     i.items.iter().filter_map(|item| {
         if let Some(ref name) = item.name
-            && item.is_associated_const()
+            && item.is_assoc_const_with_body()
         {
             Some(Link::new(
                 get_next_url(used_links, format!("{typ}.{name}", typ = ItemType::AssocConst)),
@@ -823,7 +866,7 @@ fn get_associated_types<'a>(
 ) -> impl Iterator<Item = Link<'a>> {
     i.items.iter().filter_map(|item| {
         if let Some(ref name) = item.name
-            && item.is_associated_type()
+            && item.is_assoc_ty_with_body()
         {
             Some(Link::new(
                 get_next_url(used_links, format!("{typ}.{name}", typ = ItemType::AssocType)),

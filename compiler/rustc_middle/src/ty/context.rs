@@ -40,13 +40,17 @@ use rustc_index::IndexVec;
 use rustc_lint_defs::Lint;
 use rustc_lint_defs::builtin::UNUSED_FEATURES;
 use rustc_macros::Diagnostic;
+use rustc_session::config::NextSolverConfig;
 use rustc_session::{IncrCompSession, Session};
 use rustc_span::def_id::{CRATE_DEF_ID, DefPathHash, StableCrateId};
 use rustc_span::{DUMMY_SP, Ident, Span, Symbol, bug, kw, sym};
 use rustc_structures::{CrateType, Limit};
 use rustc_type_ir::TyKind::*;
 pub use rustc_type_ir::lift::Lift;
-use rustc_type_ir::{CollectAndApply, WithCachedTypeInfo, elaborate, search_graph};
+use rustc_type_ir::{
+    CollectAndApply, IncludeSizedImplicitBounds, PlaceholderType, WithCachedTypeInfo, elaborate,
+    search_graph,
+};
 use tracing::{debug, instrument};
 
 use crate::arena::Arena;
@@ -70,8 +74,8 @@ use crate::traits::solve::{
 };
 use crate::ty::predicate::ExistentialPredicateStableCmpExt as _;
 use crate::ty::{
-    self, AdtDef, AdtDefData, AdtKind, Binder, Clause, ClausePolarity, Clauses, Const, ConstKind,
-    FnSigKind, GenericArg, GenericArgs, GenericArgsRef, GenericParamDefKind, List,
+    self, AdtDef, AdtDefData, AdtKind, Binder, CanonicalizerState, Clause, ClausePolarity, Clauses,
+    Const, ConstKind, FnSigKind, GenericArg, GenericArgsUnsized, GenericParamDefKind, List,
     ListWithCachedTypeInfo, ParamConst, Pattern, PatternKind, PolyExistentialPredicate, PolyFnSig,
     Predicate, PredicateKind, Region, RegionKind, ReprOptions, TraitObjectVisitor, Ty, TyKind,
     TyVid, ValTree, ValTreeKind, Visibility,
@@ -142,7 +146,7 @@ pub struct CtxtInterners<'tcx> {
     // they're accessed quite often.
     type_: InternedSet<'tcx, WithCachedTypeInfo<TyKind<'tcx>>>,
     const_lists: InternedSet<'tcx, List<ty::Const<'tcx>>>,
-    args: InternedSet<'tcx, GenericArgs<'tcx>>,
+    args: InternedSet<'tcx, GenericArgsUnsized<'tcx>>,
     type_lists: InternedSet<'tcx, List<Ty<'tcx>>>,
     canonical_var_kinds: InternedSet<'tcx, List<CanonicalVarKind<'tcx>>>,
     region: InternedSet<'tcx, RegionKind<'tcx>>,
@@ -283,28 +287,22 @@ impl<'tcx> CtxtInterners<'tcx> {
 // For these preinterned values, an alternative would be to have
 // variable-length vectors that grow as needed. But that turned out to be
 // slightly more complex and no faster.
+//
+// All numbers have been chosen based on profiling data.
 
-const NUM_PREINTERNED_TY_VARS: u32 = 100;
-const NUM_PREINTERNED_FRESH_TYS: u32 = 20;
-const NUM_PREINTERNED_FRESH_INT_TYS: u32 = 3;
-const NUM_PREINTERNED_FRESH_FLOAT_TYS: u32 = 3;
-const NUM_PREINTERNED_ANON_BOUND_TYS_I: u32 = 3;
+const NUM_PREINTERNED_INFER_TY_VARS: u32 = 512;
+const NUM_PREINTERNED_INFER_FRESH_TYS: u32 = 20;
+const NUM_PREINTERNED_INFER_FRESH_INT_TYS: u32 = 3;
+const NUM_PREINTERNED_INFER_FRESH_FLOAT_TYS: u32 = 3;
+const NUM_PREINTERNED_BOUND_BOUND_ANONS_I: u32 = 3;
+const NUM_PREINTERNED_BOUND_BOUND_ANONS_V: u32 = 20;
+const NUM_PREINTERNED_BOUND_CANONICAL_ANONS: u32 = 128;
+const NUM_PREINTERNED_PLACEHOLDER_ROOT_ANONS: u32 = 128;
 
-// From general profiling of the *max vars during canonicalization* of a value:
-// - about 90% of the time, there are no canonical vars
-// - about 9% of the time, there is only one canonical var
-// - there are rarely more than 3-5 canonical vars (with exceptions in particularly pathological
-//   cases)
-// This may not match the number of bound vars found in `for`s.
-// Given that this is all heap interned, it seems likely that interning fewer
-// vars here won't make an appreciable difference. Though, if we were to inline the data (in an
-// array), we may want to consider reducing the number for canonicalized vars down to 4 or so.
-const NUM_PREINTERNED_ANON_BOUND_TYS_V: u32 = 20;
-
-// This number may seem high, but it is reached in all but the smallest crates.
 const NUM_PREINTERNED_RE_VARS: u32 = 500;
-const NUM_PREINTERNED_ANON_RE_BOUNDS_I: u32 = 3;
-const NUM_PREINTERNED_ANON_RE_BOUNDS_V: u32 = 20;
+const NUM_PREINTERNED_RE_BOUND_BOUND_ANONS_I: u32 = 3;
+const NUM_PREINTERNED_RE_BOUND_BOUND_ANONS_V: u32 = 20;
+const NUM_PREINTERNED_RE_BOUND_CANONICAL_ANONS: u32 = 20;
 
 pub struct CommonTypes<'tcx> {
     pub unit: Ty<'tcx>,
@@ -359,26 +357,37 @@ pub struct CommonTypes<'tcx> {
     pub trait_object_dummy_self: Ty<'tcx>,
 
     /// Pre-interned `Infer(ty::TyVar(n))` for small values of `n`.
-    pub ty_vars: Vec<Ty<'tcx>>,
+    pub infer_ty_vars: Vec<Ty<'tcx>>,
 
     /// Pre-interned `Infer(ty::FreshTy(n))` for small values of `n`.
-    pub fresh_tys: Vec<Ty<'tcx>>,
+    pub infer_fresh_tys: Vec<Ty<'tcx>>,
 
     /// Pre-interned `Infer(ty::FreshIntTy(n))` for small values of `n`.
-    pub fresh_int_tys: Vec<Ty<'tcx>>,
+    pub infer_fresh_int_tys: Vec<Ty<'tcx>>,
 
     /// Pre-interned `Infer(ty::FreshFloatTy(n))` for small values of `n`.
-    pub fresh_float_tys: Vec<Ty<'tcx>>,
+    pub infer_fresh_float_tys: Vec<Ty<'tcx>>,
 
     /// Pre-interned values of the form:
-    /// `Bound(BoundVarIndexKind::Bound(DebruijnIndex(i)), BoundTy { var: v, kind:
-    /// BoundTyKind::Anon})` for small values of `i` and `v`.
-    pub anon_bound_tys: Vec<Vec<Ty<'tcx>>>,
+    /// `Bound(
+    ///     BoundVarIndexKind::Bound(DebruijnIndex(i)),
+    ///     BoundTy { var: v, kind: BoundTyKind::Anon }
+    /// )`
+    /// for small values of `i` and `v`.
+    pub bound_bound_anons: Vec<Vec<Ty<'tcx>>>,
 
-    // Pre-interned values of the form:
-    // `Bound(BoundVarIndexKind::Canonical, BoundTy { var: v, kind: BoundTyKind::Anon })`
-    // for small values of `v`.
-    pub anon_canonical_bound_tys: Vec<Ty<'tcx>>,
+    /// Pre-interned values of the form:
+    /// `Bound(BoundVarIndexKind::Canonical, BoundTy { var: v, kind: BoundTyKind::Anon })`
+    /// for small values of `v`.
+    pub bound_canonical_anons: Vec<Ty<'tcx>>,
+
+    /// Pre-interned values of the form:
+    /// `Placeholder(Placeholder {
+    ///     universe: UniverseIndex::ROOT,
+    ///     bound: BoundTy { var: v, kind: BoundTyKind::Anon }
+    /// })`
+    /// for small values of `v`.
+    pub placeholder_root_anons: Vec<Ty<'tcx>>,
 }
 
 pub struct CommonLifetimes<'tcx> {
@@ -388,18 +397,18 @@ pub struct CommonLifetimes<'tcx> {
     /// Erased region, used outside of type inference.
     pub re_erased: Region<'tcx>,
 
-    /// Pre-interned `ReVar(ty::RegionVar(n))` for small values of `n`.
+    /// Pre-interned `ReVar(ty::RegionVid(n))` for small values of `n`.
     pub re_vars: Vec<Region<'tcx>>,
 
     /// Pre-interned values of the form:
     /// `ReBound(BoundVarIndexKind::Bound(DebruijnIndex(i)), BoundRegion { var: v, kind: BoundRegionKind::Anon })`
     /// for small values of `i` and `v`.
-    pub anon_re_bounds: Vec<Vec<Region<'tcx>>>,
+    pub re_bound_bound_anons: Vec<Vec<Region<'tcx>>>,
 
-    // Pre-interned values of the form:
-    // `ReBound(BoundVarIndexKind::Canonical, BoundRegion { var: v, kind: BoundRegionKind::Anon })`
-    // for small values of `v`.
-    pub anon_re_canonical_bounds: Vec<Region<'tcx>>,
+    /// Pre-interned values of the form:
+    /// `ReBound(BoundVarIndexKind::Canonical, BoundRegion { var: v, kind: BoundRegionKind::Anon })`
+    /// for small values of `v`.
+    pub re_bound_canonical_anons: Vec<Region<'tcx>>,
 }
 
 pub struct CommonConsts<'tcx> {
@@ -414,18 +423,21 @@ impl<'tcx> CommonTypes<'tcx> {
     fn new(interners: &CtxtInterners<'tcx>) -> CommonTypes<'tcx> {
         let mk = |ty| interners.intern_ty(ty);
 
-        let ty_vars =
-            (0..NUM_PREINTERNED_TY_VARS).map(|n| mk(Infer(ty::TyVar(TyVid::from(n))))).collect();
-        let fresh_tys: Vec<_> =
-            (0..NUM_PREINTERNED_FRESH_TYS).map(|n| mk(Infer(ty::FreshTy(n)))).collect();
-        let fresh_int_tys: Vec<_> =
-            (0..NUM_PREINTERNED_FRESH_INT_TYS).map(|n| mk(Infer(ty::FreshIntTy(n)))).collect();
-        let fresh_float_tys: Vec<_> =
-            (0..NUM_PREINTERNED_FRESH_FLOAT_TYS).map(|n| mk(Infer(ty::FreshFloatTy(n)))).collect();
+        let infer_ty_vars = (0..NUM_PREINTERNED_INFER_TY_VARS)
+            .map(|n| mk(Infer(ty::TyVar(TyVid::from(n)))))
+            .collect();
+        let infer_fresh_tys: Vec<_> =
+            (0..NUM_PREINTERNED_INFER_FRESH_TYS).map(|n| mk(Infer(ty::FreshTy(n)))).collect();
+        let infer_fresh_int_tys: Vec<_> = (0..NUM_PREINTERNED_INFER_FRESH_INT_TYS)
+            .map(|n| mk(Infer(ty::FreshIntTy(n))))
+            .collect();
+        let infer_fresh_float_tys: Vec<_> = (0..NUM_PREINTERNED_INFER_FRESH_FLOAT_TYS)
+            .map(|n| mk(Infer(ty::FreshFloatTy(n))))
+            .collect();
 
-        let anon_bound_tys = (0..NUM_PREINTERNED_ANON_BOUND_TYS_I)
+        let bound_bound_anons = (0..NUM_PREINTERNED_BOUND_BOUND_ANONS_I)
             .map(|i| {
-                (0..NUM_PREINTERNED_ANON_BOUND_TYS_V)
+                (0..NUM_PREINTERNED_BOUND_BOUND_ANONS_V)
                     .map(|v| {
                         mk(ty::Bound(
                             ty::BoundVarIndexKind::Bound(ty::DebruijnIndex::from(i)),
@@ -436,12 +448,21 @@ impl<'tcx> CommonTypes<'tcx> {
             })
             .collect();
 
-        let anon_canonical_bound_tys = (0..NUM_PREINTERNED_ANON_BOUND_TYS_V)
+        let bound_canonical_anons = (0..NUM_PREINTERNED_BOUND_CANONICAL_ANONS)
             .map(|v| {
                 mk(ty::Bound(
                     ty::BoundVarIndexKind::Canonical,
                     ty::BoundTy { var: ty::BoundVar::from(v), kind: ty::BoundTyKind::Anon },
                 ))
+            })
+            .collect();
+
+        let placeholder_root_anons = (0..NUM_PREINTERNED_PLACEHOLDER_ROOT_ANONS)
+            .map(|v| {
+                mk(ty::Placeholder(PlaceholderType::new_anon(
+                    ty::UniverseIndex::ROOT,
+                    ty::BoundVar::from(v),
+                )))
             })
             .collect();
 
@@ -469,14 +490,15 @@ impl<'tcx> CommonTypes<'tcx> {
             str_: mk(Str),
             self_param: mk(ty::Param(ty::ParamTy { index: 0, name: kw::SelfUpper })),
 
-            trait_object_dummy_self: fresh_tys[0],
+            trait_object_dummy_self: infer_fresh_tys[0],
 
-            ty_vars,
-            fresh_tys,
-            fresh_int_tys,
-            fresh_float_tys,
-            anon_bound_tys,
-            anon_canonical_bound_tys,
+            infer_ty_vars,
+            infer_fresh_tys,
+            infer_fresh_int_tys,
+            infer_fresh_float_tys,
+            bound_bound_anons,
+            bound_canonical_anons,
+            placeholder_root_anons,
         }
     }
 }
@@ -492,9 +514,9 @@ impl<'tcx> CommonLifetimes<'tcx> {
         let re_vars =
             (0..NUM_PREINTERNED_RE_VARS).map(|n| mk(ty::ReVar(ty::RegionVid::from(n)))).collect();
 
-        let anon_re_bounds = (0..NUM_PREINTERNED_ANON_RE_BOUNDS_I)
+        let re_bound_bound_anons = (0..NUM_PREINTERNED_RE_BOUND_BOUND_ANONS_I)
             .map(|i| {
-                (0..NUM_PREINTERNED_ANON_RE_BOUNDS_V)
+                (0..NUM_PREINTERNED_RE_BOUND_BOUND_ANONS_V)
                     .map(|v| {
                         mk(ty::ReBound(
                             ty::BoundVarIndexKind::Bound(ty::DebruijnIndex::from(i)),
@@ -508,7 +530,7 @@ impl<'tcx> CommonLifetimes<'tcx> {
             })
             .collect();
 
-        let anon_re_canonical_bounds = (0..NUM_PREINTERNED_ANON_RE_BOUNDS_V)
+        let re_bound_canonical_anons = (0..NUM_PREINTERNED_RE_BOUND_CANONICAL_ANONS)
             .map(|v| {
                 mk(ty::ReBound(
                     ty::BoundVarIndexKind::Canonical,
@@ -521,8 +543,8 @@ impl<'tcx> CommonLifetimes<'tcx> {
             re_static: mk(ty::ReStatic),
             re_erased: mk(ty::ReErased),
             re_vars,
-            anon_re_bounds,
-            anon_re_canonical_bounds,
+            re_bound_bound_anons,
+            re_bound_canonical_anons,
         }
     }
 }
@@ -681,6 +703,13 @@ pub struct GlobalCaches<'tcx> {
     /// Caches the results of goal evaluation in the new solver.
     new_solver_evaluation_cache: Lock<search_graph::GlobalCache<TyCtxt<'tcx>>>,
     new_solver_canonical_param_env_cache: Lock<ty::CanonicalParamEnvCache<TyCtxt<'tcx>>>,
+
+    /// State reused by each new canonicalizer, and then cleared (but not deallocated) once the
+    /// canonicalizer is finished. A performance win, because it avoids reallocating new
+    /// vecs/hashmaps for every canonicalizer. The `Vec` is needed because there can be multiple
+    /// canonicalizers in use at once if the number of threads > 1. The `Box` avoids memcpy because
+    /// `CanonicalizerState` is moderately big.
+    pub canonicalizer_states: Lock<Vec<Box<CanonicalizerState<TyCtxt<'tcx>>>>>,
 
     pub canonical_param_env_cache: CanonicalParamEnvCache<'tcx>,
 
@@ -927,8 +956,24 @@ impl<'tcx> TyCtxt<'tcx> {
         self.default_traits().iter().any(|&default_trait| self.is_lang_item(def_id, default_trait))
     }
 
+    /// Returns true if a trait is an "implicit trait", which is a trait which is added
+    /// to bounds on generic types automatically by the compiler.
+    pub fn is_implicit_trait(
+        self,
+        def_id: DefId,
+        including_sized: IncludeSizedImplicitBounds,
+    ) -> bool {
+        self.is_default_trait(def_id)
+            // NOTE: add move and forget here later
+            || (matches!(including_sized, IncludeSizedImplicitBounds::Yes) && self.is_sizedness_trait(def_id))
+    }
+
     pub fn is_sizedness_trait(self, def_id: DefId) -> bool {
         matches!(self.as_lang_item(def_id), Some(LangItem::Sized | LangItem::MetaSized))
+    }
+
+    pub fn is_forget_trait(self, def_id: DefId) -> bool {
+        matches!(self.as_lang_item(def_id), Some(LangItem::Forget))
     }
 
     pub fn lift<T: Lift<TyCtxt<'tcx>>>(self, value: T) -> T::Lifted {
@@ -1060,7 +1105,12 @@ impl<'tcx> TyCtxt<'tcx> {
     // Whether the body owner is synthetic, which in this case means it does not correspond to
     // meaningful HIR. This is currently used to skip over MIR borrowck.
     pub fn is_synthetic_mir(self, def_id: impl Into<DefId>) -> bool {
-        matches!(self.def_kind(def_id.into()), DefKind::SyntheticCoroutineBody)
+        let def_id = def_id.into();
+        match self.def_kind(def_id) {
+            DefKind::SyntheticCoroutineBody => true,
+            DefKind::Const | DefKind::AssocConst => self.const_of_item(def_id).is_some(),
+            _ => false,
+        }
     }
 
     /// Returns `true` if the node pointed to by `def_id` is a general coroutine that implements `Coroutine`.
@@ -1123,6 +1173,22 @@ impl<'tcx> TyCtxt<'tcx> {
         }
     }
 
+    /// Useful when one needs to access a lot of `DefPathHash`-es in quick succession. Stable
+    /// sorting a collection for example.
+    ///
+    /// Read locks the structures containing the `DefPathHash` mappings, allowing us to skip lots of
+    /// locking and releasing using `[Self::def_path_hash]` would do
+    pub fn prelocked_def_path_hasher(
+        self,
+    ) -> impl Fn(DefId) -> rustc_hir::definitions::DefPathHash {
+        let definitions = self.definitions_untracked();
+        let cstore = self.cstore_untracked();
+        move |def_id| match def_id.as_local() {
+            Some(def_id) => definitions.def_path_hash(def_id),
+            None => cstore.def_path_hash(def_id),
+        }
+    }
+
     #[inline]
     pub fn crate_types(self) -> &'tcx [CrateType] {
         &self.crate_types
@@ -1135,7 +1201,7 @@ impl<'tcx> TyCtxt<'tcx> {
             | CrateType::Cdylib
             | CrateType::Sdylib => false,
             CrateType::Rlib | CrateType::Dylib | CrateType::ProcMacro => true,
-        })
+        }) && !self.sess.opts.actually_rustdoc
     }
 
     pub fn needs_hir_hash(self) -> bool {
@@ -1399,9 +1465,7 @@ impl<'tcx> TyCtxt<'tcx> {
         self.untracked.definitions.freeze()
     }
 
-    pub fn def_path_hash_to_def_index_map(
-        self,
-    ) -> &'tcx rustc_hir::def_path_hash_map::DefPathHashMap {
+    pub fn def_path_hash_to_def_index_map(self) -> &'tcx rustc_hir::definitions::DefPathToIndexMap {
         // Create a dependency to the crate to be sure we re-execute this when the amount of
         // definitions change.
         self.ensure_ok().hir_crate_items(());
@@ -1426,13 +1490,6 @@ impl<'tcx> TyCtxt<'tcx> {
     #[inline]
     pub fn definitions_untracked(self) -> FreezeReadGuard<'tcx, Definitions> {
         self.untracked.definitions.read()
-    }
-
-    /// Note that this is *untracked* and should only be used within the query
-    /// system if the result is otherwise tracked through queries
-    #[inline]
-    pub fn source_span_untracked(self, def_id: LocalDefId) -> Span {
-        self.untracked.source_span.get(def_id).unwrap_or(DUMMY_SP)
     }
 
     #[inline(always)]
@@ -2052,7 +2109,7 @@ macro_rules! slice_interners {
 // should be used when possible, because it's faster.
 slice_interners!(
     const_lists: pub mk_const_list(Const<'tcx>),
-    args: pub mk_args(GenericArg<'tcx>),
+    args: pub mk_args_raw(GenericArg<'tcx>),
     type_lists: pub mk_type_list(Ty<'tcx>),
     canonical_var_kinds: pub mk_canonical_var_kinds(CanonicalVarKind<'tcx>),
     poly_existential_predicates: intern_poly_existential_predicates(PolyExistentialPredicate<'tcx>),
@@ -2161,16 +2218,16 @@ impl<'tcx> TyCtxt<'tcx> {
     /// consts always have `impl`-form args, and will return an invalid result if the `def_id` comes
     /// from a [`ty::AliasConstKind::InherentSelf`] (see the doc on that for what "impl form args"
     /// means).
-    pub fn check_args_compatible(self, def_id: DefId, args: &'tcx [ty::GenericArg<'tcx>]) -> bool {
+    pub fn check_args_compatible(self, def_id: DefId, args: ty::GenericArgs<'tcx>) -> bool {
         let is_inherent_assoc_ty = matches!(self.def_kind(def_id), DefKind::AssocTy)
             && matches!(self.def_kind(self.parent(def_id)), DefKind::Impl { of_trait: false });
-        self.check_args_compatible_inner(def_id, args, is_inherent_assoc_ty)
+        self.check_args_compatible_inner(def_id, args.as_slice(), is_inherent_assoc_ty)
     }
 
     pub fn check_alias_term_args_compatible(
         self,
         kind: ty::AliasTermKind<'tcx>,
-        args: &'tcx [ty::GenericArg<'tcx>],
+        args: ty::GenericArgs<'tcx>,
     ) -> bool {
         let (def_id, is_self_args) = match kind {
             ty::AliasTermKind::ProjectionTy { def_id }
@@ -2183,13 +2240,13 @@ impl<'tcx> TyCtxt<'tcx> {
             ty::AliasTermKind::InherentTy { def_id }
             | ty::AliasTermKind::InherentConstSelf { def_id } => (def_id, true),
         };
-        self.check_args_compatible_inner(def_id, args, is_self_args)
+        self.check_args_compatible_inner(def_id, args.as_slice(), is_self_args)
     }
 
     fn check_args_compatible_inner(
         self,
         def_id: DefId,
-        args: &'tcx [ty::GenericArg<'tcx>],
+        args: &[ty::GenericArg<'tcx>],
         is_self_args: bool,
     ) -> bool {
         let generics = self.generics_of(def_id);
@@ -2240,7 +2297,7 @@ impl<'tcx> TyCtxt<'tcx> {
     /// If you have a [`ty::Alias`], you should use
     /// [`Self::debug_assert_alias_term_args_compatible`] instead. See note on
     /// [`Self::check_args_compatible`].
-    pub fn debug_assert_args_compatible(self, def_id: DefId, args: &'tcx [ty::GenericArg<'tcx>]) {
+    pub fn debug_assert_args_compatible(self, def_id: DefId, args: ty::GenericArgs<'tcx>) {
         if cfg!(debug_assertions) && !self.check_args_compatible(def_id, args) {
             let is_inherent_assoc_ty = matches!(self.def_kind(def_id), DefKind::AssocTy)
                 && matches!(self.def_kind(self.parent(def_id)), DefKind::Impl { of_trait: false });
@@ -2251,7 +2308,7 @@ impl<'tcx> TyCtxt<'tcx> {
     pub fn debug_assert_alias_term_args_compatible(
         self,
         kind: ty::AliasTermKind<'tcx>,
-        args: ty::GenericArgsRef<'tcx>,
+        args: ty::GenericArgs<'tcx>,
     ) {
         if cfg!(debug_assertions) {
             self.debug_assert_alias_term_kind_matches_def_kind(kind);
@@ -2321,7 +2378,7 @@ impl<'tcx> TyCtxt<'tcx> {
     fn emit_bug_args_compatible(
         self,
         def_id: DefId,
-        args: &'tcx [ty::GenericArg<'tcx>],
+        args: ty::GenericArgs<'tcx>,
         is_self_args: bool,
     ) -> ! {
         if is_self_args {
@@ -2333,7 +2390,7 @@ impl<'tcx> TyCtxt<'tcx> {
                 self.mk_args_from_iter(
                     [self.types.self_param.into()].into_iter().chain(
                         self.generics_of(def_id)
-                            .own_args(ty::GenericArgs::identity_for_item(self, def_id))
+                            .own_args(ty::GenericArgs::identity_for_item(self, def_id).as_slice())
                             .iter()
                             .copied()
                     )
@@ -2354,7 +2411,7 @@ impl<'tcx> TyCtxt<'tcx> {
         self,
         def_id: DefId,
         args: impl IntoIterator<Item: Into<GenericArg<'tcx>>>,
-    ) -> GenericArgsRef<'tcx> {
+    ) -> ty::GenericArgs<'tcx> {
         let args = self.mk_args_from_iter(args.into_iter().map(Into::into));
         self.debug_assert_args_compatible(def_id, args);
         args
@@ -2576,10 +2633,14 @@ impl<'tcx> TyCtxt<'tcx> {
         T::collect_and_apply(iter, |xs| self.mk_type_list(xs))
     }
 
+    pub fn mk_args(self, args: &[GenericArg<'tcx>]) -> ty::GenericArgs<'tcx> {
+        ty::GenericArgs::from_args(self.mk_args_raw(args))
+    }
+
     pub fn mk_args_from_iter<I, T>(self, iter: I) -> T::Output
     where
         I: Iterator<Item = T>,
-        T: CollectAndApply<GenericArg<'tcx>, ty::GenericArgsRef<'tcx>>,
+        T: CollectAndApply<GenericArg<'tcx>, ty::GenericArgs<'tcx>>,
     {
         T::collect_and_apply(iter, |xs| self.mk_args(xs))
     }
@@ -2612,7 +2673,7 @@ impl<'tcx> TyCtxt<'tcx> {
         self,
         self_ty: Ty<'tcx>,
         rest: impl IntoIterator<Item = GenericArg<'tcx>>,
-    ) -> GenericArgsRef<'tcx> {
+    ) -> ty::GenericArgs<'tcx> {
         self.mk_args_from_iter(iter::once(self_ty.into()).chain(rest))
     }
 
@@ -2825,11 +2886,13 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     pub fn next_trait_solver_globally(self) -> bool {
-        self.sess.opts.unstable_opts.next_solver.globally && !self.features().generic_const_exprs()
+        self.sess.opts.unstable_opts.next_solver == NextSolverConfig::Globally
+            && !self.sess.opts.unstable_opts.higher_ranked_assumptions
+            && !self.features().generic_const_exprs()
     }
 
-    pub fn next_trait_solver_in_coherence(self) -> bool {
-        self.sess.opts.unstable_opts.next_solver.coherence
+    pub fn next_solver_overflow_fcw_limit(self) -> Option<usize> {
+        self.sess.opts.unstable_opts.next_solver_overflow_fcw_limit
     }
 
     pub fn disable_trait_solver_fast_paths(self) -> bool {
@@ -2845,9 +2908,8 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     #[allow(rustc::bad_opt_access)]
-    pub fn use_typing_mode_post_typeck_until_borrowck(self) -> bool {
+    pub fn use_typing_mode_post_typeck_through_borrowck(self) -> bool {
         self.next_trait_solver_globally()
-            || self.sess.opts.unstable_opts.typing_mode_post_typeck_until_borrowck
     }
 
     pub fn assumptions_on_binders(self) -> bool {

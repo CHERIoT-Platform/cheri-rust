@@ -41,7 +41,7 @@ use std::fmt;
 #[cfg(feature = "nightly")]
 use std::iter::Step;
 use std::num::{NonZero, ParseIntError};
-use std::ops::{Add, AddAssign, Deref, Mul, Sub};
+use std::ops::{Add, AddAssign, Mul, Sub};
 use std::range::RangeInclusive;
 use std::str::FromStr;
 
@@ -815,20 +815,20 @@ impl TargetDataLayout {
 
     /// Get the pointer alignment in the default data address space.
     #[inline]
-    pub fn pointer_align(&self) -> AbiAlign {
-        AbiAlign::new(self.default_address_space_pointer_spec.pointer_align)
+    pub fn pointer_align(&self) -> Align {
+        self.default_address_space_pointer_spec.pointer_align
     }
 
     /// Get the pointer alignment in a specific address space.
     #[inline]
-    pub fn pointer_align_in(&self, c: AddressSpace) -> AbiAlign {
-        AbiAlign::new(if c == self.default_address_space {
+    pub fn pointer_align_in(&self, c: AddressSpace) -> Align {
+        if c == self.default_address_space {
             self.default_address_space_pointer_spec.pointer_align
         } else if let Some(e) = self.address_space_info.iter().find(|(a, _)| a == &c) {
             e.1.pointer_align
         } else {
             panic!("Use of unknown address space {c:?}");
-        })
+        }
     }
 }
 
@@ -1167,6 +1167,7 @@ impl fmt::Display for AlignFromBytesError {
 
 impl Align {
     pub const ONE: Align = Align { pow2: 0 };
+    pub const FOUR: Align = Align { pow2: 2 };
     pub const EIGHT: Align = Align { pow2: 3 };
     // LLVM has a maximal supported alignment of 2^29, we inherit that.
     pub const MAX: Align = Align { pow2: 29 };
@@ -1249,46 +1250,6 @@ impl Align {
     }
 }
 
-/// A pair of alignments, ABI-mandated and preferred.
-///
-/// The "preferred" alignment is an LLVM concept that is virtually meaningless to Rust code:
-/// it is not exposed semantically to programmers nor can they meaningfully affect it.
-/// The only concern for us is that preferred alignment must not be less than the mandated alignment
-/// and thus in practice the two values are almost always identical.
-///
-/// An example of a rare thing actually affected by preferred alignment is aligning of statics.
-/// It is of effectively no consequence for layout in structs and on the stack.
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-#[cfg_attr(feature = "nightly", derive(StableHash))]
-pub struct AbiAlign {
-    pub abi: Align,
-}
-
-impl AbiAlign {
-    #[inline]
-    pub fn new(align: Align) -> AbiAlign {
-        AbiAlign { abi: align }
-    }
-
-    #[inline]
-    pub fn min(self, other: AbiAlign) -> AbiAlign {
-        AbiAlign { abi: self.abi.min(other.abi) }
-    }
-
-    #[inline]
-    pub fn max(self, other: AbiAlign) -> AbiAlign {
-        AbiAlign { abi: self.abi.max(other.abi) }
-    }
-}
-
-impl Deref for AbiAlign {
-    type Target = Align;
-
-    fn deref(&self) -> &Self::Target {
-        &self.abi
-    }
-}
-
 /// Integers, also used for enum discriminants.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "nightly", derive(Encodable_NoContext, Decodable_NoContext, StableHash))]
@@ -1345,17 +1306,17 @@ impl Integer {
         }
     }
 
-    pub fn align<C: HasDataLayout>(self, cx: &C) -> AbiAlign {
+    pub fn align<C: HasDataLayout>(self, cx: &C) -> Align {
         use Integer::*;
         let dl = cx.data_layout();
 
-        AbiAlign::new(match self {
+        match self {
             I8 => dl.i8_align,
             I16 => dl.i16_align,
             I32 => dl.i32_align,
             I64 => dl.i64_align,
             I128 => dl.i128_align,
-        })
+        }
     }
 
     /// Returns the largest signed value that can be represented by this Integer.
@@ -1416,7 +1377,7 @@ impl Integer {
         let dl = cx.data_layout();
 
         [I8, I16, I32, I64, I128].into_iter().find(|&candidate| {
-            wanted == candidate.align(dl).abi && wanted.bytes() == candidate.size().bytes()
+            wanted == candidate.align(dl) && wanted.bytes() == candidate.size().bytes()
         })
     }
 
@@ -1427,7 +1388,7 @@ impl Integer {
 
         // FIXME(eddyb) maybe include I128 in the future, when it works everywhere.
         for candidate in [I64, I32, I16] {
-            if wanted >= candidate.align(dl).abi && wanted.bytes() >= candidate.size().bytes() {
+            if wanted >= candidate.align(dl) && wanted.bytes() >= candidate.size().bytes() {
                 return candidate;
             }
         }
@@ -1461,6 +1422,10 @@ pub enum Float {
     F32,
     F64,
     F128,
+    /// `ppcf128`. This is not a builtin type in Rust (it is exposed as a lang item),
+    /// but it is a builtin type in LLVM so needs to be explicitly represented
+    /// in the backend.
+    PpcF128,
 }
 
 impl Float {
@@ -1473,19 +1438,21 @@ impl Float {
             F32 => Size::from_bits(32),
             F64 => Size::from_bits(64),
             F128 => Size::from_bits(128),
+            PpcF128 => Size::from_bits(128),
         }
     }
 
-    pub fn align<C: HasDataLayout>(self, cx: &C) -> AbiAlign {
+    pub fn align<C: HasDataLayout>(self, cx: &C) -> Align {
         use Float::*;
         let dl = cx.data_layout();
 
-        AbiAlign::new(match self {
+        match self {
             F16 | F16B => dl.f16_align,
             F32 => dl.f32_align,
             F64 => dl.f64_align,
             F128 => dl.f128_align,
-        })
+            PpcF128 => dl.f128_align,
+        }
     }
 
     pub fn ty_str(self) -> &'static str {
@@ -1497,6 +1464,16 @@ impl Float {
             F32 => "f32",
             F64 => "f64",
             F128 => "f128",
+            PpcF128 => "ppcf128",
+        }
+    }
+
+    pub fn is_ieee(self) -> bool {
+        use Float::*;
+
+        match self {
+            F16 | F32 | F64 | F128 => true,
+            F16B | PpcF128 => false,
         }
     }
 }
@@ -1521,7 +1498,10 @@ impl Numeric {
     pub fn reg_kind(self) -> RegKind {
         match self {
             Numeric::Int(_, _) => RegKind::Integer,
-            Numeric::Float(_) => RegKind::Float,
+            Numeric::Float(Float::PpcF128) => RegKind::PpcF128,
+            Numeric::Float(Float::F16 | Float::F16B | Float::F32 | Float::F64 | Float::F128) => {
+                RegKind::Float
+            }
         }
     }
 }
@@ -1618,7 +1598,7 @@ impl Primitive {
     ///
     /// This is the type alignment for the corresponding built-in.
     /// In other contexts it might have different alignment.
-    pub fn default_align<C: HasDataLayout>(self, cx: &C) -> AbiAlign {
+    pub fn default_align<C: HasDataLayout>(self, cx: &C) -> Align {
         use Primitive::*;
         let dl = cx.data_layout();
 
@@ -1695,7 +1675,7 @@ impl Scalar {
     ///
     /// This is the type alignment for the corresponding built-in.
     /// This is *not* necessarily the correct alignment for a type that has this `BackendRepr::Scalar`!
-    pub fn default_align(self, cx: &impl HasDataLayout) -> AbiAlign {
+    pub fn default_align(self, cx: &impl HasDataLayout) -> Align {
         self.primitive().default_align(cx)
     }
 
@@ -2020,9 +2000,9 @@ impl BackendRepr {
     /// not calculating something from the `Scalar`s.
     pub fn scalar_platform_align<C: HasDataLayout>(&self, cx: &C) -> Option<Align> {
         match *self {
-            BackendRepr::Scalar(s) => Some(s.default_align(cx).abi),
+            BackendRepr::Scalar(s) => Some(s.default_align(cx)),
             BackendRepr::ScalarPair { a: s1, b: s2, b_offset: _ } => {
-                Some(s1.default_align(cx).max(s2.default_align(cx)).abi)
+                Some(s1.default_align(cx).max(s2.default_align(cx)))
             }
             // The align of a Vector can vary in surprising ways
             BackendRepr::SimdVector { .. }
@@ -2110,10 +2090,10 @@ pub enum Variants<FieldIdx: Idx, VariantIdx: Idx> {
     /// 2. the never type
     Empty,
 
-    /// The type has a single valid variant.
+    /// The type has a single valid variant. Such types are called "univariant".
     ///
     /// This is the case for:
-    /// 1. enums with a single inhabited variant
+    /// 1. enums with a single inhabited variant, aka. "univariant enums"
     /// 2. structs, unions, and non-ADTs (except coroutines; see below),
     ///    as those can't have multiple variants
     Single {
@@ -2278,6 +2258,18 @@ impl Niche {
     }
 }
 
+/// Whether niche optimizations should be performed during layout calculation.
+///
+/// [`UnsafeCell`] and [`UnsafePinned`] both disable niche optimizations.
+///
+/// [`UnsafeCell`]: std::cell::UnsafeCell
+/// [`UnsafePinned`]: std::pin::UnsafePinned
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum NicheOptimizations {
+    Enabled,
+    Disabled,
+}
+
 // NOTE: This struct is generic over the FieldIdx and VariantIdx for rust-analyzer usage.
 #[derive(PartialEq, Eq, Hash, Clone)]
 #[cfg_attr(feature = "nightly", derive(StableHash))]
@@ -2312,7 +2304,7 @@ pub struct LayoutData<FieldIdx: Idx, VariantIdx: Idx> {
     /// especially in the case of by-pointer struct returns, which allocate stack even when unused.
     pub uninhabited: bool,
 
-    pub align: AbiAlign,
+    pub align: Align,
     pub size: Size,
 
     /// The largest alignment explicitly requested with `repr(align)` on this type or any field.
@@ -2324,6 +2316,13 @@ pub struct LayoutData<FieldIdx: Idx, VariantIdx: Idx> {
     /// Only used on aarch64-linux and arm, where the argument passing ABI ignores the requested
     /// alignment in some cases.
     pub unadjusted_abi_align: Align,
+
+    /// Whether this type is `repr(C)`, or a `repr(transparent)` wrapper around such,
+    /// or an array of such.
+    /// This matters because we must follow the C ABI for these types.
+    /// Some C ABIs pass `repr(C)` ZSTs by pointer, but `repr(Rust)` ZSTs should always
+    /// be ignored.
+    pub repr_c: bool,
 
     /// The randomization seed based on this type's own repr and its fields.
     ///
@@ -2364,6 +2363,12 @@ impl<FieldIdx: Idx, VariantIdx: Idx> LayoutData<FieldIdx, VariantIdx> {
             }
         }
     }
+
+    /// Returns `true` if this is a `repr(C)` type,
+    /// or an array of such, or a `repr(transparent)` wrapper around such
+    pub fn is_repr_c(&self) -> bool {
+        self.repr_c
+    }
 }
 
 impl<FieldIdx: Idx, VariantIdx: Idx> fmt::Debug for LayoutData<FieldIdx, VariantIdx>
@@ -2385,6 +2390,7 @@ where
             variants,
             max_repr_align,
             unadjusted_abi_align,
+            repr_c,
             randomization_seed,
         } = self;
         f.debug_struct("Layout")
@@ -2397,6 +2403,7 @@ where
             .field("variants", variants)
             .field("max_repr_align", max_repr_align)
             .field("unadjusted_abi_align", unadjusted_abi_align)
+            .field("repr_c", repr_c)
             .field("randomization_seed", randomization_seed)
             .finish()
     }
@@ -2425,9 +2432,12 @@ pub struct PointeeInfo {
     /// If `size` is not zero, then the pointer is either null or dereferenceable for this many bytes
     /// (independent of `safe`).
     ///
-    /// On a function argument, "dereferenceable" here means "dereferenceable for the entire duration
-    /// of this function call", i.e. it is UB for the memory that this pointer points to be freed
-    /// while this function is still running.
+    /// "Dereferenceable" means that it's sound to add a speculative (spurious) read of the pointer.
+    /// The backend is free to add such reads at will. (This is useful to hoist pointer reads out of
+    /// loops without proving that the loop executes at least once, for example.)
+    ///
+    /// This can be used in both argument and return position, in both cases it means
+    /// "dereferenceable right now" (function entry/return) (but could be freed any time later).
     pub size: Size,
     /// The pointer is guaranteed to be aligned this much (independent of `safe`).
     pub align: Align,
@@ -2499,19 +2509,37 @@ impl<FieldIdx: Idx, VariantIdx: Idx> LayoutData<FieldIdx, VariantIdx> {
     /// Checks if these two `Layout` are equal enough to be considered "the same for all function
     /// call ABIs". Note however that real ABIs depend on more details that are not reflected in the
     /// `Layout`; the `PassMode` need to be compared as well. Also note that we assume
-    /// aggregates are passed via `PassMode::Indirect` or `PassMode::Cast`; more strict
-    /// checks would otherwise be required.
+    /// aggregates are passed via `PassMode::Indirect`, `PassMode::IndirectUnsized` or
+    /// `PassMode::Cast`; more strict checks would otherwise be required.
     pub fn eq_abi(&self, other: &Self) -> bool {
+        let LayoutData {
+            size,
+            align,
+            backend_repr,
+            // We assume aggregates are passed via `Cast` or `Indirect*` so their details either
+            // do not matter or they are checked by `PassMode::eq_abi`.
+            fields: _,
+            variants: _,
+            // Inhabitedness and niches are not ABI-relevant.
+            largest_niche: _,
+            uninhabited: _,
+            // max_repr_align, unadjusted_abi_align, repr_c are not read directly by codegen
+            // backends. They are only used to compute `PassMode`. So we can ignore them here, any
+            // differences they may cause are picked up by the `PassMode` check.
+            max_repr_align: _,
+            unadjusted_abi_align: _,
+            repr_c: _,
+            // The seed does not affect the ABI.
+            randomization_seed: _,
+        } = self;
         // The one thing that we are not capturing here is that for unsized types, the metadata must
         // also have the same ABI, and moreover that the same metadata leads to the same size. The
         // 2nd point is quite hard to check though.
-        self.size == other.size
-            && self.is_sized() == other.is_sized()
-            && self.backend_repr.eq_up_to_validity(&other.backend_repr)
-            && self.backend_repr.is_bool() == other.backend_repr.is_bool()
-            && self.align.abi == other.align.abi
-            && self.max_repr_align == other.max_repr_align
-            && self.unadjusted_abi_align == other.unadjusted_abi_align
+        *size == other.size
+            && *align == other.align
+            && backend_repr.eq_up_to_validity(&other.backend_repr)
+            // `is_bool` checks validity and is ABI-relevant, so we need to consider it.
+            && backend_repr.is_bool() == other.backend_repr.is_bool()
     }
 }
 
@@ -2533,12 +2561,22 @@ pub enum AbiFromStrErr {
     NoExplicitUnwind,
 }
 
+/// The layout information for a variant.
+///
+/// For items with multiple variants ([`Variants::Multiple`]), the layout information of each
+/// variant largely matches that of the overall item. So, instead of giving each one a new [`LayoutData`],
+/// we use this struct, which stores only the information that differs between the variants.
+///
+/// See <https://github.com/rust-lang/rust/issues/113988> for more context.
 // NOTE: This struct is generic over the FieldIdx for rust-analyzer usage.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 #[cfg_attr(feature = "nightly", derive(StableHash))]
 pub struct VariantLayout<FieldIdx: Idx> {
+    // FIXME: ideally we'd remove these as variants should not have their own
+    // size or backend_repr.
     pub size: Size,
     pub backend_repr: BackendRepr,
+
     pub field_offsets: IndexVec<FieldIdx, Size>,
     fields_in_memory_order: IndexVec<u32, FieldIdx>,
     largest_niche: Option<Niche>,
