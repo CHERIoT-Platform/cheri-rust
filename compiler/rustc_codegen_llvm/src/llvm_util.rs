@@ -430,6 +430,8 @@ fn update_target_reliable_float_cfg(target: &Target, cfg: &mut TargetConfig) {
         {
             false
         }
+        // The RTOS currently does not support 128bit softfloats: https://github.com/CHERIoT-Platform/cheri-rust/issues/303
+        (Arch::RiscV32, Os::CHERIoTRTOS) => false,
         // There are no known problems on other platforms, so the only requirement is that symbols
         // are available. `compiler-builtins` provides all symbols required for core `f128`
         // support, so this should work for everything else.
