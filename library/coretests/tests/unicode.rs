@@ -125,16 +125,16 @@ fn white_space() {
 }
 
 #[test]
-#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow, FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
-#[cfg_attr(miri, ignore)] // Miri is too slow
+// FIXME(cheri/ignored/too_slow): not checked
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn xid_continue() {
     test_boolean_property(test_data::XID_CONTINUE, unicode_data::xid_continue::lookup);
     test_boolean_property(test_data::XID_CONTINUE, char::is_xid_continue);
 }
 
 #[test]
-#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow, FIXME(cheri): https://github.com/CHERIoT-Platform/cheri-rust/issues/190
-#[cfg_attr(miri, ignore)] // Miri is too slow
+// FIXME(cheri/ignored/too_slow): not checked
+#[cfg_attr(any(miri, target_abi = "cheriot"), ignore)] // Miri is too slow
 fn xid_start() {
     test_boolean_property(test_data::XID_START, unicode_data::xid_start::lookup);
     test_boolean_property(test_data::XID_START, char::is_xid_start);
