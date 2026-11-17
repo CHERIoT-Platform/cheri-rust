@@ -18,11 +18,11 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use rustc_abi::Size;
+use rustc_attr_ir::{CfgEntry, WindowsSubsystemKind};
 use rustc_crate_store::{self as cstore, CrateSource};
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
 use rustc_data_structures::unord::{UnordMap, UnordSet};
 use rustc_hir::CRATE_HIR_ID;
-use rustc_hir::attrs::{CfgEntry, WindowsSubsystemKind};
 use rustc_hir::def_id::CrateNum;
 use rustc_lint_defs::builtin::{LINKER_INFO, LINKER_MESSAGES};
 use rustc_macros::{Decodable, Encodable};
@@ -65,27 +65,15 @@ pub struct ModuleCodegen<M> {
     pub name: String,
     pub module_llvm: M,
     pub kind: ModuleKind,
-    /// Saving the ThinLTO buffer for embedding in the object file.
-    pub thin_lto_buffer: Option<Vec<u8>>,
 }
 
 impl<M> ModuleCodegen<M> {
     pub fn new_regular(name: impl Into<String>, module: M) -> Self {
-        Self {
-            name: name.into(),
-            module_llvm: module,
-            kind: ModuleKind::Regular,
-            thin_lto_buffer: None,
-        }
+        Self { name: name.into(), module_llvm: module, kind: ModuleKind::Regular }
     }
 
     pub fn new_allocator(name: impl Into<String>, module: M) -> Self {
-        Self {
-            name: name.into(),
-            module_llvm: module,
-            kind: ModuleKind::Allocator,
-            thin_lto_buffer: None,
-        }
+        Self { name: name.into(), module_llvm: module, kind: ModuleKind::Allocator }
     }
 
     pub fn into_compiled_module(

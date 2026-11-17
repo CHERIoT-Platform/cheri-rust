@@ -370,12 +370,10 @@ fn space_between(tt1: &TokenTree, tt2: &TokenTree) -> bool {
 
         // IDENT|`fn`|`Self`|`pub` + `(`: `f(3)`, `fn(x: u8)`, `Self()`, `pub(crate)`,
         //      but `let (a, b) = (1, 2)` needs a space after the `let`
-        (Tok(tk::Token { kind: tk::Ident(sym, kind), span }, _), Del(_, _, Parenthesis, _))
-            if !Ident::new(*sym, *span).is_reserved()
-                || *sym == kw::Fn
-                || *sym == kw::SelfUpper
-                || *sym == kw::Pub
-                || matches!(kind, tk::IdentKind::Raw) =>
+        (&Tok(tk::Token { kind: tk::Ident(sym, kind), span }, _), Del(_, _, Parenthesis, _))
+            if kind == tk::IdentKind::Raw
+                || matches!(sym, kw::Fn | kw::SelfUpper | kw::Pub)
+                || !Ident::new(sym, span).is_reserved() =>
         {
             false
         }
@@ -621,7 +619,7 @@ pub trait PrintState<'a>: std::ops::Deref<Target = pp::Printer> + std::ops::Dere
             // Isolated, starts with #! and doesn't continue with `[`
             // See [rustc_lexer::strip_shebang] and [gather_comments] from pprust/state.rs for details
             if cmnt.style == CommentStyle::Isolated
-                && cmnt.lines.first().map_or(false, |l| l.starts_with("#!"))
+                && cmnt.lines.first().is_some_and(|l| l.starts_with("#!"))
             {
                 let cmnt = self.next_comment().unwrap();
                 self.print_comment(cmnt);
@@ -669,7 +667,7 @@ pub trait PrintState<'a>: std::ops::Deref<Target = pp::Printer> + std::ops::Dere
                 // to keep the printed code reasonably parse-able.
                 return false;
             }
-            AttrKind::Normal(_) | AttrKind::DocComment(..) => {}
+            AttrKind::Normal(_) | AttrKind::DocComment(..) | AttrKind::Generated(..) => {}
         }
         if !is_inline {
             self.hardbreak_if_not_bol();
@@ -693,6 +691,7 @@ pub trait PrintState<'a>: std::ops::Deref<Target = pp::Printer> + std::ops::Dere
                 ));
                 self.hardbreak()
             }
+            AttrKind::Generated(generated) => self.word(generated.descr()),
         }
         true
     }
@@ -1348,20 +1347,23 @@ impl<'a> State<'a> {
                 self.print_type(ty);
                 self.word("]");
             }
-            ast::TyKind::Ptr(mt) => {
+            ast::TyKind::Ptr(ty, mutbl) => {
                 self.word("*");
-                self.print_mt(mt, true);
+                self.print_mutability(*mutbl, true);
+                self.print_type(ty);
             }
-            ast::TyKind::Ref(lifetime, mt) => {
+            ast::TyKind::Ref(lifetime, ty, mutbl) => {
                 self.word("&");
                 self.print_opt_lifetime(lifetime);
-                self.print_mt(mt, false);
+                self.print_mutability(*mutbl, false);
+                self.print_type(ty);
             }
-            ast::TyKind::PinnedRef(lifetime, mt) => {
+            ast::TyKind::PinnedRef(lifetime, ty, mutbl) => {
                 self.word("&");
                 self.print_opt_lifetime(lifetime);
                 self.word("pin ");
-                self.print_mt(mt, true);
+                self.print_mutability(*mutbl, true);
+                self.print_type(ty);
             }
             ast::TyKind::Never => {
                 self.word("!");
@@ -1440,7 +1442,7 @@ impl<'a> State<'a> {
                 self.print_ty_pat(pat);
             }
             ast::TyKind::FieldOf(ty, variant, field) => {
-                self.word("builtin # field_of");
+                self.word("k#field_of");
                 self.popen();
                 let ib = self.ibox(0);
                 self.print_type(ty);
@@ -2010,6 +2012,11 @@ impl<'a> State<'a> {
                 self.pclose();
             }
             PatKind::Deref(inner) => {
+                // FIXME(deref_patterns, internal_syntax, forced_keywords, clippy):
+                // This should render `k#deref(...)` but unfortunately Clippy uses `pat_to_string`
+                // for the suggestions of its lint `unnested_or_patterns`. Smh fix Clippy to not
+                // rely on AST pretty printing `deref!(…)` for `Deref` patterns and please don't
+                // think about adding a flag to AST pretty to control the output.
                 self.word("deref!");
                 self.popen();
                 self.print_pat(inner);
@@ -2231,11 +2238,6 @@ impl<'a> State<'a> {
         }
     }
 
-    fn print_mt(&mut self, mt: &ast::MutTy, print_const: bool) {
-        self.print_mutability(mt.mutbl, print_const);
-        self.print_type(&mt.ty)
-    }
-
     fn print_param(&mut self, input: &ast::Param, is_closure: bool) {
         let ib = self.ibox(INDENT_UNIT);
 
@@ -2248,6 +2250,9 @@ impl<'a> State<'a> {
                     self.print_explicit_self(&eself);
                 } else {
                     if !matches!(input.pat.kind, PatKind::Missing) {
+                        if input.has_const_keyword {
+                            self.word_nbsp("const");
+                        }
                         self.print_pat(&input.pat);
                         self.word(":");
                         self.space();

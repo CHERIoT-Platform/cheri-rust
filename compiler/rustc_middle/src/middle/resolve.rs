@@ -3,7 +3,7 @@
 
 use rustc_ast::node_id::NodeMap;
 use rustc_ast::{self as ast, NodeId};
-use rustc_attr_ir::StrippedCfgItem;
+use rustc_attr_ir::{LanguageItems, StrippedCfgItem};
 use rustc_data_structures::fx::{FxIndexMap, FxIndexSet};
 use rustc_data_structures::steal::Steal;
 use rustc_data_structures::unord::{UnordMap, UnordSet};
@@ -38,7 +38,7 @@ use crate::ty::Visibility;
 #[derive(Copy, Clone, Debug)]
 pub struct PartialRes {
     base_res: Res<NodeId>,
-    unresolved_segments: usize,
+    unresolved_segments: u32,
 }
 
 impl PartialRes {
@@ -52,6 +52,8 @@ impl PartialRes {
         if base_res == Res::Err {
             unresolved_segments = 0
         }
+        let unresolved_segments: u32 =
+            unresolved_segments.try_into().expect("Path had 2^32 unresolved segments");
         PartialRes { base_res, unresolved_segments }
     }
 
@@ -62,7 +64,7 @@ impl PartialRes {
 
     #[inline]
     pub fn unresolved_segments(&self) -> usize {
-        self.unresolved_segments
+        self.unresolved_segments as usize
     }
 
     #[inline]
@@ -195,6 +197,7 @@ pub struct ResolverGlobalCtxt {
     pub delegation_infos: FxIndexMap<LocalDefId, DelegationInfo>,
     pub delegation_inherent_fn_map:
         FxIndexMap<LocalDefId, FxIndexMap<Ident, DelegationInherentFnKind>>,
+    pub lang_items: LanguageItems,
 }
 
 #[derive(Debug)]
@@ -294,6 +297,7 @@ pub struct DelegationInfo {
 }
 
 #[derive(Debug, StableHash)]
+// FIXME(fn_delegation): replace with `Result<DefId, ErrorGuaranteed>`.
 pub enum TypeRelativeDelegationRes {
     Ok(DefId),
     Ambig(ErrorGuaranteed),
@@ -331,8 +335,6 @@ pub type DocLinkResMap = FxIndexMap<(Symbol, Namespace), Option<Res<NodeId>>>;
 /// is as good a place as any for it.
 #[derive(Debug)]
 pub enum AstOwner {
-    /// This definition does not correspond to a HIR owner.
-    NonOwner,
     Crate(Box<ast::Crate>),
     Item(Box<ast::Item>),
     TraitItem(Box<ast::AssocItem>),

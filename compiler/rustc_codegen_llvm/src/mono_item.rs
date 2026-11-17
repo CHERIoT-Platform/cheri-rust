@@ -2,8 +2,8 @@ use std::borrow::Cow;
 use std::ffi::CString;
 
 use rustc_abi::AddressSpace;
+use rustc_attr_ir::Linkage;
 use rustc_codegen_ssa::traits::*;
-use rustc_hir::attrs::Linkage;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
 use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs;
@@ -20,7 +20,6 @@ use crate::abi::FnAbiLlvmExt;
 use crate::builder::Builder;
 use crate::context::CodegenCx;
 use crate::diagnostics::SymbolAlreadyDefined;
-use crate::type_of::LayoutLlvmExt;
 use crate::{base, llvm};
 
 impl<'tcx> PreDefineCodegenMethods<'tcx> for CodegenCx<'_, 'tcx> {
@@ -37,7 +36,7 @@ impl<'tcx> PreDefineCodegenMethods<'tcx> for CodegenCx<'_, 'tcx> {
         // out the llvm type from the actual evaluated initializer.
         let ty =
             if nested { self.tcx.types.unit } else { instance.ty(self.tcx, self.typing_env()) };
-        let llty = self.layout_of(ty).llvm_type(self);
+        let llty = self.type_array(self.type_i8(), self.layout_of(ty).size.bytes());
 
         let g = self.define_global(symbol_name, llty).unwrap_or_else(|| {
             self.sess()
@@ -131,7 +130,11 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
     /// since for those we don't care about target architecture anyway.
     ///
     /// So, this function is for static aliases. See [`add_function_aliases`](Self::add_function_aliases) for the alternative.
-    fn add_static_aliases(&self, aliasee: &llvm::Value, aliases: &[(DefId, Linkage, Visibility)]) {
+    fn add_static_aliases(
+        &self,
+        aliasee: &'ll llvm::Value,
+        aliases: &[(DefId, Linkage, Visibility)],
+    ) {
         let ty = self.get_type_of_global(aliasee);
 
         for (alias, linkage, visibility) in aliases {
@@ -222,6 +225,7 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
                 PassMode::Direct(_) | PassMode::Pair { .. } | PassMode::Cast { .. } => {
                     start_bx.ret(call)
                 }
+                PassMode::IndirectUnsized { .. } => bug!("unsized returns are not supported"),
             }
         }
     }

@@ -53,7 +53,7 @@ struct InterestingAttributeDiagnosticSpans {
     no_mangle: Option<Span>,
 }
 
-/// Process the builtin attrs ([`hir::Attribute`]) on the item.
+/// Process the builtin attrs ([`rustc_attr_ir::Attribute`]) on the item.
 /// Many of them directly translate to codegen attrs.
 fn process_builtin_attrs(
     tcx: TyCtxt<'_>,
@@ -66,14 +66,19 @@ fn process_builtin_attrs(
 
     let parsed_attrs = attrs
         .iter()
-        .filter_map(|attr| if let hir::Attribute::Parsed(attr) = attr { Some(attr) } else { None });
+        .filter_map(|attr| if let Attribute::Parsed(attr) = attr { Some(attr) } else { None });
     for attr in parsed_attrs {
         match attr {
             AttributeKind::Cold => codegen_fn_attrs.flags |= CodegenFnAttrFlags::COLD,
             AttributeKind::ExportName { name, .. } => codegen_fn_attrs.symbol_name = Some(*name),
             AttributeKind::Inline(inline, span) => {
-                codegen_fn_attrs.inline = *inline;
-                interesting_spans.inline = Some(*span);
+                // On an `async fn` (or similar), inlining hints are meant for the code the user
+                // wrote, which lives in the body coroutine. The constructor is trivial and left to
+                // the usual heuristics.
+                if !constructs_desugared_body_coroutine(tcx, did) {
+                    codegen_fn_attrs.inline = *inline;
+                    interesting_spans.inline = Some(*span);
+                }
             }
             AttributeKind::Naked(_) => codegen_fn_attrs.flags |= CodegenFnAttrFlags::NAKED,
             AttributeKind::RustcAlign { align, .. } => codegen_fn_attrs.alignment = Some(*align),
@@ -297,7 +302,52 @@ fn process_builtin_attrs(
         }
     }
 
+    // The body coroutine can't carry attributes of its own, so it takes the ones describing the
+    // code the user wrote from the `async fn` (or similar) it was desugared from. This makes e.g.
+    // `#[inline(never)] async fn` affect `Future::poll`. See #129347.
+    if is_desugared_body_coroutine(tcx, did) {
+        let parent = tcx.local_parent(did);
+        // `#[rustc_force_inline]` is already rejected on the parent. Propagating it would only
+        // cause `CheckForceInline` to report the same attribute again for the coroutine.
+        if let Some((inline, span)) = find_attr!(
+            tcx,
+            parent,
+            Inline(inline, span) if !matches!(inline, InlineAttr::Force { .. }) => (*inline, *span)
+        ) {
+            codegen_fn_attrs.inline = inline;
+            interesting_spans.inline = Some(span);
+        }
+        // Unlike inlining hints, `#[cold]` stays on the constructor as well: calling it is just as
+        // unlikely, and its call sites are only recognized as cold through that.
+        if find_attr!(tcx, parent, Cold) {
+            codegen_fn_attrs.flags |= CodegenFnAttrFlags::COLD;
+        }
+    }
+
     interesting_spans
+}
+
+/// Whether `did` is the coroutine holding the body of an `async fn`, `gen fn`, `async gen fn`, or
+/// `async` closure, as opposed to one written as an `async {}` block.
+fn is_desugared_body_coroutine(tcx: TyCtxt<'_>, did: LocalDefId) -> bool {
+    matches!(
+        tcx.coroutine_kind(did),
+        Some(hir::CoroutineKind::Desugared(
+            _,
+            hir::CoroutineSource::Fn | hir::CoroutineSource::Closure
+        ))
+    )
+}
+
+/// Whether `did` is an `async fn`, `gen fn`, `async gen fn`, or `async` closure, i.e. its body
+/// does nothing but construct a [desugared body coroutine](is_desugared_body_coroutine).
+fn constructs_desugared_body_coroutine(tcx: TyCtxt<'_>, did: LocalDefId) -> bool {
+    tcx.hir_maybe_body_owned_by(did).is_some_and(|body| {
+        matches!(
+            body.value.kind,
+            hir::ExprKind::Closure(closure) if is_desugared_body_coroutine(tcx, closure.def_id)
+        )
+    })
 }
 
 /// Applies overrides for codegen fn attrs. These often have a specific reason why they're necessary.
@@ -336,7 +386,17 @@ fn apply_overrides(tcx: TyCtxt<'_>, did: LocalDefId, codegen_fn_attrs: &mut Code
     // its parent function, which effectively inherits the features anyway. Boxing this closure
     // would result in this closure being compiled without the inherited target features, but this
     // is probably a poor usage of `#[inline(always)]` and easily avoided by not using the attribute.
-    if tcx.is_closure_like(did.to_def_id()) && codegen_fn_attrs.inline != InlineAttr::Always {
+    //
+    // That reasoning doesn't hold for the body coroutine of an `async fn` or `gen fn`: it is never
+    // inlined into the function constructing it, yet its body was checked as part of that function.
+    // It always inherits, so it is compiled with the same features as the function itself.
+    if tcx.is_closure_like(did.to_def_id())
+        && (codegen_fn_attrs.inline != InlineAttr::Always
+            || matches!(
+                tcx.coroutine_kind(did),
+                Some(hir::CoroutineKind::Desugared(_, hir::CoroutineSource::Fn))
+            ))
+    {
         let owner_id = tcx.parent(did.to_def_id());
         if tcx.def_kind(owner_id).has_codegen_attrs() {
             codegen_fn_attrs
@@ -415,33 +475,6 @@ fn check_result(
     interesting_spans: InterestingAttributeDiagnosticSpans,
     codegen_fn_attrs: &CodegenFnAttrs,
 ) {
-    // If a function uses `#[target_feature]` it can't be inlined into general
-    // purpose functions as they wouldn't have the right target features
-    // enabled. For that reason we also forbid `#[inline(always)]` as it can't be
-    // respected.
-    //
-    // `#[rustc_force_inline]` doesn't need to be prohibited here, only
-    // `#[inline(always)]`, as forced inlining is implemented entirely within
-    // rustc (and so the MIR inliner can do any necessary checks for compatible target
-    // features).
-    //
-    // This sidesteps the LLVM blockers in enabling `target_features` +
-    // `inline(always)` to be used together (see rust-lang/rust#116573 and
-    // llvm/llvm-project#70563).
-    if !codegen_fn_attrs.target_features.is_empty()
-        && matches!(codegen_fn_attrs.inline, InlineAttr::Always)
-        && let Some(span) = interesting_spans.inline
-    {
-        let mut diag = tcx
-            .dcx()
-            .struct_span_err(span, "cannot use `#[inline(always)]` with `#[target_feature]`");
-        diag.note(
-            "See this issue for full discussion: \
-            https://github.com/rust-lang/rust/issues/145574",
-        );
-        diag.emit();
-    }
-
     // warn that inline has no effect when no_sanitize is present
     if codegen_fn_attrs.sanitizers != SanitizerFnAttrs::default()
         && codegen_fn_attrs.inline.always()

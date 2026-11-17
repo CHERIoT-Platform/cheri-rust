@@ -81,9 +81,11 @@ fn get_attrs<'ll>(this: &ArgAttributes, cx: &CodegenCx<'ll, '_>) -> SmallVec<[&'
     // Only apply remaining attributes when optimizing
     if cx.sess().opts.optimize != config::OptLevel::No {
         let deref = this.pointee_size.bytes();
-        // dereferenceable in LLVM currently implies nofree, so only emit dereferenceable if nofree
+        // Prior to <https://github.com/llvm/llvm-project/pull/204795> dereferenceable in LLVM
+        // implied nofree, so only emit dereferenceable on older versions of LLVM if nofree
         // is also set.
-        if deref != 0 && regular.contains(ArgAttribute::NoFree) {
+        let llvm_version = crate::llvm_util::get_version();
+        if deref != 0 && (llvm_version >= (23, 0, 0) || regular.contains(ArgAttribute::NoFree)) {
             if regular.contains(ArgAttribute::NonNull) {
                 attrs.push(llvm::CreateDereferenceableAttr(cx.llcx, deref));
             } else {
@@ -146,6 +148,7 @@ impl LlvmType for Reg {
                 128 => cx.type_f128(),
                 _ => bug!("unsupported float: {:?}", self),
             },
+            RegKind::PpcF128 => cx.type_ppcf128(),
             RegKind::Vector { hint_vector_elem } => {
                 // NOTE: it is valid to ignore the element type hint (and always pick i8).
                 // But providing a more accurate type means fewer casts in LLVM IR,
@@ -164,6 +167,7 @@ impl LlvmType for Reg {
                         Float::F32 => cx.type_f32(),
                         Float::F64 => cx.type_f64(),
                         Float::F128 => cx.type_f128(),
+                        Float::PpcF128 => bug!("ppcf128 is not a valid vector element type"),
                     },
                     Primitive::Pointer(_) => cx.type_ptr(),
                 };
@@ -196,13 +200,16 @@ impl LlvmType for CastTarget {
             self.rest.total.bytes().div_ceil(self.rest.unit.size.bytes())
         };
 
-        // Simplify to a single unit or an array if there's no prefix.
-        // This produces the same layout, but using a simpler type.
+        // Simplify to an array if there is no prefix.
         if self.prefix.is_empty() {
-            // We can't do this if is_consecutive is set and the unit would get
-            // split on the target. Currently, this is only relevant for i128
-            // registers.
-            if rest_count == 1 && (!self.rest.is_consecutive || self.rest.unit != Reg::i128()) {
+            // Pass `[1 x unit]` as just `unit`.
+            //
+            // On little-endian targets this produces a compatible layout, but using a simpler type.
+            // But on big-endian targets (e.g. aarch64_be or powerpc64) the value may be passed in
+            // different halves of the register-sized slot, so unit and [1 x unit] are incompatible.
+            //
+            // Setting `is_consecutive` forces use of an array.
+            if rest_count == 1 && !self.rest.is_consecutive {
                 return rest_ll_unit;
             }
 
@@ -213,7 +220,7 @@ impl LlvmType for CastTarget {
         let prefix_args = self.prefix.iter().map(|reg| reg.llvm_type(cx));
         let rest_args = (0..rest_count).map(|_| rest_ll_unit);
         let args: Vec<_> = prefix_args.chain(rest_args).collect();
-        cx.type_struct(&args, false)
+        cx.type_struct(&args)
     }
 }
 
@@ -246,12 +253,12 @@ impl<'ll, 'tcx> ArgAbiExt<'ll, 'tcx> for ArgAbi<'tcx, Ty<'tcx>> {
         match &self.mode {
             PassMode::Ignore => {}
             // Sized indirect arguments
-            PassMode::Indirect { attrs, meta_attrs: None, address_space: _, mode: _ } => {
-                let align = attrs.pointee_align.unwrap_or(self.layout.align.abi);
+            PassMode::Indirect { attrs, address_space: _, mode: _ } => {
+                let align = attrs.pointee_align.unwrap_or(self.layout.align);
                 OperandValue::Ref(PlaceValue::new_sized(val, align)).store(bx, dst);
             }
             // Unsized indirect arguments cannot be stored
-            PassMode::Indirect { attrs: _, meta_attrs: Some(_), address_space: _, mode: _ } => {
+            PassMode::IndirectUnsized { attrs: _, meta_attrs: _ } => {
                 bug!("unsized `ArgAbi` cannot be stored");
             }
             PassMode::Cast { cast, pad_i32_count: _ } => {
@@ -276,7 +283,7 @@ impl<'ll, 'tcx> ArgAbiExt<'ll, 'tcx> for ArgAbi<'tcx, Ty<'tcx>> {
                 // ... and then memcpy it to the intended destination.
                 bx.memcpy(
                     dst.val.llval,
-                    self.layout.align.abi,
+                    self.layout.align,
                     llscratch,
                     scratch_align,
                     bx.const_usize(copy_bytes),
@@ -309,11 +316,11 @@ impl<'ll, 'tcx> ArgAbiExt<'ll, 'tcx> for ArgAbi<'tcx, Ty<'tcx>> {
             PassMode::Pair(..) => {
                 OperandValue::Pair(next(), next()).store(bx, dst);
             }
-            PassMode::Indirect { attrs: _, meta_attrs: Some(_), address_space: _, mode: _ } => {
+            PassMode::IndirectUnsized { attrs: _, meta_attrs: _ } => {
                 bug!("unsized `ArgAbi` cannot be stored");
             }
             PassMode::Direct(_)
-            | PassMode::Indirect { attrs: _, meta_attrs: None, address_space: _, mode: _ }
+            | PassMode::Indirect { attrs: _, address_space: _, mode: _ }
             | PassMode::Cast { .. } => {
                 let next_arg = next();
                 self.store(bx, next_arg, dst);
@@ -383,6 +390,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                 llargument_tys.push(ty);
                 cx.type_void()
             }
+            PassMode::IndirectUnsized { .. } => bug!("unsized returns are not supported"),
         };
 
         for arg in args {
@@ -405,7 +413,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                     llargument_tys.push(arg.layout.scalar_pair_element_llvm_type(cx, 1, true));
                     continue;
                 }
-                PassMode::Indirect { attrs: _, meta_attrs: Some(_), address_space: _, mode: _ } => {
+                PassMode::IndirectUnsized { attrs: _, meta_attrs: _ } => {
                     // Construct the type of a (wide) pointer to `ty`, and pass its two fields.
                     // Any two ABI-compatible unsized types have the same metadata type and
                     // moreover the same metadata value leads to the same dynamic size and
@@ -416,7 +424,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                     llargument_tys.push(ptr_layout.scalar_pair_element_llvm_type(cx, 1, true));
                     continue;
                 }
-                PassMode::Indirect { attrs: _, meta_attrs: None, address_space, mode: _ } => {
+                PassMode::Indirect { attrs: _, address_space, mode: _ } => {
                     if let Some(address_space) = address_space {
                         cx.type_ptr_ext(*address_space)
                     } else {
@@ -516,7 +524,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                     apply_range_attr(llvm::AttributePlace::ReturnValue, scalar);
                 }
             }
-            PassMode::Indirect { attrs, meta_attrs: _, address_space: _, mode } => {
+            PassMode::Indirect { attrs, address_space: _, mode } => {
                 assert!(*mode == IndirectMode::Pointer);
                 let i = apply(attrs);
                 let sret = llvm::CreateStructRetAttr(
@@ -535,6 +543,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                     );
                 }
             }
+            PassMode::IndirectUnsized { .. } => bug!("unsized returns are not supported"),
             PassMode::Cast { cast, pad_i32_count: _ } => {
                 cast.attrs.apply_attrs_to_llfn(llvm::AttributePlace::ReturnValue, cx, llfn);
             }
@@ -543,12 +552,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
         for arg in self.args.iter() {
             match &arg.mode {
                 PassMode::Ignore => {}
-                PassMode::Indirect {
-                    attrs,
-                    meta_attrs: None,
-                    address_space: _,
-                    mode: IndirectMode::OnStack,
-                } => {
+                PassMode::Indirect { attrs, address_space: _, mode: IndirectMode::OnStack } => {
                     let i = apply(attrs);
                     let byval = llvm::CreateByValAttr(
                         cx.llcx,
@@ -558,7 +562,6 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                 }
                 PassMode::Indirect {
                     attrs,
-                    meta_attrs: None,
                     address_space: _,
                     mode: IndirectMode::AmdgpuKernelArg,
                 } => {
@@ -575,12 +578,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                         apply_range_attr(llvm::AttributePlace::Argument(i), scalar);
                     }
                 }
-                PassMode::Indirect {
-                    attrs,
-                    meta_attrs: None,
-                    address_space: _,
-                    mode: IndirectMode::Pointer,
-                } => {
+                PassMode::Indirect { attrs, address_space: _, mode: IndirectMode::Pointer } => {
                     let i = apply(attrs);
                     if cx.sess().opts.optimize != config::OptLevel::No {
                         attributes::apply_to_llfn(
@@ -590,13 +588,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                         );
                     }
                 }
-                PassMode::Indirect {
-                    attrs,
-                    meta_attrs: Some(meta_attrs),
-                    address_space: _,
-                    mode,
-                } => {
-                    assert!(*mode == IndirectMode::Pointer);
+                PassMode::IndirectUnsized { attrs, meta_attrs } => {
                     apply(attrs);
                     apply(meta_attrs);
                 }
@@ -674,7 +666,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
             PassMode::Direct(attrs) => {
                 attrs.apply_attrs_to_callsite(llvm::AttributePlace::ReturnValue, bx.cx, callsite);
             }
-            PassMode::Indirect { attrs, meta_attrs: _, address_space: _, mode } => {
+            PassMode::Indirect { attrs, address_space: _, mode } => {
                 assert!(*mode == IndirectMode::Pointer);
                 let i = apply(bx.cx, attrs);
                 let sret = llvm::CreateStructRetAttr(
@@ -683,6 +675,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                 );
                 attributes::apply_to_callsite(callsite, llvm::AttributePlace::Argument(i), &[sret]);
             }
+            PassMode::IndirectUnsized { .. } => bug!("unsized returns are not supported"),
             PassMode::Cast { cast, pad_i32_count: _ } => {
                 cast.attrs.apply_attrs_to_callsite(
                     llvm::AttributePlace::ReturnValue,
@@ -695,12 +688,7 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
         for arg in self.args.iter() {
             match &arg.mode {
                 PassMode::Ignore => {}
-                PassMode::Indirect {
-                    attrs,
-                    meta_attrs: None,
-                    address_space: _,
-                    mode: IndirectMode::OnStack,
-                } => {
+                PassMode::Indirect { attrs, address_space: _, mode: IndirectMode::OnStack } => {
                     let i = apply(bx.cx, attrs);
                     let byval = llvm::CreateByValAttr(
                         bx.cx.llcx,
@@ -714,7 +702,6 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                 }
                 PassMode::Indirect {
                     attrs,
-                    meta_attrs: None,
                     address_space: _,
                     mode: IndirectMode::AmdgpuKernelArg,
                 } => {
@@ -730,20 +717,10 @@ impl<'ll, 'tcx> FnAbiLlvmExt<'ll, 'tcx> for FnAbi<'tcx, Ty<'tcx>> {
                     );
                 }
                 PassMode::Direct(attrs)
-                | PassMode::Indirect {
-                    attrs,
-                    meta_attrs: None,
-                    address_space: _,
-                    mode: IndirectMode::Pointer,
-                } => {
+                | PassMode::Indirect { attrs, address_space: _, mode: IndirectMode::Pointer } => {
                     apply(bx.cx, attrs);
                 }
-                PassMode::Indirect {
-                    attrs,
-                    meta_attrs: Some(meta_attrs),
-                    address_space: _,
-                    mode: _,
-                } => {
+                PassMode::IndirectUnsized { attrs, meta_attrs } => {
                     apply(bx.cx, attrs);
                     apply(bx.cx, meta_attrs);
                 }

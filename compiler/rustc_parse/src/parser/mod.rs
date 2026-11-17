@@ -215,7 +215,7 @@ pub struct Parser<'a> {
     // token. For example, capturing the `Vec<u8>` in `Option<Vec<u8>>`
     // requires us to unglue the trailing `>>` token. The `break_last_token`
     // field is used to track these tokens. They get appended to the captured
-    // stream when we evaluate a `LazyAttrTokenStream`.
+    // stream when we evaluate a `LazyTokenStream`.
     //
     // This value is always 0, 1, or 2. It can only reach 2 when splitting
     // `>>=` or `<<=`.
@@ -260,14 +260,12 @@ struct ClosureSpans {
     body: Span,
 }
 
-/// Controls how we capture tokens. Capturing can be expensive,
-/// so we try to avoid performing capturing in cases where
-/// we will never need an `AttrTokenStream`.
+/// Controls how we capture tokens. Capturing can be expensive, so we avoid it when possible.
 #[derive(Copy, Clone, Debug)]
 enum Capturing {
     /// We aren't performing any capturing - this is the default mode.
     No,
-    /// We are capturing tokens
+    /// We are capturing tokens.
     Yes,
 }
 
@@ -459,15 +457,17 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse_ident_common(&mut self, recover: bool) -> PResult<'a, Ident> {
         let (ident, kind) = self.ident_or_err(recover)?;
 
-        if kind == IdentKind::Normal && ident.is_reserved() {
+        if token::ident_of_kind_is_reserved(ident, kind) {
             let err = self.expected_ident_found_err();
-            if recover {
+            if recover && kind != IdentKind::ForcedKeyword {
                 err.emit();
             } else {
                 return Err(err);
             }
         }
+
         self.bump();
+
         Ok(ident)
     }
 
@@ -630,6 +630,15 @@ impl<'a> Parser<'a> {
         if !self.eat_keyword(exp) { self.unexpected() } else { Ok(()) }
     }
 
+    #[must_use]
+    pub(crate) fn eat_forced_keyword_noexpect(&mut self, kw: Symbol) -> bool {
+        if self.token.is_forced_keyword(kw) {
+            self.bump();
+            return true;
+        }
+        false
+    }
+
     /// Consume a sequence produced by a metavar expansion, if present.
     pub fn eat_metavar_seq<T>(
         &mut self,
@@ -722,7 +731,10 @@ impl<'a> Parser<'a> {
 
         self.is_keyword_ahead(0, &[kw::Const])
             && self.look_ahead(1, |t| match t.uninterpolate().kind {
-                token::Ident(kw::Move | kw::Use | kw::Static, IdentKind::Normal)
+                token::Ident(
+                    kw::Move | kw::Use | kw::Static,
+                    IdentKind::Normal | IdentKind::ForcedKeyword,
+                )
                 | token::OrOr
                 | token::Or => true,
                 _ => false,

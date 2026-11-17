@@ -5,9 +5,7 @@ error: fn_abi_of(take_va_list) = FnAbi {
                        ty: VaList<'_>,
                        layout: Layout {
                            size: Size(24 bytes),
-                           align: AbiAlign {
-                               abi: Align(8 bytes),
-                           },
+                           align: Align(8 bytes),
                            backend_repr: Memory {
                                sized: true,
                            },
@@ -22,6 +20,7 @@ error: fn_abi_of(take_va_list) = FnAbi {
                            },
                            max_repr_align: None,
                            unadjusted_abi_align: Align(8 bytes),
+                           repr_c: true,
                            randomization_seed: $SEED,
                        },
                    },
@@ -34,7 +33,6 @@ error: fn_abi_of(take_va_list) = FnAbi {
                                Align(8 bytes),
                            ),
                        },
-                       meta_attrs: None,
                        address_space: None,
                        mode: Pointer,
                    },
@@ -45,9 +43,7 @@ error: fn_abi_of(take_va_list) = FnAbi {
                    ty: (),
                    layout: Layout {
                        size: Size(0 bytes),
-                       align: AbiAlign {
-                           abi: Align(1 bytes),
-                       },
+                       align: Align(1 bytes),
                        backend_repr: Memory {
                            sized: true,
                        },
@@ -62,6 +58,7 @@ error: fn_abi_of(take_va_list) = FnAbi {
                        },
                        max_repr_align: None,
                        unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
                        randomization_seed: $SEED,
                    },
                },
@@ -84,9 +81,7 @@ error: fn_abi_of(take_va_list_sysv64) = FnAbi {
                        ty: VaList<'_>,
                        layout: Layout {
                            size: Size(24 bytes),
-                           align: AbiAlign {
-                               abi: Align(8 bytes),
-                           },
+                           align: Align(8 bytes),
                            backend_repr: Memory {
                                sized: true,
                            },
@@ -101,6 +96,7 @@ error: fn_abi_of(take_va_list_sysv64) = FnAbi {
                            },
                            max_repr_align: None,
                            unadjusted_abi_align: Align(8 bytes),
+                           repr_c: true,
                            randomization_seed: $SEED,
                        },
                    },
@@ -113,7 +109,6 @@ error: fn_abi_of(take_va_list_sysv64) = FnAbi {
                                Align(8 bytes),
                            ),
                        },
-                       meta_attrs: None,
                        address_space: None,
                        mode: Pointer,
                    },
@@ -124,9 +119,7 @@ error: fn_abi_of(take_va_list_sysv64) = FnAbi {
                    ty: (),
                    layout: Layout {
                        size: Size(0 bytes),
-                       align: AbiAlign {
-                           abi: Align(1 bytes),
-                       },
+                       align: Align(1 bytes),
                        backend_repr: Memory {
                            sized: true,
                        },
@@ -141,6 +134,7 @@ error: fn_abi_of(take_va_list_sysv64) = FnAbi {
                        },
                        max_repr_align: None,
                        unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
                        randomization_seed: $SEED,
                    },
                },
@@ -165,9 +159,7 @@ error: fn_abi_of(take_va_list_win64) = FnAbi {
                        ty: VaList<'_>,
                        layout: Layout {
                            size: Size(24 bytes),
-                           align: AbiAlign {
-                               abi: Align(8 bytes),
-                           },
+                           align: Align(8 bytes),
                            backend_repr: Memory {
                                sized: true,
                            },
@@ -182,6 +174,7 @@ error: fn_abi_of(take_va_list_win64) = FnAbi {
                            },
                            max_repr_align: None,
                            unadjusted_abi_align: Align(8 bytes),
+                           repr_c: true,
                            randomization_seed: $SEED,
                        },
                    },
@@ -194,7 +187,6 @@ error: fn_abi_of(take_va_list_win64) = FnAbi {
                                Align(8 bytes),
                            ),
                        },
-                       meta_attrs: None,
                        address_space: None,
                        mode: Pointer,
                    },
@@ -205,9 +197,7 @@ error: fn_abi_of(take_va_list_win64) = FnAbi {
                    ty: (),
                    layout: Layout {
                        size: Size(0 bytes),
-                       align: AbiAlign {
-                           abi: Align(1 bytes),
-                       },
+                       align: Align(1 bytes),
                        backend_repr: Memory {
                            sized: true,
                        },
@@ -222,6 +212,7 @@ error: fn_abi_of(take_va_list_win64) = FnAbi {
                        },
                        max_repr_align: None,
                        unadjusted_abi_align: Align(1 bytes),
+                       repr_c: false,
                        randomization_seed: $SEED,
                    },
                },
