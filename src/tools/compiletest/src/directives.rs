@@ -87,10 +87,8 @@ pub(crate) struct TestProps {
     // Regexes that should be expected, in order, on standard out
     pub(crate) regex_error_patterns: Vec<String>,
     /// Edition selected by an `//@ edition` directive, if any.
-    ///
-    /// Automatically added to `compile_flags` during directive processing.
     pub(crate) edition: Option<Edition>,
-    // Extra flags to pass to the compiler
+    // Extra flags to pass to the compiler.
     pub(crate) compile_flags: Vec<String>,
     // Extra flags to pass when the compiled code is run (such as --bench)
     pub(crate) run_flags: Vec<String>,
@@ -222,6 +220,7 @@ pub(crate) struct TestProps {
 }
 
 mod directives {
+    pub(crate) const ACT_AS_STABLE: &str = "act-as-stable";
     pub(crate) const ERROR_PATTERN: &str = "error-pattern";
     pub(crate) const REGEX_ERROR_PATTERN: &str = "regex-error-pattern";
     pub(crate) const COMPILE_FLAGS: &str = "compile-flags";
@@ -403,12 +402,6 @@ impl TestProps {
                     self.exec_env.push(((*key).to_owned(), val))
                 }
             }
-        }
-
-        if let Some(edition) = self.edition.or(config.edition) {
-            // The edition is added at the start, since flags from //@compile-flags must be passed
-            // to rustc last.
-            self.compile_flags.insert(0, format!("--edition={edition}"));
         }
     }
 

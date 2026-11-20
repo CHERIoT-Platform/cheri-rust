@@ -5,15 +5,16 @@ use std::ops::ControlFlow;
 
 use either::Either;
 use hir::{ClosureKind, Path};
+use rustc_attr_ir::diagnostic::{CustomDiagnostic, FormatArgs};
+use rustc_attr_ir::find_attr;
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxIndexSet;
 use rustc_errors::codes::*;
 use rustc_errors::{Applicability, Diag, MultiSpan, struct_span_code_err};
 use rustc_hir as hir;
-use rustc_hir::attrs::diagnostic::{CustomDiagnostic, FormatArgs};
-use rustc_hir::attrs::lang_items::LangItem;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::intravisit::{Visitor, walk_block, walk_expr};
-use rustc_hir::{CoroutineDesugaring, CoroutineKind, CoroutineSource, PatField, find_attr};
+use rustc_hir::{CoroutineDesugaring, CoroutineKind, CoroutineSource, PatField};
 use rustc_index::bit_set::DenseBitSet;
 use rustc_infer::traits::TraitErrors;
 use rustc_middle::hir::nested_filter::OnlyBodies;
@@ -25,7 +26,7 @@ use rustc_middle::mir::{
 };
 use rustc_middle::ty::print::PrintTraitRefExt as _;
 use rustc_middle::ty::{
-    self, PredicateKind, Ty, TyCtxt, TypeSuperVisitable, TypeVisitor, Upcast,
+    self, CallerBoundsIterator, PredicateKind, Ty, TyCtxt, TypeSuperVisitable, TypeVisitor, Upcast,
     suggest_constraining_type_params,
 };
 use rustc_mir_dataflow::move_paths::{Init, InitKind, InitLocation, MoveOutIndex, MovePathIndex};
@@ -284,7 +285,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
             let place = &self.move_data.move_paths[mpi].place;
             let ty = place.ty(self.body, self.infcx.tcx).ty;
 
-            if self.infcx.param_env.caller_bounds().any(|c| {
+            if self.infcx.param_env.caller_bounds().all_clauses(self.infcx.tcx).iter().any(|c| {
                 c.as_trait_clause().is_some_and(|pred| {
                     pred.skip_binder().self_ty() == ty && self.infcx.tcx.is_fn_trait(pred.def_id())
                 })
@@ -893,7 +894,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
                 .errors
                 .iter()
                 .map(|error| error.span)
-                .any(|sp| span < sp && !sp.contains(span))
+                .any(|sp| span.lo_hi() < sp.lo_hi() && !sp.contains(span))
         }) {
             show_assign_sugg = true;
             if all_init_spans.iter().any(|init_span| !init_span.contains(span))
@@ -929,7 +930,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
         let mut shown = false;
         let mut shown_condition_value = false;
         for error in visitor.errors {
-            if error.span < span && !error.span.overlaps(span) {
+            if error.span.lo_hi() < span.lo_hi() && !error.span.overlaps(span) {
                 // When we have a case like `match-cfg-fake-edges.rs`, we don't want to mention
                 // match arms coming after the primary span because they aren't relevant:
                 // ```
@@ -950,7 +951,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
         }
         if !shown {
             for sp in &reachable_spans {
-                if *sp < span && !sp.overlaps(span) {
+                if sp.lo_hi() < span.lo_hi() && !sp.overlaps(span) {
                     err.span_label(*sp, "binding initialized here in some conditions");
                 }
             }
@@ -1294,7 +1295,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
             // In practice unless there are more than one field with the same type, we'll be
             // suggesting a single field at a type, because we don't aggregate multiple borrow
             // checker errors involving the functional record update syntax into a single one.
-            let field_ty = field.ty(self.infcx.tcx, args).skip_norm_wip();
+            let field_ty = field.ty(self.infcx.tcx, *args).skip_norm_wip();
             let ident = field.ident(self.infcx.tcx);
             if field_ty == ty && fields.iter().all(|field| field.ident.name != ident.name) {
                 // Suggest adding field and cloning it.
@@ -1370,7 +1371,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
             && let Some(local_did) = def.did().as_local()
             && def.variants().iter().all(|variant| {
                 variant.fields.iter().all(|field| {
-                    self.implements_clone(field.ty(self.infcx.tcx, args).skip_norm_wip())
+                    self.implements_clone(field.ty(self.infcx.tcx, *args).skip_norm_wip())
                 })
             })
         {
@@ -2544,7 +2545,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
 
                 if let hir::ExprKind::MethodCall(body_call, recv, ..) = ex.kind
                     && body_call.ident.name == sym::next
-                    && recv.span.source_equal(self.expr_span)
+                    && recv.span.lo_hi() == self.expr_span.lo_hi()
                 {
                     self.body_expr = Some(ex);
                 }
@@ -3842,8 +3843,11 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
             location: Location,
         ) -> impl Iterator<Item = Location> {
             if location.statement_index == 0 {
-                let predecessors = body.basic_blocks.predecessors()[location.block].to_vec();
-                Either::Left(predecessors.into_iter().map(move |bb| body.terminator_loc(bb)))
+                Either::Left(
+                    body.basic_blocks.predecessors()[location.block]
+                        .iter()
+                        .map(|&bb| body.terminator_loc(bb)),
+                )
             } else {
                 Either::Right(std::iter::once(Location {
                     statement_index: location.statement_index - 1,
@@ -4599,7 +4603,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
                         // `return_region`. Then use the `rustc_hir` type to get only
                         // the lifetime span.
                         match &fn_decl.inputs[index].kind {
-                            hir::TyKind::Ref(lifetime, _) => {
+                            hir::TyKind::Ref(lifetime, ..) => {
                                 // With access to the lifetime, we can get
                                 // the span of it.
                                 arguments.push((*argument, lifetime.ident.span));
@@ -4614,7 +4618,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
                                         .hir_node_by_def_id(alias_to)
                                         .expect_item()
                                         .expect_impl()
-                                    && let hir::TyKind::Ref(lifetime, _) = self_ty.kind
+                                    && let hir::TyKind::Ref(lifetime, ..) = self_ty.kind
                                 {
                                     arguments.push((*argument, lifetime.ident.span));
                                 }
@@ -4636,7 +4640,7 @@ impl<'diag, 'tcx> MirBorrowckCtxt<'_, 'diag, 'tcx> {
                 let return_ty = sig.output().skip_binder();
                 let mut return_span = fn_decl.output.span();
                 if let hir::FnRetTy::Return(ty) = &fn_decl.output
-                    && let hir::TyKind::Ref(lifetime, _) = ty.kind
+                    && let hir::TyKind::Ref(lifetime, ..) = ty.kind
                 {
                     return_span = lifetime.ident.span;
                 }

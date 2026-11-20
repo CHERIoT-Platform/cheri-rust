@@ -9,12 +9,12 @@ use std::rc::Rc;
 
 use rustc_target::spec::Os;
 
+use super::fd::EvalContextExt as _;
 use crate::concurrency::VClock;
 use crate::shims::files::{
     EvalContextExt as _, FileDescription, FileDescriptionRef, WeakFileDescriptionRef,
 };
 use crate::shims::readiness::DelayedReadinessUpdates;
-use crate::shims::sig::Varargs;
 use crate::shims::unix::UnixFileDescription;
 use crate::shims::unix::socket::UnixSocketFileDescription;
 use crate::*;
@@ -109,6 +109,7 @@ impl FileDescription for VirtualSocket {
 
     fn metadata<'tcx>(
         &self,
+        _communicate_allowed: bool,
     ) -> InterpResult<'tcx, Either<io::Result<std::fs::Metadata>, &'static str>> {
         let mode_name = match self.fd_type {
             VirtualSocketType::Socketpair => "S_IFSOCK",
@@ -147,63 +148,8 @@ impl FileDescription for VirtualSocket {
         false
     }
 
-    fn as_unix<'tcx>(
-        self: FileDescriptionRef<Self>,
-        _ecx: &MiriInterpCx<'tcx>,
-    ) -> FileDescriptionRef<dyn UnixFileDescription> {
+    fn as_unix(self: FileDescriptionRef<Self>) -> FileDescriptionRef<dyn UnixFileDescription> {
         self
-    }
-
-    fn get_flags<'tcx>(&self, ecx: &mut MiriInterpCx<'tcx>) -> InterpResult<'tcx, Scalar> {
-        let mut flags = 0;
-
-        // Get flag for file access mode.
-        // The flag for both socketpair and pipe will remain the same even when the peer
-        // fd is closed, so we need to look at the original type of this socket, not at whether
-        // the peer socket still exists.
-        match self.fd_type {
-            VirtualSocketType::Socketpair => {
-                flags |= ecx.eval_libc_i32("O_RDWR");
-            }
-            VirtualSocketType::PipeRead => {
-                flags |= ecx.eval_libc_i32("O_RDONLY");
-            }
-            VirtualSocketType::PipeWrite => {
-                flags |= ecx.eval_libc_i32("O_WRONLY");
-            }
-        }
-
-        // Get flag for blocking status.
-        if self.is_nonblock.get() {
-            flags |= ecx.eval_libc_i32("O_NONBLOCK");
-        }
-
-        interp_ok(Scalar::from_i32(flags))
-    }
-
-    fn set_flags<'tcx>(
-        &self,
-        mut flag: i32,
-        ecx: &mut MiriInterpCx<'tcx>,
-    ) -> InterpResult<'tcx, Scalar> {
-        let o_nonblock = ecx.eval_libc_i32("O_NONBLOCK");
-
-        // O_NONBLOCK flag can be set / unset by user.
-        if flag & o_nonblock == o_nonblock {
-            self.is_nonblock.set(true);
-            flag &= !o_nonblock;
-        } else {
-            self.is_nonblock.set(false);
-        }
-
-        // Throw error if there is any unsupported flag.
-        if flag != 0 {
-            throw_unsup_format!(
-                "fcntl: only O_NONBLOCK is supported for F_SETFL on socketpairs and pipes"
-            )
-        }
-
-        interp_ok(Scalar::from_i32(0))
     }
 
     fn readiness_watched(&self) -> Option<&ReadinessWatched> {
@@ -258,52 +204,60 @@ impl FileDescription for VirtualSocket {
 }
 
 impl UnixFileDescription for VirtualSocket {
-    fn ioctl<'tcx>(
-        &self,
-        op: Scalar,
-        args: Varargs<'tcx, '_>,
-        ecx: &mut MiriInterpCx<'tcx>,
-    ) -> InterpResult<'tcx, i32> {
+    fn get_flags<'tcx>(&self, ecx: &mut MiriInterpCx<'tcx>) -> InterpResult<'tcx, Scalar> {
+        let mut flags = 0;
+
+        // Get flag for file access mode.
+        // The flag for both socketpair and pipe will remain the same even when the peer
+        // fd is closed, so we need to look at the original type of this socket, not at whether
+        // the peer socket still exists.
         match self.fd_type {
-            VirtualSocketType::Socketpair => { /* fall-through to below */ }
-            VirtualSocketType::PipeRead | VirtualSocketType::PipeWrite => {
-                // The standard library only uses ioctl for changing the blocking mode
-                // of Unix sockets. Thus, since using ioctl isn't the preferred way of
-                // changing the blocking mode, we don't support it on pipes.
-                throw_unsup_format!("cannot use ioctl on pipe");
+            VirtualSocketType::Socketpair => {
+                flags |= ecx.eval_libc_i32("O_RDWR");
+            }
+            VirtualSocketType::PipeRead => {
+                flags |= ecx.eval_libc_i32("O_RDONLY");
+            }
+            VirtualSocketType::PipeWrite => {
+                flags |= ecx.eval_libc_i32("O_WRONLY");
             }
         }
 
-        let fionbio = ecx.eval_libc("FIONBIO");
-
-        if op == fionbio {
-            // On these OSes, Rust uses the ioctl, so we trust that it is reasonable and controls
-            // the same internal flag as fcntl.
-            if !matches!(ecx.tcx.sess.target.os, Os::Linux | Os::Android | Os::MacOs | Os::FreeBsd)
-            {
-                // FIONBIO cannot be used to change the blocking mode of a socket on solarish targets:
-                // <https://github.com/rust-lang/rust/commit/dda5c97675b4f5b1f6fdab64606c8a1f21021b0a>
-                // Since there might be more targets which do weird things with this option, we use
-                // an allowlist instead of just denying solarish targets.
-                throw_unsup_format!(
-                    "ioctl: setting FIONBIO on sockets is unsupported on target {}",
-                    ecx.tcx.sess.target.os
-                );
-            }
-
-            let ([value_ptr], _) = ecx.check_varargs(shim_varargs![*i32], args, "ioctl")?;
-            let value = ecx.deref_pointer_as(value_ptr, ecx.machine.layouts.i32)?;
-            let non_block = ecx.read_scalar(&value)?.to_i32()? != 0;
-            self.is_nonblock.set(non_block);
-            return interp_ok(0);
+        // Get flag for blocking status.
+        if self.is_nonblock.get() {
+            flags |= ecx.eval_libc_i32("O_NONBLOCK");
         }
 
-        throw_unsup_format!("ioctl: unsupported operation {op:#x} on socket");
+        interp_ok(Scalar::from_i32(flags))
     }
 
-    fn as_socket<'tcx>(
+    fn set_flags<'tcx>(
+        &self,
+        mut flag: i32,
+        ecx: &mut MiriInterpCx<'tcx>,
+    ) -> InterpResult<'tcx, Scalar> {
+        let o_nonblock = ecx.eval_libc_i32("O_NONBLOCK");
+
+        // O_NONBLOCK flag can be set / unset by user.
+        if flag & o_nonblock == o_nonblock {
+            self.is_nonblock.set(true);
+            flag &= !o_nonblock;
+        } else {
+            self.is_nonblock.set(false);
+        }
+
+        // Throw error if there is any unsupported flag.
+        if flag != 0 {
+            throw_unsup_format!(
+                "fcntl: only O_NONBLOCK is supported for F_SETFL on socketpairs and pipes"
+            )
+        }
+
+        interp_ok(Scalar::from_i32(0))
+    }
+
+    fn as_socket(
         self: FileDescriptionRef<Self>,
-        _ecx: &MiriInterpCx<'tcx>,
     ) -> Option<FileDescriptionRef<dyn UnixSocketFileDescription>> {
         match self.fd_type {
             VirtualSocketType::Socketpair => Some(self),
@@ -565,7 +519,7 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         let mut flags = this.read_scalar(type_)?.to_i32()?;
         let protocol = this.read_scalar(protocol)?.to_i32()?;
         // This is really a pointer to `[i32; 2]` but we use a ptr-to-first-element representation.
-        let sv = this.deref_pointer_as(sv, this.machine.layouts.i32)?;
+        let sv = this.deref_pointer(sv)?;
 
         let mut is_sock_nonblock = false;
 
@@ -640,14 +594,19 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         fd1.peer_fd.set(FileDescriptionRef::downgrade(&fd0)).unwrap();
 
         // Insert the file description to the fd table, generating the file descriptors.
-        let sv0 = fds.insert(fd0);
-        let sv1 = fds.insert(fd1);
+        let Some(sv0) = fds.insert(fd0) else {
+            return this.set_errno_and_return_neg1_i32(LibcError("EMFILE"));
+        };
+        let Some(sv1) = fds.insert(fd1) else {
+            this.close(sv0)?; // don't leak the first FD
+            return this.set_errno_and_return_neg1_i32(LibcError("EMFILE"));
+        };
 
         // Return socketpair file descriptors to the caller.
         let sv0 = Scalar::from_int(sv0, sv.layout.size);
         let sv1 = Scalar::from_int(sv1, sv.layout.size);
         this.write_scalar(sv0, &sv)?;
-        this.write_scalar(sv1, &sv.offset(sv.layout.size, sv.layout, this)?)?;
+        this.write_scalar(sv1, &this.project_c_array_field(&sv, 1)?)?;
 
         interp_ok(Scalar::from_i32(0))
     }
@@ -659,7 +618,7 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
     ) -> InterpResult<'tcx, Scalar> {
         let this = self.eval_context_mut();
 
-        let pipefd = this.deref_pointer_as(pipefd, this.machine.layouts.i32)?;
+        let pipefd = this.deref_pointer(pipefd)?;
         let mut flags = match flags {
             Some(flags) => this.read_scalar(flags)?.to_i32()?,
             None => 0,
@@ -714,14 +673,19 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         fd1.peer_fd.set(FileDescriptionRef::downgrade(&fd0)).unwrap();
 
         // Insert the file description to the fd table, generating the file descriptors.
-        let pipefd0 = fds.insert(fd0);
-        let pipefd1 = fds.insert(fd1);
+        let Some(pipefd0) = fds.insert(fd0) else {
+            return this.set_errno_and_return_neg1_i32(LibcError("EMFILE"));
+        };
+        let Some(pipefd1) = fds.insert(fd1) else {
+            this.close(pipefd0)?; // don't leak the first FD
+            return this.set_errno_and_return_neg1_i32(LibcError("EMFILE"));
+        };
 
         // Return file descriptors to the caller.
         let pipefd0 = Scalar::from_int(pipefd0, pipefd.layout.size);
         let pipefd1 = Scalar::from_int(pipefd1, pipefd.layout.size);
         this.write_scalar(pipefd0, &pipefd)?;
-        this.write_scalar(pipefd1, &pipefd.offset(pipefd.layout.size, pipefd.layout, this)?)?;
+        this.write_scalar(pipefd1, &this.project_c_array_field(&pipefd, 1)?)?;
 
         interp_ok(Scalar::from_i32(0))
     }

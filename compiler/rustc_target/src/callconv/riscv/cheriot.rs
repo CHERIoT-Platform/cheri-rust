@@ -126,7 +126,7 @@ where
     }
 
     let arg_size = arg.layout.size;
-    let arg_alignment = arg.layout.align.abi;
+    let arg_alignment = arg.layout.align;
     let cap_reg = Reg::ptr(cx);
 
     // "In the pure-capability ABIs, the handling of variadic arguments is different.

@@ -1,13 +1,11 @@
-use rustc_ast::{self as ast, AttrArgs, GenericArg, GenericParamKind, Generics, ItemKind, token};
+use rustc_ast::{self as ast, AttrArgs, Generics, ItemKind, token};
 use rustc_errors::E0802;
 use rustc_expand::base::ExtCtxt;
 use rustc_macros::Diagnostic;
 use rustc_span::{Ident, Span, Symbol, sym};
 use thin_vec::ThinVec;
 
-macro_rules! path {
-    ($span:expr, $($part:ident)::*) => { vec![$(Ident::new(sym::$part, $span),)*] }
-}
+use crate::deriving::generic::*;
 
 pub(crate) fn expand_deriving_reborrow(
     cx: &ExtCtxt<'_>,
@@ -43,7 +41,7 @@ pub(crate) fn expand_deriving_coerce_shared(
         ident,
         generics,
         sym::CoerceShared,
-        vec![GenericArg::Type(target)],
+        vec![ast::GenericArg::Type(target)],
         push,
     );
 }
@@ -114,76 +112,26 @@ fn push_marker_impl(
     ident: Ident,
     generics: &Generics,
     trait_name: Symbol,
-    trait_args: Vec<GenericArg>,
+    trait_args: Vec<ast::GenericArg>,
     push: &mut dyn FnMut(Box<ast::Item>),
 ) {
-    let mut trait_parts = path!(span, core::marker);
-    trait_parts.push(Ident::new(trait_name, span));
-    let trait_path = cx.path_all(span, true, trait_parts, trait_args);
+    let trait_path = cx.std_path_all(span, &[sym::marker, trait_name], trait_args);
     let trait_ref = cx.trait_ref(trait_path);
 
-    let self_params: Vec<_> = generics
-        .params
-        .iter()
-        .map(|param| match param.kind {
-            GenericParamKind::Lifetime => {
-                GenericArg::Lifetime(cx.lifetime(param.span(), param.ident))
-            }
-            GenericParamKind::Type { .. } => {
-                GenericArg::Type(cx.ty_ident(param.span(), param.ident))
-            }
-            GenericParamKind::Const { .. } => {
-                GenericArg::Const(cx.const_ident(param.span(), param.ident))
-            }
-        })
-        .collect();
-    let self_ty = cx.ty_path(cx.path_all(span, false, vec![ident], self_params));
+    let self_params: Vec<_> =
+        generics.params.iter().map(|p| generic_param_to_arg(cx, p, p.span())).collect();
+    let self_ty = cx.ty_path(cx.path_all(span, &[ident], self_params));
 
-    push(cx.item(
+    push(cx.item_trait_impl(
         span,
-        thin_vec::thin_vec![cx.attr_word(sym::automatically_derived, span)],
-        ast::ItemKind::Impl(ast::Impl {
-            generics: impl_generics(cx, generics),
-            of_trait: Some(Box::new(ast::TraitImplHeader {
-                safety: ast::Safety::Default,
-                polarity: ast::ImplPolarity::Positive,
-                defaultness: ast::Defaultness::Implicit,
-                trait_ref,
-            })),
-            constness: ast::Const::No,
-            self_ty,
-            items: ThinVec::new(),
-        }),
+        thin_vec::thin_vec![cx.generated_attr(span, ast::GeneratedAttr::AutomaticallyDerived)],
+        generics_without_defaults(generics),
+        ast::Safety::Default,
+        false,
+        trait_ref,
+        self_ty,
+        ThinVec::new(),
     ));
-}
-
-fn impl_generics(cx: &ExtCtxt<'_>, generics: &Generics) -> Generics {
-    // Rebuild the generic parameter declarations because defaults are allowed on structs but
-    // rejected on impls. Preserve lifetime, type, and const parameters and their bounds, const
-    // parameter types, and the where-clause, while omitting type and const defaults.
-    Generics {
-        params: generics
-            .params
-            .iter()
-            .map(|param| match &param.kind {
-                GenericParamKind::Lifetime => {
-                    cx.lifetime_param(param.span(), param.ident, param.bounds.clone())
-                }
-                GenericParamKind::Type { default: _ } => {
-                    cx.typaram(param.span(), param.ident, param.bounds.clone(), None)
-                }
-                GenericParamKind::Const { ty, span: _, default: _ } => cx.const_param(
-                    param.span(),
-                    param.ident,
-                    param.bounds.clone(),
-                    ty.clone(),
-                    None,
-                ),
-            })
-            .collect(),
-        where_clause: generics.where_clause.clone(),
-        span: generics.span,
-    }
 }
 
 #[derive(Diagnostic)]

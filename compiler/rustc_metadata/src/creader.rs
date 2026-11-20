@@ -12,18 +12,20 @@ use rustc_data_structures::fx::FxHashSet;
 use rustc_data_structures::owned_slice::OwnedSlice;
 use rustc_data_structures::svh::Svh;
 use rustc_data_structures::sync::{self, FreezeReadGuard, FreezeWriteGuard};
-use rustc_data_structures::unord::UnordMap;
+use rustc_data_structures::unord::{UnordMap, UnordSet};
 use rustc_expand::base::SyntaxExtension;
 use rustc_hir::def_id::{CrateNum, LOCAL_CRATE, LocalDefId, StableCrateId};
-use rustc_hir::definitions::Definitions;
+use rustc_hir::definitions::{DefPathData, Definitions};
 use rustc_index::IndexVec;
 use rustc_lint_defs as lint;
-use rustc_lint_defs::builtin::UNUSED_CRATE_DEPENDENCIES;
+use rustc_lint_defs::builtin::{PARTIAL_STACK_PROTECTOR, UNUSED_CRATE_DEPENDENCIES};
 use rustc_middle::ty::data_structures::IndexSet;
 use rustc_middle::ty::{TyCtxt, TyCtxtFeed};
 use rustc_proc_macro::bridge::client::Client as ProcMacroClient;
 use rustc_session::Session;
-use rustc_session::config::mitigation_coverage::DeniedPartialMitigationLevel;
+use rustc_session::config::mitigation_coverage::{
+    DeniedPartialMitigationKind, DeniedPartialMitigationLevel,
+};
 use rustc_session::config::{
     ExtendedTargetModifierInfo, ExternLocation, Externs, OptionsTargetModifiers, TargetModifier,
 };
@@ -359,6 +361,61 @@ impl CStore {
                 return;
             }
             let extern_crate = data.name();
+
+            if prefix.is_empty() {
+                // A synthetic target modifier, does not correspond to an actual flag.
+                match opt_name.as_str() {
+                    "target-feature" => {
+                        // Compute the features we have locally that don't exist in the other crate,
+                        // and the features the other crate has that are missing locally.
+                        let mut local_features = FxHashSet::from_iter(
+                            flag_local_value.unwrap().split(",").filter(|s| !s.is_empty()),
+                        );
+                        let mut extern_features = FxHashSet::from_iter(
+                            flag_extern_value.unwrap().split(",").filter(|s| !s.is_empty()),
+                        );
+                        #[allow(rustc::potential_query_instability)] // we are sorting below
+                        let both_features = FxHashSet::from_iter(
+                            local_features.intersection(&extern_features).copied(),
+                        );
+                        #[allow(rustc::potential_query_instability)] // we are sorting below
+                        for feature in both_features {
+                            local_features.remove(feature);
+                            extern_features.remove(feature);
+                        }
+                        let local_features =
+                            UnordSet::from(local_features).into_sorted_stable_ord();
+                        let extern_features =
+                            UnordSet::from(extern_features).into_sorted_stable_ord();
+                        assert!(local_features.len() > 0 || extern_features.len() > 0);
+
+                        let diag = format!(
+                            "mixing target features will cause an ABI mismatch in crate `{local_crate}`"
+                        );
+                        let mut diag = tcx.dcx().struct_warn(diag);
+                        diag.help("some target features modify the ABI so Rust crates compiled with different values for these target features cannot be used together safely");
+                        if local_features.len() > 0 {
+                            let features = local_features.join(", ");
+                            let before =
+                                if local_features.len() == 1 { "feature" } else { "features" };
+                            let after = if local_features.len() == 1 { "is" } else { "are" };
+                            diag.help(format!("the target {before} {features} {after} enabled in this crate but disabled in `{extern_crate}`"));
+                        }
+                        if extern_features.len() > 0 {
+                            let features = extern_features.join(", ");
+                            let before =
+                                if extern_features.len() == 1 { "feature" } else { "features" };
+                            let after = if extern_features.len() == 1 { "is" } else { "are" };
+                            diag.help(format!("the target {before} {features} {after} enabled in `{extern_crate}` but disabled in this crate"));
+                        }
+                        diag.help("if you are sure this will not cause problems, you may use `-Cunsafe-allow-abi-mismatch=target-feature` to silence this warning");
+                        diag.emit();
+                    }
+                    _ => panic!("unhandled synthetic target feature {opt_name}"),
+                }
+                return;
+            }
+
             let flag_name = opt_name.clone();
             let flag_name_prefixed = format!("-{}{}", prefix, opt_name);
 
@@ -499,11 +556,18 @@ impl CStore {
                     }
                     *errors += 1;
 
-                    tcx.dcx().emit_err(diagnostics::MitigationLessStrictInDependency {
+                    let diagnostic = diagnostics::MitigationLessStrictInDependency {
                         mitigation_name: my_mitigation.kind.to_string(),
                         mitigation_level: my_mitigation.level.level_str().to_string(),
                         extern_crate: data.name(),
-                    });
+                    };
+                    if my_mitigation.kind == DeniedPartialMitigationKind::StackProtector {
+                        // make stack-protector only a forward-compat warning since it was
+                        // pretty widely used
+                        tcx.sess.psess.buffer_crate_lint(PARTIAL_STACK_PROTECTOR, diagnostic);
+                    } else {
+                        tcx.dcx().emit_err(diagnostic);
+                    }
                 }
             }
         }
@@ -1358,14 +1422,24 @@ impl CStore {
                 let cnum =
                     self.resolve_crate(tcx, name, item.span, dep_kind, CrateOrigin::Extern)?;
 
-                let path_len = definitions.def_path(def_id).data.len();
+                let def_path = definitions.def_path(def_id);
+                // An extern crate is only globally nameable if every segment in its path
+                // is in the type namespace (i.e., it is purely nested inside modules).
+                // If any segment is in the value namespace (e.g. inside a fn or const),
+                // it is unnameable from outside that block.
+                let is_unnameable =
+                    def_path.data.iter().any(|d| !matches!(d.data, DefPathData::TypeNs(_)));
                 self.update_extern_crate(
                     cnum,
                     name,
                     ExternCrate {
-                        src: ExternCrateSource::Extern(def_id.to_def_id()),
+                        src: if is_unnameable {
+                            ExternCrateSource::Path
+                        } else {
+                            ExternCrateSource::Extern(def_id.to_def_id())
+                        },
                         span: item.span,
-                        path_len,
+                        path_len: if is_unnameable { usize::MAX } else { def_path.data.len() },
                         dependency_of: LOCAL_CRATE,
                     },
                 );

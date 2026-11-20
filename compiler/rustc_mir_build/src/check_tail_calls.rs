@@ -1,6 +1,6 @@
 use rustc_abi::ExternAbi;
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_errors::Applicability;
-use rustc_hir::attrs::lang_items::LangItem;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::CRATE_DEF_ID;
 use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrFlags;
@@ -25,7 +25,7 @@ pub(crate) fn check_tail_calls(tcx: TyCtxt<'_>, def: LocalDefId) -> Result<(), E
         tcx,
         thir,
         found_errors: Ok(()),
-        typing_env: ty::TypingEnv::post_typeck_until_borrowck_for_mir_build(tcx, def),
+        typing_env: ty::TypingEnv::post_typeck_through_borrowck_for_mir_build(tcx, def),
         is_closure,
         caller_def_id: def,
     };

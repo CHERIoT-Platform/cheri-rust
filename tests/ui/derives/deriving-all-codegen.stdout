@@ -46,7 +46,7 @@ impl ::core::fmt::Debug for Empty {
 #[automatically_derived]
 impl ::core::default::Default for Empty {
     #[inline]
-    fn default() -> Self { Self }
+    fn default() -> Self { Empty {} }
 }
 #[automatically_derived]
 impl ::core::hash::Hash for Empty {
@@ -101,15 +101,15 @@ impl ::core::marker::Copy for Point { }
 impl ::core::fmt::Debug for Point {
     #[inline]
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        ::core::fmt::Formatter::debug_struct_field2_finish(f, "Point", "x",
-            &self.x, "y", &&self.y)
+        ::core::fmt::Formatter::debug_struct_field2_finish(f, "Point x y",
+            &self.x, &&self.y)
     }
 }
 #[automatically_derived]
 impl ::core::default::Default for Point {
     #[inline]
     fn default() -> Self {
-        Self {
+        Point {
             x: ::core::default::Default::default(),
             y: ::core::default::Default::default(),
         }
@@ -185,15 +185,15 @@ impl ::core::marker::Copy for PackedPoint { }
 impl ::core::fmt::Debug for PackedPoint {
     #[inline]
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        ::core::fmt::Formatter::debug_struct_field2_finish(f, "PackedPoint",
-            "x", &{ self.x }, "y", &&{ self.y })
+        ::core::fmt::Formatter::debug_struct_field2_finish(f,
+            "PackedPoint x y", &{ self.x }, &&{ self.y })
     }
 }
 #[automatically_derived]
 impl ::core::default::Default for PackedPoint {
     #[inline]
     fn default() -> Self {
-        Self {
+        PackedPoint {
             x: ::core::default::Default::default(),
             y: ::core::default::Default::default(),
         }
@@ -263,14 +263,16 @@ impl ::core::marker::Copy for TupleSingleField { }
 impl ::core::fmt::Debug for TupleSingleField {
     #[inline]
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        ::core::fmt::Formatter::debug_tuple_field1_finish(f,
+        ::core::fmt::Formatter::debug_struct_field1_finish(f,
             "TupleSingleField", &&self.0)
     }
 }
 #[automatically_derived]
 impl ::core::default::Default for TupleSingleField {
     #[inline]
-    fn default() -> Self { Self(::core::default::Default::default()) }
+    fn default() -> Self {
+        TupleSingleField(::core::default::Default::default())
+    }
 }
 #[automatically_derived]
 impl ::core::convert::From<u32> for TupleSingleField {
@@ -336,14 +338,16 @@ impl ::core::marker::Copy for SingleField { }
 impl ::core::fmt::Debug for SingleField {
     #[inline]
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        ::core::fmt::Formatter::debug_struct_field1_finish(f, "SingleField",
-            "foo", &&self.foo)
+        ::core::fmt::Formatter::debug_struct_field1_finish(f,
+            "SingleField foo", &&self.foo)
     }
 }
 #[automatically_derived]
 impl ::core::default::Default for SingleField {
     #[inline]
-    fn default() -> Self { Self { foo: ::core::default::Default::default() } }
+    fn default() -> Self {
+        SingleField { foo: ::core::default::Default::default() }
+    }
 }
 #[automatically_derived]
 impl ::core::convert::From<bool> for SingleField {
@@ -418,20 +422,18 @@ impl ::core::marker::Copy for Big { }
 impl ::core::fmt::Debug for Big {
     #[inline]
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        let names: &'static _ =
-            &["b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"];
+        let names: &'static _ = "Big b1 b2 b3 b4 b5 b6 b7 b8";
         let values: &[&dyn ::core::fmt::Debug] =
             &[&self.b1, &self.b2, &self.b3, &self.b4, &self.b5, &self.b6,
                         &self.b7, &&self.b8];
-        ::core::fmt::Formatter::debug_struct_fields_finish(f, "Big", names,
-            values)
+        ::core::fmt::Formatter::debug_struct_fields_finish(f, names, values)
     }
 }
 #[automatically_derived]
 impl ::core::default::Default for Big {
     #[inline]
     fn default() -> Self {
-        Self {
+        Big {
             b1: ::core::default::Default::default(),
             b2: ::core::default::Default::default(),
             b3: ::core::default::Default::default(),
@@ -622,7 +624,7 @@ struct NonCopy(u32);
 #[automatically_derived]
 impl ::core::clone::Clone for NonCopy {
     #[inline]
-    fn clone(&self) -> Self { Self(::core::clone::Clone::clone(&self.0)) }
+    fn clone(&self) -> Self { NonCopy(::core::clone::Clone::clone(&self.0)) }
 }
 
 // A packed struct that doesn't impl `Copy`, which means it gets the non-trivial
@@ -632,7 +634,9 @@ struct PackedNonCopy(u32);
 #[automatically_derived]
 impl ::core::clone::Clone for PackedNonCopy {
     #[inline]
-    fn clone(&self) -> Self { Self(::core::clone::Clone::clone(&{ self.0 })) }
+    fn clone(&self) -> Self {
+        PackedNonCopy(::core::clone::Clone::clone(&{ self.0 }))
+    }
 }
 
 // A struct that impls `Copy` manually, which means it gets the non-trivial
@@ -641,7 +645,9 @@ struct ManualCopy(u32);
 #[automatically_derived]
 impl ::core::clone::Clone for ManualCopy {
     #[inline]
-    fn clone(&self) -> Self { Self(::core::clone::Clone::clone(&self.0)) }
+    fn clone(&self) -> Self {
+        ManualCopy(::core::clone::Clone::clone(&self.0))
+    }
 }
 impl Copy for ManualCopy {}
 
@@ -652,7 +658,9 @@ struct PackedManualCopy(u32);
 #[automatically_derived]
 impl ::core::clone::Clone for PackedManualCopy {
     #[inline]
-    fn clone(&self) -> Self { Self(::core::clone::Clone::clone(&{ self.0 })) }
+    fn clone(&self) -> Self {
+        PackedManualCopy(::core::clone::Clone::clone(&{ self.0 }))
+    }
 }
 impl Copy for PackedManualCopy {}
 
@@ -662,7 +670,7 @@ struct Unsized([u32]);
 impl ::core::fmt::Debug for Unsized {
     #[inline]
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        ::core::fmt::Formatter::debug_tuple_field1_finish(f, "Unsized",
+        ::core::fmt::Formatter::debug_struct_field1_finish(f, "Unsized",
             &&self.0)
     }
 }
@@ -725,7 +733,7 @@ impl<T: ::core::clone::Clone + Trait, U: ::core::clone::Clone>
     ::core::clone::Clone for Generic<T, U> where T::A: ::core::clone::Clone {
     #[inline]
     fn clone(&self) -> Self {
-        Self {
+        Generic {
             t: ::core::clone::Clone::clone(&self.t),
             ta: ::core::clone::Clone::clone(&self.ta),
             u: ::core::clone::Clone::clone(&self.u),
@@ -741,8 +749,8 @@ impl<T: ::core::fmt::Debug + Trait, U: ::core::fmt::Debug> ::core::fmt::Debug
     for Generic<T, U> where T::A: ::core::fmt::Debug {
     #[inline]
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        ::core::fmt::Formatter::debug_struct_field3_finish(f, "Generic", "t",
-            &self.t, "ta", &self.ta, "u", &&self.u)
+        ::core::fmt::Formatter::debug_struct_field3_finish(f,
+            "Generic t ta u", &self.t, &self.ta, &&self.u)
     }
 }
 #[automatically_derived]
@@ -751,7 +759,7 @@ impl<T: ::core::default::Default + Trait, U: ::core::default::Default>
     T::A: ::core::default::Default {
     #[inline]
     fn default() -> Self {
-        Self {
+        Generic {
             t: ::core::default::Default::default(),
             ta: ::core::default::Default::default(),
             u: ::core::default::Default::default(),
@@ -844,7 +852,7 @@ impl<T: ::core::clone::Clone + ::core::marker::Copy + Trait,
     ::core::marker::Copy {
     #[inline]
     fn clone(&self) -> Self {
-        Self(::core::clone::Clone::clone(&{ self.0 }),
+        PackedGeneric(::core::clone::Clone::clone(&{ self.0 }),
             ::core::clone::Clone::clone(&{ self.1 }),
             ::core::clone::Clone::clone(&{ self.2 }))
     }
@@ -861,7 +869,7 @@ impl<T: ::core::fmt::Debug + ::core::marker::Copy + Trait,
     {
     #[inline]
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        ::core::fmt::Formatter::debug_tuple_field3_finish(f, "PackedGeneric",
+        ::core::fmt::Formatter::debug_struct_field3_finish(f, "PackedGeneric",
             &{ self.0 }, &{ self.1 }, &&{ self.2 })
     }
 }
@@ -871,7 +879,7 @@ impl<T: ::core::default::Default + Trait, U: ::core::default::Default>
     T::A: ::core::default::Default {
     #[inline]
     fn default() -> Self {
-        Self(::core::default::Default::default(),
+        PackedGeneric(::core::default::Default::default(),
             ::core::default::Default::default(),
             ::core::default::Default::default())
     }
@@ -1019,7 +1027,7 @@ impl ::core::clone::Clone for Enum1 {
     fn clone(&self) -> Self {
         match self {
             Self::Single { x: __self_0 } =>
-                Self::Single { x: ::core::clone::Clone::clone(__self_0) },
+                Enum1::Single { x: ::core::clone::Clone::clone(__self_0) },
         }
     }
 }
@@ -1030,7 +1038,7 @@ impl ::core::fmt::Debug for Enum1 {
         match self {
             Self::Single { x: __self_0 } =>
                 ::core::fmt::Formatter::debug_struct_field1_finish(f,
-                    "Single", "x", &__self_0),
+                    "Single x", &__self_0),
         }
     }
 }
@@ -1093,7 +1101,7 @@ enum Fieldless1 {
 #[automatically_derived]
 impl ::core::clone::Clone for Fieldless1 {
     #[inline]
-    fn clone(&self) -> Self { Self::A }
+    fn clone(&self) -> Self { Fieldless1::A }
 }
 #[automatically_derived]
 impl ::core::fmt::Debug for Fieldless1 {
@@ -1209,6 +1217,55 @@ impl ::core::cmp::Ord for Fieldless {
     }
 }
 
+// A C-like, fieldless enum with variants of varying name lengths.
+enum Fieldless0 { A, BBB, CC, }
+#[automatically_derived]
+impl ::core::fmt::Debug for Fieldless0 {
+    #[inline]
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        ::core::fmt::Formatter::write_str(f,
+            match self {
+                Fieldless0::A => "A",
+                Fieldless0::BBB => "BBB",
+                Fieldless0::CC => "CC",
+            })
+    }
+}
+
+// A C-like, fieldless enum with 10 variants.
+enum Fieldless10 {
+    AAAAA,
+    BBBB,
+    CC,
+    DDDDDDDD,
+    E,
+    FFFFFFFFFFFFF,
+    GGGGGG,
+    Hatsune,
+    IIIIIII,
+    JJJJJJJJJ,
+}
+#[automatically_derived]
+impl ::core::fmt::Debug for Fieldless10 {
+    #[inline]
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        ::core::fmt::Formatter::debug_c_like_enum_write_str(f,
+            "AAAAA BBBB CC DDDDDDDD E FFFFFFFFFFFFF GGGGGG Hatsune IIIIIII JJJJJJJJJ",
+            match self {
+                Fieldless10::AAAAA => 0usize,
+                Fieldless10::BBBB => 6usize,
+                Fieldless10::CC => 11usize,
+                Fieldless10::DDDDDDDD => 14usize,
+                Fieldless10::E => 23usize,
+                Fieldless10::FFFFFFFFFFFFF => 25usize,
+                Fieldless10::GGGGGG => 39usize,
+                Fieldless10::Hatsune => 46usize,
+                Fieldless10::IIIIIII => 54usize,
+                Fieldless10::JJJJJJJJJ => 62usize,
+            })
+    }
+}
+
 // An enum with multiple fieldless and fielded variants.
 enum Mixed {
 
@@ -1244,11 +1301,11 @@ impl ::core::fmt::Debug for Mixed {
             Self::P => ::core::fmt::Formatter::write_str(f, "P"),
             Self::Q => ::core::fmt::Formatter::write_str(f, "Q"),
             Self::R(__self_0) =>
-                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "R",
+                ::core::fmt::Formatter::debug_struct_field1_finish(f, "R",
                     &__self_0),
             Self::S { d1: __self_0, d2: __self_1 } =>
-                ::core::fmt::Formatter::debug_struct_field2_finish(f, "S",
-                    "d1", __self_0, "d2", &__self_1),
+                ::core::fmt::Formatter::debug_struct_field2_finish(f,
+                    "S d1 d2", __self_0, &__self_1),
         }
     }
 }
@@ -1408,11 +1465,11 @@ impl ::core::clone::Clone for Fielded {
     fn clone(&self) -> Self {
         match self {
             Self::X(__self_0) =>
-                Self::X(::core::clone::Clone::clone(__self_0)),
+                Fielded::X(::core::clone::Clone::clone(__self_0)),
             Self::Y(__self_0) =>
-                Self::Y(::core::clone::Clone::clone(__self_0)),
+                Fielded::Y(::core::clone::Clone::clone(__self_0)),
             Self::Z(__self_0) =>
-                Self::Z(::core::clone::Clone::clone(__self_0)),
+                Fielded::Z(::core::clone::Clone::clone(__self_0)),
         }
     }
 }
@@ -1422,13 +1479,13 @@ impl ::core::fmt::Debug for Fielded {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         match self {
             Self::X(__self_0) =>
-                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "X",
+                ::core::fmt::Formatter::debug_struct_field1_finish(f, "X",
                     &__self_0),
             Self::Y(__self_0) =>
-                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "Y",
+                ::core::fmt::Formatter::debug_struct_field1_finish(f, "Y",
                     &__self_0),
             Self::Z(__self_0) =>
-                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "Z",
+                ::core::fmt::Formatter::debug_struct_field1_finish(f, "Z",
                     &__self_0),
         }
     }
@@ -1511,9 +1568,9 @@ impl<T: ::core::clone::Clone, U: ::core::clone::Clone> ::core::clone::Clone
     fn clone(&self) -> Self {
         match self {
             Self::One(__self_0) =>
-                Self::One(::core::clone::Clone::clone(__self_0)),
+                EnumGeneric::One(::core::clone::Clone::clone(__self_0)),
             Self::Two(__self_0) =>
-                Self::Two(::core::clone::Clone::clone(__self_0)),
+                EnumGeneric::Two(::core::clone::Clone::clone(__self_0)),
         }
     }
 }
@@ -1528,10 +1585,10 @@ impl<T: ::core::fmt::Debug, U: ::core::fmt::Debug> ::core::fmt::Debug for
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         match self {
             Self::One(__self_0) =>
-                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "One",
+                ::core::fmt::Formatter::debug_struct_field1_finish(f, "One",
                     &__self_0),
             Self::Two(__self_0) =>
-                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "Two",
+                ::core::fmt::Formatter::debug_struct_field1_finish(f, "Two",
                     &__self_0),
         }
     }
@@ -1712,7 +1769,9 @@ impl ::core::marker::Copy for FooCloneAndCopy { }
 #[automatically_derived]
 impl ::core::clone::Clone for FooCloneAndCopy {
     #[inline]
-    fn clone(&self) -> Self { Self(::core::clone::Clone::clone(&self.0)) }
+    fn clone(&self) -> Self {
+        FooCloneAndCopy(::core::clone::Clone::clone(&self.0))
+    }
 }
 
 struct FooPartialOrdOrd(i32);

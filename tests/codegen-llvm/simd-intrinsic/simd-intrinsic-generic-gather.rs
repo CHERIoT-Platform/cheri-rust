@@ -1,9 +1,4 @@
-//
-
 //@ compile-flags: -C no-prepopulate-passes
-//@ revisions: LLVM21 LLVM22
-//@ [LLVM22] min-llvm-version: 22
-//@ [LLVM21] max-llvm-major-version: 21
 // ignore-tidy-linelength
 
 #![crate_type = "lib"]
@@ -29,8 +24,7 @@ pub unsafe fn gather_f32x2(
 ) -> Vec2<f32> {
     // CHECK: [[A:%[0-9]+]] = lshr <2 x i32> {{.*}}, {{<i32 31, i32 31>|splat \(i32 31\)}}
     // CHECK: [[B:%[0-9]+]] = trunc <2 x i32> [[A]] to <2 x i1>
-    // LLVM21: call <2 x float> @llvm.masked.gather.v2f32.v2{{p0|p200}}(<2 x ptr[[ADDRSPACE]]> {{.*}}, i32 {{.*}}, <2 x i1> [[B]], <2 x float> {{.*}})
-    // LLVM22: call[[ADDRSPACE]] <2 x float> @llvm.masked.gather.v2f32.v2{{p0|p200}}(<2 x ptr[[ADDRSPACE]]> align {{.*}} {{.*}}, <2 x i1> [[B]], <2 x float> {{.*}})
+    // CHECK: call[[ADDRSPACE]] <2 x float> @llvm.masked.gather.v2f32.v2[[PSPACE:p[0-9]+]](<2 x ptr[[ADDRSPACE]]> align {{.*}} {{.*}}, <2 x i1> [[B]], <2 x float> {{.*}})
     simd_gather(values, pointers, mask)
 }
 
@@ -43,8 +37,7 @@ pub unsafe fn gather_f32x2_unsigned(
 ) -> Vec2<f32> {
     // CHECK: [[A:%[0-9]+]] = lshr <2 x i32> {{.*}}, {{<i32 31, i32 31>|splat \(i32 31\)}}
     // CHECK: [[B:%[0-9]+]] = trunc <2 x i32> [[A]] to <2 x i1>
-    // LLVM21: call <2 x float> @llvm.masked.gather.v2f32.v2{{p0|p200}}(<2 x ptr[[ADDRSPACE]]> {{.*}}, i32 {{.*}}, <2 x i1> [[B]], <2 x float> {{.*}})
-    // LLVM22: call[[ADDRSPACE]] <2 x float> @llvm.masked.gather.v2f32.v2{{p0|p200}}(<2 x ptr[[ADDRSPACE]]> align {{.*}} {{.*}}, <2 x i1> [[B]], <2 x float> {{.*}})
+    // CHECK: call[[ADDRSPACE]] <2 x float> @llvm.masked.gather.v2f32.v2[[PSPACE]](<2 x ptr[[ADDRSPACE]]> align {{.*}} {{.*}}, <2 x i1> [[B]], <2 x float> {{.*}})
     simd_gather(values, pointers, mask)
 }
 
@@ -57,7 +50,6 @@ pub unsafe fn gather_pf32x2(
 ) -> Vec2<*const f32> {
     // CHECK: [[A:%[0-9]+]] = lshr <2 x i32> {{.*}}, {{<i32 31, i32 31>|splat \(i32 31\)}}
     // CHECK: [[B:%[0-9]+]] = trunc <2 x i32> [[A]] to <2 x i1>
-    // LLVM21: call <2 x ptr[[ADDRSPACE]]> @llvm.masked.gather.v2{{p0|p200}}.v2{{p0|p200}}(<2 x ptr[[ADDRSPACE]]> {{.*}}, i32 {{.*}}, <2 x i1> [[B]], <2 x ptr[[ADDRSPACE]]> {{.*}})
-    // LLVM22: call[[ADDRSPACE]] <2 x ptr[[ADDRSPACE]]> @llvm.masked.gather.v2{{p0|p200}}.v2{{p0|p200}}(<2 x ptr[[ADDRSPACE]]> align {{.*}} {{.*}}, <2 x i1> [[B]], <2 x ptr[[ADDRSPACE]]> {{.*}})
+    // CHECK: call[[ADDRSPACE]] <2 x ptr[[ADDRSPACE]]> @llvm.masked.gather.v2[[PSPACE]].v2[[PSPACE]](<2 x ptr[[ADDRSPACE]]> align {{.*}} {{.*}}, <2 x i1> [[B]], <2 x ptr[[ADDRSPACE]]> {{.*}})
     simd_gather(values, pointers, mask)
 }

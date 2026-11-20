@@ -44,7 +44,6 @@ use emitter::{DynEmitter, Emitter};
 use rustc_ast::attr::version::RustcVersion;
 use rustc_data_structures::AtomicRef;
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap, FxIndexSet};
-use rustc_data_structures::stable_hash::StableHasher;
 use rustc_data_structures::sync::{DynSend, Lock};
 pub use rustc_error_messages::{
     DiagArg, DiagArgFromDisplay, DiagArgMap, DiagArgName, DiagArgValue, DiagMessage, IntoDiagArg,
@@ -70,6 +69,7 @@ use crate::timings::TimingRecord;
 pub mod annotate_snippet_emitter_writer;
 pub mod codes;
 mod decorate_diag;
+mod dedup_hash;
 mod diagnostic;
 mod diagnostic_impls;
 pub mod emitter;
@@ -197,64 +197,6 @@ pub struct Substitution {
 pub struct SubstitutionPart {
     pub span: Span,
     pub snippet: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Hash, Encodable, Decodable)]
-pub struct TrimmedSubstitutionPart {
-    pub original_span: Span,
-    pub span: Span,
-    pub snippet: String,
-}
-
-impl TrimmedSubstitutionPart {
-    pub fn is_addition(&self, sm: &SourceMap) -> bool {
-        !self.snippet.is_empty() && !self.replaces_meaningful_content(sm)
-    }
-
-    pub fn is_deletion(&self, sm: &SourceMap) -> bool {
-        self.snippet.trim().is_empty() && self.replaces_meaningful_content(sm)
-    }
-
-    pub fn is_replacement(&self, sm: &SourceMap) -> bool {
-        !self.snippet.is_empty() && self.replaces_meaningful_content(sm)
-    }
-
-    /// Whether this is a replacement that overwrites source with a snippet
-    /// in a way that isn't a superset of the original string. For example,
-    /// replacing "abc" with "abcde" is not destructive, but replacing it
-    /// it with "abx" is, since the "c" character is lost.
-    pub fn is_destructive_replacement(&self, sm: &SourceMap) -> bool {
-        self.is_replacement(sm)
-            && !sm
-                .span_to_snippet(self.span)
-                .is_ok_and(|snippet| as_substr(snippet.trim(), self.snippet.trim()).is_some())
-    }
-
-    fn replaces_meaningful_content(&self, sm: &SourceMap) -> bool {
-        sm.span_to_snippet(self.span)
-            .map_or(!self.span.is_empty(), |snippet| !snippet.trim().is_empty())
-    }
-}
-
-/// Given an original string like `AACC`, and a suggestion like `AABBCC`, try to detect
-/// the case where a substring of the suggestion is "sandwiched" in the original, like
-/// `BB` is. Return the length of the prefix, the "trimmed" suggestion, and the length
-/// of the suffix.
-fn as_substr<'a>(original: &'a str, suggestion: &'a str) -> Option<(usize, &'a str, usize)> {
-    let common_prefix = original
-        .chars()
-        .zip(suggestion.chars())
-        .take_while(|(c1, c2)| c1 == c2)
-        .map(|(c, _)| c.len_utf8())
-        .sum();
-    let original = &original[common_prefix..];
-    let suggestion = &suggestion[common_prefix..];
-    if suggestion.ends_with(original) {
-        let common_suffix = original.len();
-        Some((common_prefix, &suggestion[..suggestion.len() - original.len()], common_suffix))
-    } else {
-        None
-    }
 }
 
 /// Signifies that the compiler died due to a delayed bug rather than a failed
@@ -1321,21 +1263,18 @@ impl DiagCtxtInner {
                 debug!(?diagnostic);
                 debug!(?self.emitted_diagnostics);
 
-                let not_yet_emitted = |sub: &mut Subdiag| {
+                let show_sub = |sub: &Subdiag| {
                     debug!(?sub);
                     match sub.level {
                         Sublevel::Error | Sublevel::Warning | Sublevel::Note | Sublevel::Help => {
-                            return true;
+                            true
                         }
-                        Sublevel::OnceNote | Sublevel::OnceHelp => {}
+                        Sublevel::OnceNote | Sublevel::OnceHelp => {
+                            self.emitted_diagnostics.insert(sub.dedup_hash())
+                        }
                     }
-                    let mut hasher = StableHasher::new();
-                    sub.hash(&mut hasher);
-                    let diagnostic_hash = hasher.finish();
-                    debug!(?diagnostic_hash);
-                    self.emitted_diagnostics.insert(diagnostic_hash)
                 };
-                diagnostic.children.retain_mut(not_yet_emitted);
+                diagnostic.children.retain(show_sub);
                 if already_emitted {
                     let msg = "duplicate diagnostic emitted due to `-Z deduplicate-diagnostics=no`";
                     diagnostic.sub(Sublevel::Note, msg, MultiSpan::new());

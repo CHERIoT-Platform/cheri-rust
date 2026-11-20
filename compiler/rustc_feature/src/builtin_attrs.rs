@@ -161,6 +161,7 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
     sym::force_target_feature,
     sym::sanitize,
     sym::coverage,
+    sym::optimize,
 
     sym::doc,
 
@@ -184,8 +185,6 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
     sym::marker,
     sym::thread_local,
     sym::no_core,
-    // RFC 2412
-    sym::optimize,
 
     sym::ffi_pure,
     sym::ffi_const,
@@ -237,6 +236,10 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
     // CHERIoT-specific attributes.
     sym::cheriot_mmio,
     sym::cheriot_shared_object,
+
+    // The attribute is part of feature `checked_type_aliases`. Its name is but a placeholder.
+    // FIXME(#134963): Temporarily prefixed with `rustc_` to prevent potential name resolution ambiguities.
+    sym::rustc_unchecked_type_alias,
 
     // ==========================================================================
     // Internal attributes: Stability, deprecation, and unsafe:
@@ -325,6 +328,7 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
     // types (as well as any others in future).
     sym::rustc_lint_opt_deny_field_access,
     sym::rustc_diagnostic_opaque,
+    sym::rustc_assert_variance,
 
     // ==========================================================================
     // Internal attributes, Const related:
@@ -350,10 +354,7 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
     // Internal attributes, Misc:
     // ==========================================================================
     sym::lang,
-    sym::rustc_as_ptr,
-    sym::rustc_should_not_be_called_on_const_items,
     sym::rustc_pass_by_value,
-    sym::rustc_never_returns_null_ptr,
     sym::rustc_no_implicit_autorefs,
     sym::rustc_coherence_is_core,
     sym::rustc_coinductive,
@@ -389,6 +390,7 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
     // Internal attributes, Testing:
     // ==========================================================================
 
+    sym::rustc_show_spans,
     sym::rustc_effective_visibility,
     sym::rustc_dump_inferred_outlives,
     sym::rustc_capture_analysis,

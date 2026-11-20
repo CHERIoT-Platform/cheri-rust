@@ -1,12 +1,11 @@
 use std::borrow::{Borrow, Cow};
 use std::cell::{Cell, RefCell};
-use std::ffi::{CStr, c_char, c_uint};
+use std::ffi::{CStr, c_uint};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::str;
 
 use rustc_abi::{HasDataLayout, Size, TargetDataLayout, VariantIdx};
-use rustc_codegen_ssa::back::versioned_llvm_target;
 use rustc_codegen_ssa::base::{wants_msvc_seh, wants_wasm_eh};
 use rustc_codegen_ssa::diagnostics as ssa_errors;
 use rustc_codegen_ssa::traits::*;
@@ -34,6 +33,7 @@ use rustc_target::spec::{
 use smallvec::SmallVec;
 
 use crate::abi::to_llvm_calling_convention;
+use crate::back::llvm_backend::ModuleRefs;
 use crate::back::write::to_llvm_code_model;
 use crate::builder::gpu_offload::{OffloadGlobals, OffloadKernelGlobals};
 use crate::callee::get_fn;
@@ -46,8 +46,8 @@ use crate::{attributes, common, coverageinfo, debuginfo, llvm_util};
 /// other compiler pieces. Here we define a small subset which has enough information and can be
 /// moved around more freely.
 pub(crate) struct SCx<'ll> {
-    pub llmod: &'ll llvm::Module,
-    pub llcx: &'ll llvm::Context,
+    pub llmod: llvm::Module<'ll>,
+    pub llcx: llvm::Context<'ll>,
     pub isize_ty: &'ll Type,
 }
 
@@ -183,52 +183,35 @@ fn to_llvm_tls_model(tls_model: TlsModel) -> llvm::ThreadLocalMode {
 
 pub(crate) unsafe fn create_module<'ll>(
     tcx: TyCtxt<'_>,
-    llcx: &'ll llvm::Context,
+    llcx: llvm::Context<'ll>,
     mod_name: &str,
-) -> &'ll llvm::Module {
-    let sess = tcx.sess;
-    let mod_name = SmallCStr::new(mod_name);
-    let llmod = unsafe { llvm::LLVMModuleCreateWithNameInContext(mod_name.as_ptr(), llcx) };
+) -> llvm::Module<'ll> {
+    let mod_name_cstr = SmallCStr::new(mod_name);
+    let llmod = unsafe { llvm::LLVMModuleCreateWithNameInContext(mod_name_cstr.as_ptr(), llcx) };
+    init_module(tcx, llcx, llmod);
+    llmod
+}
 
+fn init_module<'ll, 'tcx>(tcx: TyCtxt<'tcx>, llcx: llvm::Context<'ll>, llmod: llvm::Module<'ll>) {
+    let sess = tcx.sess;
     let cx = SimpleCx::new(llmod, llcx, tcx.data_layout.address_size());
 
     let mut target_data_layout = sess.target.data_layout.to_string();
     let llvm_version = llvm_util::get_version();
 
-    if llvm_version < (22, 0, 0) {
-        if sess.target.arch == Arch::Avr {
-            // LLVM 22.0 updated the default layout on avr: https://github.com/llvm/llvm-project/pull/153010
-            target_data_layout = target_data_layout.replace("n8:16", "n8")
-        }
-        if sess.target.arch == Arch::Nvptx64 {
-            // LLVM 22 updated the NVPTX layout to indicate 256-bit vector load/store: https://github.com/llvm/llvm-project/pull/155198
-            target_data_layout = target_data_layout.replace("-i256:256", "");
-        }
-        if sess.target.arch == Arch::PowerPC64 {
-            // LLVM 22 updated the ABI alignment for double on AIX: https://github.com/llvm/llvm-project/pull/144673
-            target_data_layout = target_data_layout.replace("-f64:32:64", "");
-
-            // LLVM 22 fixed the data layout calculation for targets that default to ELFv1
-            // when the ABI is set to ELFv2. With LLVM 21, the ELFv1 datalayout must be used,
-            // which will overalign function entries.
-            // https://github.com/llvm/llvm-project/pull/149725
-            if sess.target.llvm_target == "powerpc64-unknown-linux-gnu" {
-                target_data_layout = target_data_layout.replace("-Fn32", "-Fi64");
-            }
-        }
-        if sess.target.arch == Arch::AmdGpu {
-            // LLVM 22 specified ELF mangling in the amdgpu data layout:
-            // https://github.com/llvm/llvm-project/pull/163011
-            target_data_layout = target_data_layout.replace("-m:e", "");
-        }
-    }
     if llvm_version < (23, 0, 0) {
         if sess.target.arch == Arch::S390x {
             // LLVM 23 updated the s390x layout to specify the stack alignment: https://github.com/llvm/llvm-project/pull/176041
             target_data_layout = target_data_layout.replace("-S64", "");
         }
     }
-
+    if llvm_version < (24, 0, 0) {
+        if sess.target.arch == Arch::AmdGpu {
+            // LLVM 24 updated the amdgpu layout: http://github.com/llvm/llvm-project/pull/209746 Add BARRIER address space
+            target_data_layout = target_data_layout
+                .replace("-p10:32:32-p11:32:32-p12:32:32-p13:32:32-p14:32:32-p15:32:32", "");
+        }
+    }
     // Ensure the data-layout values hardcoded remain the defaults.
     {
         let tm = crate::back::write::create_informational_target_machine(sess);
@@ -256,7 +239,7 @@ pub(crate) unsafe fn create_module<'ll>(
         llvm::LLVMSetDataLayout(llmod, data_layout.as_ptr());
     }
 
-    let llvm_target = SmallCStr::new(&versioned_llvm_target(sess));
+    let llvm_target = SmallCStr::new(&llvm_util::llvm_target(sess));
     unsafe {
         llvm::LLVMRustSetNormalizedTarget(llmod, llvm_target.as_ptr());
     }
@@ -619,15 +602,13 @@ pub(crate) unsafe fn create_module<'ll>(
         };
         llvm::add_module_flag_u32(llmod, merge_behavior, key, *value);
     }
-
-    llmod
 }
 
 impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
     pub(crate) fn new(
         tcx: TyCtxt<'tcx>,
         codegen_unit: &'tcx CodegenUnit<'tcx>,
-        llvm_module: &'ll crate::ModuleLlvm,
+        module_refs: ModuleRefs<'ll>,
         bitcode_needed: bool,
     ) -> Self {
         // An interesting part of Windows which MSVC forces our hand on (and
@@ -686,7 +667,7 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
 
         let tls_model = to_llvm_tls_model(tcx.sess.tls_model());
 
-        let (llcx, llmod) = (&*llvm_module.llcx, llvm_module.llmod());
+        let ModuleRefs { llcx, llmod, .. } = module_refs;
 
         let coverage_cx =
             tcx.sess.instrument_coverage().then(coverageinfo::CguCoverageContext::new);
@@ -903,8 +884,8 @@ impl<'ll> SimpleCx<'ll> {
 }
 impl<'ll> SimpleCx<'ll> {
     pub(crate) fn new(
-        llmod: &'ll llvm::Module,
-        llcx: &'ll llvm::Context,
+        llmod: llvm::Module<'ll>,
+        llcx: llvm::Context<'ll>,
         pointer_size: Size,
     ) -> Self {
         let isize_ty = llvm::LLVMIntTypeInContext(llcx, pointer_size.bits() as c_uint);
@@ -938,19 +919,11 @@ impl<'ll, CX: Borrow<SCx<'ll>>> GenericCx<'ll, CX> {
     }
 
     pub(crate) fn get_md_kind_id(&self, name: &str) -> llvm::MetadataKindId {
-        unsafe {
-            llvm::LLVMGetMDKindIDInContext(
-                self.llcx(),
-                name.as_ptr() as *const c_char,
-                name.len() as c_uint,
-            )
-        }
+        unsafe { llvm::LLVMGetMDKindIDInContext(self.llcx(), name.as_ptr(), name.len() as c_uint) }
     }
 
     pub(crate) fn create_metadata(&self, name: &[u8]) -> &'ll Metadata {
-        unsafe {
-            llvm::LLVMMDStringInContext2(self.llcx(), name.as_ptr() as *const c_char, name.len())
-        }
+        unsafe { llvm::LLVMMDStringInContext2(self.llcx(), name.as_ptr(), name.len()) }
     }
 
     pub(crate) fn get_functions(&self) -> Vec<&'ll Value> {
@@ -1052,13 +1025,20 @@ impl<'ll, 'tcx> MiscCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
                     tcx,
                     self.typing_env(),
                     def_id,
-                    ty::List::empty(),
+                    ty::GenericArgs::empty(),
                     DUMMY_SP,
                 ),
                 tcx.sess.pointer_authentication_functions(),
             ),
             _ => {
-                let name = name.unwrap_or("rust_eh_personality");
+                let mangled_symbol;
+                let name = match name {
+                    Some(name) => name,
+                    None => {
+                        mangled_symbol = rustc_symbol_mangling::eh_personality_symbol(tcx);
+                        mangled_symbol.as_str()
+                    }
+                };
                 if let Some(llfn) = self.get_declared_value(name) {
                     llfn
                 } else {
@@ -1250,7 +1230,7 @@ impl<'ll, CX: Borrow<SCx<'ll>>> GenericCx<'ll, CX> {
     /// - `LLVMAddNamedMetadataOperand` (to set that node as metadata of `kind_name` for `module`)
     pub(crate) fn module_add_named_metadata_node(
         &self,
-        module: &'ll Module,
+        module: Module<'ll>,
         kind_name: &CStr,
         md_list: &[&'ll Metadata],
     ) {
@@ -1261,7 +1241,7 @@ impl<'ll, CX: Borrow<SCx<'ll>>> GenericCx<'ll, CX> {
 
     /// Helper method for the sequence of calls:
     /// - `LLVMMDNodeInContext2` (to create an `llvm::MDNode` from a list of metadata)
-    /// - `LLVMRustGlobalAddMetadata` (to set that node as metadata of `kind_id` for `global`)
+    /// - `LLVMGlobalAddMetadata` (to set that node as metadata of `kind_id` for `global`)
     pub(crate) fn global_add_metadata_node(
         &self,
         global: &'ll Value,
@@ -1269,7 +1249,7 @@ impl<'ll, CX: Borrow<SCx<'ll>>> GenericCx<'ll, CX> {
         md_list: &[&'ll Metadata],
     ) {
         let md = self.md_node_in_context(md_list);
-        unsafe { llvm::LLVMRustGlobalAddMetadata(global, kind_id, md) };
+        unsafe { llvm::LLVMGlobalAddMetadata(global, kind_id, md) };
     }
 
     /// Helper method for the sequence of calls:
