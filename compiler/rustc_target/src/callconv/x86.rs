@@ -191,6 +191,7 @@ pub(crate) fn fill_inregs<'a, Ty, C>(
     opts: X86Options,
     rust_abi: bool,
 ) where
+    C: HasDataLayout,
     Ty: TyAbiInterface<'a, C> + Copy,
 {
     // Mark arguments as InReg like clang does it,

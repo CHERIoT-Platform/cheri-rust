@@ -31,7 +31,7 @@ where
         }
 
         let valid_unit = match unit.kind {
-            RegKind::Integer => false,
+            RegKind::Integer | RegKind::Capability => false,
             RegKind::PpcF128 => unreachable!(),
             // The softfloat ABI treats floats like integers, so they
             // do not get homogeneous aggregate treatment.
