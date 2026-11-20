@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "log"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+doctest = false
+test = false
+
+[dependencies]
+cheriot = { version = "0.1.0", path = "../cheriot" }
